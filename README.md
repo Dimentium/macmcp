@@ -19,32 +19,20 @@ available to ChatGPT.
 MacMCP is intentionally read-only. It cannot send, delete, move, or modify
 mail, calendar events, or reminders.
 
-## Install Locally
+## Installation
 
-The supported installation path is from source. A Homebrew cask is planned but
-is not published yet.
+A packaged Homebrew installation is being built. It will install MacMCP as an
+app and use the menu bar for first-run configuration; users will not need to
+clone this repository or run an installer script.
 
-Install Xcode Command Line Tools once if the Mac does not already have them:
+Until that package is published, the scripts in this repository are a
+development and maintenance path only. They are deliberately not documented as
+an end-user installation method here.
 
-```bash
-xcode-select --install
-```
-
-Then install MacMCP:
-
-```bash
-git clone git@github.com:Dimentium/macmcp.git
-cd macmcp
-./scripts/install-local.sh
-```
-
-The installer builds and validates the app before switching the active runtime.
-It asks only for the credentials and optional integrations that are configured.
-On first use, macOS may ask MacMCP for Keychain, Calendar, or Reminders access.
+After installation, use the MacMCP menu-bar item to add mail accounts and
+inspect the bridge, mail, Calendar, Reminders, client approvals, and optional
+tunnel. macOS may ask for Keychain, Calendar, or Reminders access on first use.
 Grant only the permissions needed for the features you enable.
-
-Use the MacMCP menu-bar item to add mail accounts and inspect the state of the
-bridge, mail, Calendar, Reminders, client approvals, and optional tunnel.
 
 ## Connect ChatGPT
 
@@ -68,27 +56,10 @@ ChatGPT, configure the optional tunnel from the MacMCP menu.
 The tunnel is optional. Do not create or configure it when local-only MCP use
 is sufficient.
 
-## Update And Remove
+## Updates And Removal
 
-To update a source installation while retaining its configuration:
-
-```bash
-git pull --ff-only
-./scripts/install-local.sh --reuse-existing-configuration
-```
-
-The installer stages the new build before stopping the old runtime. A macOS
-permission prompt after an app-binary update is expected with the current local
-ad-hoc signing workflow.
-
-To remove MacMCP:
-
-```bash
-./scripts/uninstall-local.sh
-```
-
-Removal stops the app and tunnel, removes the installed runtime and its local
-configuration, and leaves unrelated system data untouched.
+The Homebrew package will provide the supported update and removal path. The
+current source scripts remain available to developers maintaining local builds.
 
 ## Security Model
 
