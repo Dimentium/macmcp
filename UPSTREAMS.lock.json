@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "upstreams": [
+    {
+      "name": "mail-mcp",
+      "repository": "https://github.com/kacperkwapisz/mail-mcp",
+      "version": "v1.1.0",
+      "commit": "3bf846d7e538cfe967842fcd09d1111d4bb30b16",
+      "license": "MIT",
+      "role": "iCloud IMAP sidecar"
+    },
+    {
+      "name": "che-ical-mcp",
+      "repository": "https://github.com/PsychQuant/che-ical-mcp",
+      "version": "v1.16.1",
+      "commit": "a8598378b5e280b27005ab8cd21e9b5758312423",
+      "license": "MIT",
+      "role": "EventKit Calendar and Reminders sidecar"
+    }
+  ]
+}

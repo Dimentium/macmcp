@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>mac-agent-bridge</string>
+  <key>CFBundleIdentifier</key>
+  <string>io.macagent.bridge</string>
+  <key>CFBundleName</key>
+  <string>Mac Agent Bridge</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundleVersion</key>
+  <string>0.1.0</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>14.0</string>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Mac Agent Bridge reads calendars to identify items that may need attention.</string>
+  <key>NSRemindersFullAccessUsageDescription</key>
+  <string>Mac Agent Bridge reads reminders to identify items that may need attention.</string>
+</dict>
+</plist>
