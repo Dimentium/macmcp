@@ -30,7 +30,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.2.2\""))
         XCTAssertTrue(script.contains("MAIL_ARM64_SHA256=\"617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4\""))
         XCTAssertTrue(script.contains("CHE_COMMIT=\"a8598378b5e280b27005ab8cd21e9b5758312423\""))
-        XCTAssertTrue(script.contains("CHE_RESOLUTION_SHA256=\"31e37279b97c071a741551f69025515fef7f697aace71c29f436fc8f04a72814\""))
+        XCTAssertTrue(script.contains("CHE_RESOLUTION_SHA256=\"1bbf18605e61eb13014d140fa86e5aa550327bdf005f5567de40db6e2df4b93d\""))
         XCTAssertTrue(script.contains("-name 'mail-mcp-darwin-*'"))
         XCTAssertTrue(script.contains("--gmail-address"))
         XCTAssertTrue(script.contains("--reuse-existing-configuration"))
