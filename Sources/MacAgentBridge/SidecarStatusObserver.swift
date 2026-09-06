@@ -5,19 +5,24 @@ struct SidecarStatusObserver: Sendable {
 
     func handle(_ event: SidecarEvent) async {
         let sidecarID: String
+        let componentState: BridgeStatus.ComponentState
         switch event {
         case .stopped(let id, _), .failed(let id, _):
             sidecarID = id
-        case .started, .restarting, .stderr:
+            componentState = .unavailable
+        case .started(let id, _), .restarting(let id, _):
+            sidecarID = id
+            componentState = .connectedUnverified
+        case .stderr:
             return
         }
 
         switch sidecarID {
         case ReaderPolicy.mailSidecarID:
-            await statusSource.updateMail(.unavailable)
+            await statusSource.updateMail(componentState)
         case ReaderPolicy.eventKitSidecarID:
-            await statusSource.updateCalendar(.unavailable)
-            await statusSource.updateReminders(.unavailable)
+            await statusSource.updateCalendar(componentState)
+            await statusSource.updateReminders(componentState)
         default:
             return
         }

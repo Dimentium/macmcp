@@ -174,7 +174,7 @@ final class BridgeRuntime {
                         // A restart needs a freshly materialized Keychain secret and
                         // a new MCP client. Until that orchestration exists, fail
                         // closed instead of leaving a secret file on disk.
-                        restartPolicy: .never
+                        restartPolicy: .onUnexpectedExit(maxAttempts: 3, initialDelayMilliseconds: 500)
                     )
                 )
                 try await router.attach(
@@ -192,7 +192,7 @@ final class BridgeRuntime {
                         id: ReaderPolicy.eventKitSidecarID,
                         executableURL: eventKitExecutable,
                         environment: ["CHE_ICAL_MCP_NO_BANNER": "1"],
-                        restartPolicy: .never
+                        restartPolicy: .onUnexpectedExit(maxAttempts: 3, initialDelayMilliseconds: 500)
                     )
                 )
                 try await router.attach(
