@@ -23,6 +23,32 @@ struct MacMCPDiagnosticReport: Codable, Equatable, Sendable {
     struct Bridge: Codable, Equatable, Sendable {
         let availability: DiagnosticAvailability
         let status: BridgeStatus?
+
+        private enum CodingKeys: String, CodingKey {
+            case availability
+            case status
+        }
+
+        init(availability: DiagnosticAvailability, status: BridgeStatus?) {
+            self.availability = availability
+            self.status = status
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            availability = try container.decode(DiagnosticAvailability.self, forKey: .availability)
+            status = try container.decodeIfPresent(BridgeStatus.self, forKey: .status)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(availability, forKey: .availability)
+            if let status {
+                try container.encode(status, forKey: .status)
+            } else {
+                try container.encodeNil(forKey: .status)
+            }
+        }
     }
 
     struct ClientApprovals: Codable, Equatable, Sendable {

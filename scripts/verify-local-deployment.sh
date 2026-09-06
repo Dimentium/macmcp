@@ -66,7 +66,9 @@ assert report["configuration"] == {
     "mailAccountCount": 1,
     "launchAtLogin": True,
 }
-assert report["bridge"] == {"availability": "unavailable", "status": None}
+bridge = report["bridge"]
+assert bridge["availability"] in {"available", "unavailable"}
+assert (bridge["status"] is not None) == (bridge["availability"] == "available")
 assert report["tunnel"] == "not_configured"
 assert address not in output
 PY

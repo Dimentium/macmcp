@@ -85,6 +85,10 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertEqual(report.clientApprovals.availability, .available)
         XCTAssertEqual(report.loginItem, "not_registered")
         XCTAssertEqual(report.tunnel, .notConfigured)
+
+        let payload = try JSONSerialization.jsonObject(with: Data(report.encodedJSON().utf8)) as? [String: Any]
+        let bridge = payload?["bridge"] as? [String: Any]
+        XCTAssertTrue(bridge?["status"] is NSNull)
     }
 
     private func temporaryDirectory() throws -> URL {
