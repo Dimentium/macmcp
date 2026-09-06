@@ -115,6 +115,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("--enable-local-mail-actions"))
         XCTAssertTrue(script.contains("mcp.mail-actions.local.json"))
         XCTAssertTrue(script.contains("--diagnose-json"))
+        XCTAssertTrue(script.contains("MacMCP deployment acceptance failed during phase"))
+        XCTAssertTrue(script.contains("GITHUB_ACTIONS"))
         XCTAssertTrue(script.contains("uninstall-local.sh"))
     }
 

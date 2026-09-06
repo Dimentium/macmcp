@@ -20,6 +20,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
+phase="initializing"
+report_failure_phase() {
+  local status=$?
+  printf 'MacMCP deployment acceptance failed during phase=%s\n' "$phase" >&2
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    printf '::error title=MacMCP deployment acceptance::phase=%s\n' "$phase"
+  fi
+  exit "$status"
+}
+trap report_failure_phase ERR
+
 run_installer() {
   HOME="$test_home" \
   MAC_AGENT_BRIDGE_BUILD_ROOT="$build_root" \
@@ -33,8 +44,10 @@ run_installer() {
 }
 
 mkdir -p "$test_home"
+phase="initial-install"
 run_installer --gmail-address "$fixture_address" --enable-local-mail-actions
 
+phase="initial-contract"
 runtime_cli="$install_root/bin/mac-agent-bridge"
 launch_config="$test_home/Library/Application Support/mac-agent-bridge/launch.json"
 mail_actions_mcp_config="$install_root/share/mcp.mail-actions.local.json"
@@ -75,7 +88,9 @@ assert report["tunnel"] == "not_configured"
 assert address not in output
 PY
 
+phase="upgrade"
 run_installer --reuse-existing-configuration
+phase="upgrade-contract"
 [[ -x "$runtime_cli" ]]
 [[ -f "$launch_config" ]]
 python3 - "$launch_config" "$fixture_address" <<'PY'
@@ -103,6 +118,7 @@ assert pathlib.Path(server["args"][1]).resolve() == (
 ).resolve()
 PY
 
+phase="uninstall"
 HOME="$test_home" "$script_dir/uninstall-local.sh" \
   --install-root "$install_root" \
   --bin-dir "$bin_dir" \
@@ -113,6 +129,7 @@ HOME="$test_home" "$script_dir/uninstall-local.sh" \
 [[ ! -e "$launch_config" ]]
 [[ ! -e "$bin_dir/mac-agent-bridge" ]]
 
+phase="complete"
 trap - EXIT
 rm -rf "$test_root"
 printf 'MacMCP local deployment acceptance passed\n'
