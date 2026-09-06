@@ -45,19 +45,17 @@ run_installer() {
 
 mkdir -p "$test_home"
 phase="initial-install"
-run_installer --gmail-address "$fixture_address" --enable-local-mail-actions
+run_installer --gmail-address "$fixture_address"
 
 phase="initial-contract"
 runtime_cli="$install_root/bin/mac-agent-bridge"
 launch_config="$test_home/Library/Application Support/mac-agent-bridge/launch.json"
-mail_actions_mcp_config="$install_root/share/mcp.mail-actions.local.json"
 [[ -x "$runtime_cli" ]]
 [[ -x "$install_root/libexec/mail-mcp" ]]
 [[ -x "$install_root/libexec/CheICalMCP" ]]
 [[ -x "$app_dir/Mac Agent Bridge.app/Contents/MacOS/mac-agent-bridge" ]]
 [[ -L "$bin_dir/mac-agent-bridge" ]]
 [[ -f "$launch_config" ]]
-[[ -f "$mail_actions_mcp_config" ]]
 [[ "$("$runtime_cli" --version)" == "MacMCP "* ]]
 if HOME="$test_home" "$runtime_cli" \
   --mail-sidecar "$install_root/libexec/mail-mcp" \
@@ -102,20 +100,6 @@ payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert payload["args"].count("--gmail-address") == 1
 index = payload["args"].index("--gmail-address")
 assert payload["args"][index + 1] == sys.argv[2]
-assert "--enable-local-mail-actions" in payload["args"]
-PY
-
-python3 - "$mail_actions_mcp_config" "$test_home" <<'PY'
-import json
-import pathlib
-import sys
-
-payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
-server = payload["mcpServers"]["macmcp-mail-actions"]
-assert server["args"][0] == "--stdio-proxy"
-assert pathlib.Path(server["args"][1]).resolve() == (
-    pathlib.Path(sys.argv[2]) / "Library/Application Support/mac-agent-bridge/mail-actions.sock"
-).resolve()
 PY
 
 phase="uninstall"

@@ -116,9 +116,12 @@ it cannot implement a trustworthy per-person approval from MCP request fields.
 Use one tunnel per intended remote principal when separation is required. The
 current MacMCP local executable approval still applies to the proxy process.
 
-The tunnel path preserves the current reader-only contract:
+The tunnel path preserves the same account-gated contract as local MCP:
 
-- no write tools in the advertised surface;
+- the three narrow mail-action tools are advertised, but every account begins
+  with `Read only` enabled;
+- clear `MacMCP > Mail > account > Read only` locally before a remote action;
+- re-enable `Read only` to block new local and remote action calls immediately;
 - same argument filtering and untrusted-data wrapping;
 - same privacy-safe status and errors;
 - no credentials, subjects, senders, folder names, bodies, event text, or
@@ -126,17 +129,12 @@ The tunnel path preserves the current reader-only contract:
 - fail closed if the menu-bar app, sidecars, tunnel, runtime API key, or local
   approval is missing.
 
-## Local Mail Actions
+## Mail Actions
 
-The optional mail-action profile is deliberately not a ChatGPT feature. It is
-available only to an explicitly configured local MCP client and uses a second
-socket plus a separate client approval. Do not add its generated config to
-ChatGPT, developer-mode apps, or an OpenAI tunnel.
-
-Install it with `macmcp setup --enable-local-mail-actions`; its local config is
-`~/.local/opt/mac-agent-bridge/share/mcp.mail-actions.local.json`. It can create
-recipient-free managed drafts and change `read`, `unread`, `flagged`, or
-`unflagged` state. It cannot send email.
+MacMCP can create recipient-free managed drafts and change `read`, `unread`,
+`flagged`, or `unflagged` state. It cannot send email. These tools are available
+to the tunnel only when the relevant account's local `Read only` control has
+been cleared; every new account is blocked by default.
 
 ## Validation Gate
 
@@ -147,7 +145,7 @@ scripts/validate-login-item-persistence.sh --phase chatgpt-desktop-local
 ```
 
 This validates the installed app-owned runtime, local IPC, approval state, and
-reader-only mail behavior through the same STDIO proxy shape. Manual ChatGPT
+default read-only mail behavior through the same STDIO proxy shape. Manual ChatGPT
 desktop UI validation is still needed to confirm the app accepts the STDIO
 server entry and lists `bridge_status`.
 
@@ -155,9 +153,11 @@ The remote developer-mode validation gate is:
 
 1. The `MacMCP` menu reports `ChatGPT Tunnel: running`.
 2. ChatGPT lists the developer-mode app backed by the selected tunnel.
-3. Tool listing exposes only reader tools.
+3. Tool listing exposes reader tools and the three account-gated mail actions.
 4. `bridge_status` works before approval.
 5. `mail.search` and `mail.read` pass the same no-mutation validation.
+6. A mail action returns the fixed `Read only` error before the local control is
+   cleared, then works only for that account.
 
 After restarting the tunnel from the MacMCP menu, run:
 

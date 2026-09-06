@@ -1,14 +1,14 @@
 # MacMCP
 
-MacMCP is a local MCP bridge for macOS. It gives an approved MCP client
-read-only access to configured mail accounts, Calendar, and Reminders without
-placing mail passwords in the client configuration. An optional, separately
-approved local mail-action profile can create safe drafts and change message
-read/flagged state; it is never exposed through the ChatGPT tunnel.
+MacMCP is a local MCP bridge for macOS. It gives an approved MCP client access
+to configured mail accounts, Calendar, and Reminders without placing mail
+passwords in the client configuration. Mail is read-only by default for every
+account. The menu can explicitly enable a narrow, recipient-free draft and
+message-flag action surface per account.
 
 The app owns the local runtime, stores secrets in macOS Keychain, and exposes a
-reader MCP endpoint. An optional OpenAI tunnel makes that reader endpoint
-available to ChatGPT.
+MCP endpoint. An optional OpenAI tunnel makes the same endpoint available to
+ChatGPT.
 
 ## What It Can Do
 
@@ -17,12 +17,13 @@ available to ChatGPT.
 - Read supported text attachments.
 - Read Calendar events and Reminders through EventKit.
 - Provide structured MCP responses for reliable client use.
-- Optionally create recipient-free managed drafts and change one message's
-  read/unread or flagged/unflagged state through a second, local-only endpoint.
+- Create recipient-free managed drafts and change one message's read/unread or
+  flagged/unflagged state after `Read only` is cleared for that account.
 
-The default MacMCP profile is read-only. It cannot send, delete, move, or
-modify mail, calendar events, or reminders. The optional local action profile
-cannot send email and has no recipient fields.
+MacMCP cannot send, delete, move, or modify calendar events or reminders.
+Its only mail mutations are recipient-free managed drafts and the four
+per-message state changes, and they remain blocked until the account's `Read
+only` control is cleared. Drafts have no recipient fields and cannot be sent.
 
 ## Installation
 
@@ -35,15 +36,12 @@ brew install macmcp
 macmcp setup
 ```
 
-To opt in to the separate local mail-action profile during setup, add
-`--enable-local-mail-actions`. It has a different IPC socket and its own
-per-client approval. The generated local client config is
-`mcp.mail-actions.local.json`; do not add it to ChatGPT or a tunnel.
-
 `macmcp setup` installs the app and starts first-run configuration. It is the
 only setup command users need to run; the implementation scripts remain
 internal. After installation, the MacMCP menu-bar item shows bridge, mail,
 Calendar, Reminders, client approvals, notifications, and the optional tunnel.
+Open `Mail > account` to keep an account read-only or allow its limited mail
+actions. The control applies immediately and persists across app restarts.
 
 macOS may ask for Keychain, Calendar, or Reminders access on first use. Grant
 only the permissions needed for the features you enable.
@@ -72,7 +70,9 @@ ChatGPT, configure the optional tunnel from the MacMCP menu.
    is stored in MacMCP configuration. The menu owns tunnel startup and offers
    restart and key replacement controls.
 5. Add the resulting MacMCP connector in ChatGPT's Apps and Connectors
-   settings. ChatGPT Work is the currently validated client.
+   settings. ChatGPT Work is the currently validated client. The advertised
+   mail-action tools use the same tunnel but return a clear disabled error
+   until `Mail > account > Read only` is cleared locally.
 
 The tunnel is optional. Do not create or configure it when local-only MCP use
 is sufficient.
@@ -80,10 +80,10 @@ is sufficient.
 ## Daily Use
 
 Use the menu-bar item to inspect component health, approve local MCP clients,
-manage the optional tunnel, and enable mail notifications. Notifications are
-off by default. When enabled, MacMCP establishes a baseline, then watches the
-INBOX of every configured account without modifying messages. Notification text
-does not include email content.
+manage account-level `Read only`, manage the optional tunnel, and enable mail
+notifications. Notifications are off by default. When enabled, MacMCP
+establishes a baseline, then watches the INBOX of every configured account
+without modifying messages. Notification text does not include email content.
 
 For a privacy-safe support snapshot, run:
 
@@ -139,8 +139,9 @@ MacMCP release.
 - Mail passwords and tunnel keys are stored in Keychain, not in the repository
   or MCP-client configuration.
 - Each local MCP client needs approval from MacMCP before it can use data tools.
-- Reader and local mail-action clients have separate approvals; an approval for
-  the reader endpoint never grants mail-action access.
+- A per-account `Read only` control fails closed. It gates mail actions for all
+  transports, including local MCP clients and the ChatGPT tunnel, and can be
+  turned on again immediately without restarting MacMCP.
 - Managed drafts carry an HMAC marker derived from a Keychain key. Drafts with
   recipients, an invalid marker, or a stale revision cannot be edited.
 - The bridge does not expose arbitrary shell, file-system, or automation tools.

@@ -59,7 +59,7 @@ now puts persistent blocking socket reads on GCD worker threads, status probes
 time out in three seconds, and the menu-bar app re-registers a missing Login
 Item when launched after an upgrade. The updated local install passed the full
 post-upgrade gate: one app-owned runtime and sidecar of each type, Login Item
-status enabled, ready Mail/Calendar/Reminders, reader-only status, local client
+status enabled, ready Mail/Calendar/Reminders, default read-only mail state, local client
 approval, and privacy-safe no-mutation validation of the two configured mail
 accounts. A clean reboot was then completed without manually launching the app;
 the final post-reboot gate passed for Login Item status, a single app-owned
@@ -105,25 +105,17 @@ The script installs for the current user by default:
 The local deployment scripts use `/bin/bash`; they do not require the user's
 login shell to be zsh.
 
-## Optional Local Mail Actions
+## Per-Account Mail Actions
 
-The reader profile is the default and the only profile that may be connected to
-ChatGPT. To enable local-only recipient-free drafts and message state changes,
-add the opt-in flag during first installation:
+MacMCP always advertises its narrow mail-action tools on the standard local MCP
+endpoint and through the optional ChatGPT tunnel. They are blocked by default:
+open `MacMCP > Mail > account` and clear `Read only` for the specific account
+that may use them. Check `Read only` again to block new action calls
+immediately, without restarting the app. The setting persists in the current
+user's Application Support directory and a missing or unreadable setting fails
+closed.
 
-```sh
-scripts/install-local.sh \
-  --gmail-address you@gmail.com \
-  --enable-local-mail-actions
-```
-
-The installer writes a second local config at
-`~/.local/opt/mac-agent-bridge/share/mcp.mail-actions.local.json`, backed by
-`~/Library/Application Support/mac-agent-bridge/mail-actions.sock`. It has a
-separate approvals file, so approve the local client again from the `Local Mail
-Actions` menu item. This config must not be added to ChatGPT or a tunnel.
-
-The action profile can create recipient-free managed drafts and change one
+The action surface can create recipient-free managed drafts and change one
 message's `read`, `unread`, `flagged`, or `unflagged` state. It has no SMTP or
 send operation. Updating a managed draft requires its exact revision and fails
 closed if a human added a recipient or changed the draft.
@@ -206,7 +198,6 @@ the prior files and relaunches the previous app. The activated files are:
 - `~/.local/opt/mac-agent-bridge/libexec/mail-mcp`
 - `~/.local/opt/mac-agent-bridge/libexec/CheICalMCP`
 - `~/.local/opt/mac-agent-bridge/share/mcp.local.json`
-- `~/.local/opt/mac-agent-bridge/share/mcp.mail-actions.local.json` when opted in
 - `~/Library/Application Support/mac-agent-bridge/launch.json`
 
 Existing Keychain passwords are preserved. This guards against build, download,
@@ -291,8 +282,8 @@ For a live tunnel reconnect or notification acceptance run, use:
 scripts/validate-live-acceptance.sh --phase tunnel-reconnect --require-tunnel
 ```
 
-It verifies the local reader-only runtime, optional tunnel state, and
-no-mutation mail behavior. Observing a real ChatGPT tool call and a macOS
+It verifies the local runtime, optional tunnel state, and no-mutation mail
+behavior. Observing a real ChatGPT tool call and a macOS
 notification remains a required manual step.
 
 The first validation run from a new client can fail with `Client approval

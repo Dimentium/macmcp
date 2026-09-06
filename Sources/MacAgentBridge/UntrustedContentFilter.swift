@@ -2,8 +2,8 @@ import Foundation
 import MCP
 
 /// Converts every sidecar response into bounded plain text with an unguessable
-/// data marker. This helps models distinguish content from instructions; the
-/// actual security boundary remains the reader-only tool surface.
+/// data marker. This helps models distinguish content from instructions; tool
+/// policy and per-account access remain the actual security boundaries.
 struct UntrustedContentFilter: Sendable {
     let defaultByteLimit: Int
     let mailBodyByteLimit: Int

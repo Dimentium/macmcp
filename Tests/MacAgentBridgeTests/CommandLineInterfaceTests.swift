@@ -78,12 +78,12 @@ final class CommandLineInterfaceTests: XCTestCase {
         XCTAssertFalse(configuration.requiresAppOwnedRuntime)
     }
 
-    func testParsesOptInLocalMailActions() throws {
+    func testAcceptsLegacyLocalMailActionsFlagAsNoOp() throws {
         let configuration = try CommandLineInterface.launchConfiguration(arguments: [
             "--enable-local-mail-actions"
         ])
 
-        XCTAssertTrue(configuration.localMailActions)
+        XCTAssertTrue(configuration.mailAccounts.isEmpty)
     }
 
     func testRejectsPlainIMAPWithoutExplicitUnsafeOverride() {

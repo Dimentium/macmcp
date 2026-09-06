@@ -127,4 +127,17 @@ actor BridgeStatusSource {
             writeCapabilitiesEnabled: status.writeCapabilitiesEnabled
         )
     }
+
+    func updateWriteCapabilitiesEnabled(_ enabled: Bool) {
+        status = BridgeStatus(
+            version: status.version,
+            mode: status.mode,
+            mail: status.mail,
+            calendar: status.calendar,
+            reminders: status.reminders,
+            mailRestartCount: status.mailRestartCount,
+            eventKitRestartCount: status.eventKitRestartCount,
+            writeCapabilitiesEnabled: enabled
+        )
+    }
 }

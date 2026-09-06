@@ -231,7 +231,7 @@ def parse_accounts(args: list[str]) -> list[Account]:
     while index < len(args):
         option = args[index]
         value = args[index + 1] if index + 1 < len(args) else ""
-        if option in {"--allow-unsafe-plain-imap", "--enable-local-mail-actions"}:
+        if option == "--allow-unsafe-plain-imap":
             index += 1
         elif option == "--icloud-address":
             accounts.append(
@@ -280,7 +280,7 @@ def mail_only_args(args: list[str]) -> list[str]:
     index = 0
     while index < len(args):
         option = args[index]
-        if option in {"--allow-unsafe-plain-imap", "--enable-local-mail-actions"}:
+        if option == "--allow-unsafe-plain-imap":
             result.append(option)
             index += 1
             continue
@@ -319,6 +319,9 @@ def validate_tool_surface(client: MCPClient) -> None:
         "mail.search",
         "mail.read",
         "mail.read_attachment_text",
+        "mail.create_managed_draft",
+        "mail.update_managed_draft",
+        "mail.mark",
     }
     if not expected_mail.issubset(set(names)):
         raise ValidationError("mcp mail tool surface is incomplete")
@@ -337,11 +340,6 @@ def is_forbidden_tool(name: str) -> bool:
         "delete",
         "move",
         "archive",
-        "draft",
-        "flag",
-        "mark",
-        "create",
-        "update",
         "complete",
     ]
     return any(word in lowered for word in mutation_words) or (

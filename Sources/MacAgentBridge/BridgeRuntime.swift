@@ -6,28 +6,24 @@ struct BridgeLaunchConfiguration: Equatable, Sendable {
     let eventKitSidecarURL: URL?
     let mailAccounts: [MailAccountConfiguration]
     let menuBar: Bool
-    let localMailActions: Bool
 
     init(
         mailSidecarURL: URL?,
         eventKitSidecarURL: URL?,
         mailAccounts: [MailAccountConfiguration],
-        menuBar: Bool,
-        localMailActions: Bool = false
+        menuBar: Bool
     ) {
         self.mailSidecarURL = mailSidecarURL
         self.eventKitSidecarURL = eventKitSidecarURL
         self.mailAccounts = mailAccounts
         self.menuBar = menuBar
-        self.localMailActions = localMailActions
     }
 
     init(
         mailSidecarURL: URL?,
         eventKitSidecarURL: URL?,
         iCloudAddress: String?,
-        menuBar: Bool,
-        localMailActions: Bool = false
+        menuBar: Bool
     ) {
         self.mailSidecarURL = mailSidecarURL
         self.eventKitSidecarURL = eventKitSidecarURL
@@ -38,7 +34,6 @@ struct BridgeLaunchConfiguration: Equatable, Sendable {
             self.mailAccounts = []
         }
         self.menuBar = menuBar
-        self.localMailActions = localMailActions
     }
 
     var hasSidecars: Bool { mailSidecarURL != nil || eventKitSidecarURL != nil }
@@ -93,11 +88,10 @@ enum BridgeRuntimeError: LocalizedError, Equatable {
 final class BridgeRuntime {
     let supervisor: SidecarSupervisor
     let router: GatewayRouter
-    // policy is the immutable reader surface used by the standard local MCP
-    // socket, stdio bridge, monitor, and ChatGPT tunnel.
+    // The public policy is shared by the local socket, stdio bridge, and
+    // ChatGPT tunnel. Per-account action access is checked separately.
     let policy: ReaderPolicy
-    let localMailActionPolicy: ReaderPolicy?
-    private let routingPolicy: ReaderPolicy
+    let mailActionAccess: MailActionAccessController
     let statusSource: BridgeStatusSource
     let attachmentReader: AttachmentTextReader?
     private var mailSidecarConfiguration: MaterializedMailConfiguration?
@@ -109,8 +103,7 @@ final class BridgeRuntime {
         supervisor: SidecarSupervisor,
         router: GatewayRouter,
         policy: ReaderPolicy,
-        localMailActionPolicy: ReaderPolicy?,
-        routingPolicy: ReaderPolicy,
+        mailActionAccess: MailActionAccessController,
         statusSource: BridgeStatusSource,
         attachmentReader: AttachmentTextReader?,
         mailSidecarConfiguration: MaterializedMailConfiguration?
@@ -118,8 +111,7 @@ final class BridgeRuntime {
         self.supervisor = supervisor
         self.router = router
         self.policy = policy
-        self.localMailActionPolicy = localMailActionPolicy
-        self.routingPolicy = routingPolicy
+        self.mailActionAccess = mailActionAccess
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
         self.mailSidecarConfiguration = mailSidecarConfiguration
@@ -148,14 +140,12 @@ final class BridgeRuntime {
             Task { await runtimeObserver.handle(event) }
         }
         let router = GatewayRouter()
-        let policy = ReaderPolicy()
-        let localMailActionPolicy = configuration.localMailActions
-            ? ReaderPolicy(rules: ReaderPolicy.localMailActionRules)
-            : nil
-        let routingPolicy = ReaderPolicy(
-            rules: ReaderPolicy.rules + (configuration.localMailActions ? ReaderPolicy.localMailActionRules : [])
+        let policy = ReaderPolicy(rules: ReaderPolicy.allRules)
+        let mailActionAccess = MailActionAccessController(accounts: configuration.mailAccounts)
+        await statusSource.updateWriteCapabilitiesEnabled(
+            !(await mailActionAccess.writableAccountIDs()).isEmpty
         )
-        await runtimeObserver.bind(supervisor: supervisor, router: router, policy: routingPolicy)
+        await runtimeObserver.bind(supervisor: supervisor, router: router, policy: policy)
         try Task.checkCancellation()
         try await startup?.bind(supervisor: supervisor, router: router)
 
@@ -178,13 +168,9 @@ final class BridgeRuntime {
                 }
 
                 var accountSecrets: [MailAccountSecret] = []
-                let managedDraftKey = configuration.localMailActions
-                    ? try ManagedDraftKeyStore().loadOrCreate()
-                    : nil
+                var managedDraftKey = try ManagedDraftKeyStore().loadOrCreate()
                 defer {
-                    if var managedDraftKey {
-                        managedDraftKey.resetBytes(in: 0..<managedDraftKey.count)
-                    }
+                    managedDraftKey.resetBytes(in: 0..<managedDraftKey.count)
                 }
                 for account in configuration.mailAccounts {
                     let password = try credentials.readSecret(account: account.username)
@@ -222,7 +208,7 @@ final class BridgeRuntime {
                 try await router.attach(
                     sidecarID: ReaderPolicy.mailSidecarID,
                     client: SidecarMCPClient(id: ReaderPolicy.mailSidecarID, io: io),
-                    policy: routingPolicy
+                    policy: policy
                 )
             }
 
@@ -240,7 +226,7 @@ final class BridgeRuntime {
                 try await router.attach(
                     sidecarID: ReaderPolicy.eventKitSidecarID,
                     client: SidecarMCPClient(id: ReaderPolicy.eventKitSidecarID, io: io),
-                    policy: routingPolicy
+                    policy: policy
                 )
             }
         } catch {
@@ -256,8 +242,7 @@ final class BridgeRuntime {
             supervisor: supervisor,
             router: router,
             policy: policy,
-            localMailActionPolicy: localMailActionPolicy,
-            routingPolicy: routingPolicy,
+            mailActionAccess: mailActionAccess,
             statusSource: statusSource,
             attachmentReader: attachmentStorage.map {
                 AttachmentTextReader(router: router, policy: policy, storage: $0)
@@ -276,7 +261,8 @@ final class BridgeRuntime {
             router: router,
             policy: policy,
             statusSource: statusSource,
-            attachmentReader: attachmentReader
+            attachmentReader: attachmentReader,
+            mailActionAccess: mailActionAccess
         )
     }
 
@@ -293,25 +279,7 @@ final class BridgeRuntime {
             policy: policy,
             statusSource: statusSource,
             attachmentReader: attachmentReader,
-            clientApprovalStore: clientApprovalStore,
-            onClientApprovalChanged: onClientApprovalChanged
-        )
-    }
-
-    func makeLocalMailActionIPCServer(
-        socketURL: URL = LocalBridgeIPC.localMailActionSocketURL(),
-        clientApprovalStore: ClientApprovalStore = ClientApprovalStore(
-            fileURL: ClientApprovalStore.localMailActionFileURL()
-        ),
-        onClientApprovalChanged: (@Sendable () -> Void)? = nil
-    ) async -> LocalBridgeIPCServer? {
-        guard let localMailActionPolicy else { return nil }
-        return LocalBridgeIPCServer(
-            socketURL: socketURL,
-            tools: await localTools(for: localMailActionPolicy),
-            router: router,
-            policy: localMailActionPolicy,
-            statusSource: statusSource,
+            mailActionAccess: mailActionAccess,
             clientApprovalStore: clientApprovalStore,
             onClientApprovalChanged: onClientApprovalChanged
         )

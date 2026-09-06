@@ -25,6 +25,13 @@ final class ReaderPolicyTests: XCTestCase {
         )
     }
 
+    func testUnifiedToolSurfaceIncludesMailActions() {
+        XCTAssertEqual(
+            ReaderPolicy.allRules.map(\.publicName).suffix(3),
+            ["mail.create_managed_draft", "mail.update_managed_draft", "mail.mark"]
+        )
+    }
+
     func testMailReadForcesNonMutatingArguments() throws {
         let arguments = try ReaderPolicy().prepareArguments(
             for: "mail.read",
@@ -101,8 +108,8 @@ final class ReaderPolicyTests: XCTestCase {
         }
     }
 
-    func testLocalMailActionPolicyAllowsOnlyDeclaredFlagActions() throws {
-        let policy = ReaderPolicy(rules: ReaderPolicy.localMailActionRules)
+    func testMailActionPolicyAllowsOnlyDeclaredFlagActions() throws {
+        let policy = ReaderPolicy(rules: ReaderPolicy.mailActionRules)
         XCTAssertEqual(policy.publicToolNames, [
             "mail.create_managed_draft", "mail.update_managed_draft", "mail.mark"
         ])
@@ -131,7 +138,7 @@ final class ReaderPolicyTests: XCTestCase {
         }
     }
 
-    func testLocalMailActionProjectionMarksMutatingToolAndNarrowedEnum() throws {
+    func testMailActionProjectionMarksMutatingToolAndNarrowedEnum() throws {
         let upstream = Tool(
             name: "mark_email",
             description: "Change any message flag",
@@ -144,7 +151,7 @@ final class ReaderPolicyTests: XCTestCase {
                 "required": .array([.string("message_id"), .string("action")])
             ])
         )
-        let policy = ReaderPolicy(rules: ReaderPolicy.localMailActionRules)
+        let policy = ReaderPolicy(rules: ReaderPolicy.mailActionRules)
         let projected = try policy.project(upstream: upstream, using: policy.rule(for: "mail.mark"))
 
         XCTAssertEqual(projected.annotations.readOnlyHint, false)

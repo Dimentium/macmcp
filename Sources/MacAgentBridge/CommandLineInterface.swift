@@ -42,7 +42,6 @@ enum CommandLineInterface {
                        [--icloud-address ADDRESS] [--gmail-address ADDRESS]
                        [--mail-account ID=ADDRESS[,HOST[,PORT[,tls|starttls|plain]]]]
                        [--allow-unsafe-plain-imap]
-                       [--enable-local-mail-actions]
                        [--eventkit-sidecar PATH] [--menu-bar]
       mac-agent-bridge --store-mail-password ADDRESS
       mac-agent-bridge --delete-mail-password ADDRESS
@@ -70,9 +69,6 @@ enum CommandLineInterface {
     sanitized local runtime report and does not expose account identifiers,
     client names, file paths, or secrets.
 
-    --enable-local-mail-actions starts a separate local-only MCP socket for
-    recipient-free managed drafts and message flags. It is not exposed through
-    the ChatGPT tunnel and requires its own per-client approval.
     """
 
     static func launchConfiguration(arguments: [String]) throws -> BridgeLaunchConfiguration {
@@ -92,7 +88,6 @@ enum CommandLineInterface {
         var eventKit: URL?
         var mailAccounts: [MailAccountConfiguration] = []
         var menuBar = bundleURL.pathExtension == "app"
-        var localMailActions = false
         let allowsUnsafePlaintext = arguments.contains("--allow-unsafe-plain-imap")
         var index = 0
 
@@ -108,7 +103,8 @@ enum CommandLineInterface {
                 continue
             }
             if option == "--enable-local-mail-actions" {
-                localMailActions = true
+                // Kept as a no-op so an existing launch configuration from
+                // before the per-account Read only control still starts.
                 index += 1
                 continue
             }
@@ -154,8 +150,7 @@ enum CommandLineInterface {
             mailSidecarURL: mail,
             eventKitSidecarURL: eventKit,
             mailAccounts: mailAccounts,
-            menuBar: menuBar,
-            localMailActions: localMailActions
+            menuBar: menuBar
         )
     }
 

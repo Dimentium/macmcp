@@ -12,14 +12,6 @@ enum LocalBridgeIPC {
             .appendingPathComponent("mcp.sock")
     }
 
-    static func localMailActionSocketURL() -> URL {
-        LocalUserPaths.homeDirectoryURL()
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("mac-agent-bridge", isDirectory: true)
-            .appendingPathComponent("mail-actions.sock")
-    }
-
     static func requestBridgeStatus(socketPath: String = defaultSocketURL().path) throws -> String {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else {
@@ -211,6 +203,7 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
     private let policy: ReaderPolicy
     private let statusSource: BridgeStatusSource
     private let attachmentReader: AttachmentTextReader?
+    private let mailActionAccess: MailActionAccessController?
     private let clientApprovalStore: ClientApprovalStore
     private let identityProvider: IdentityProvider
     private let onClientApprovalChanged: (@Sendable () -> Void)?
@@ -228,6 +221,7 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
         policy: ReaderPolicy,
         statusSource: BridgeStatusSource,
         attachmentReader: AttachmentTextReader? = nil,
+        mailActionAccess: MailActionAccessController? = nil,
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         identityProvider: @escaping IdentityProvider = { try LocalClientIdentity.localPeer(fd: $0) },
         onClientApprovalChanged: (@Sendable () -> Void)? = nil,
@@ -240,6 +234,7 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
         self.policy = policy
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
+        self.mailActionAccess = mailActionAccess
         self.clientApprovalStore = clientApprovalStore
         self.identityProvider = identityProvider
         self.onClientApprovalChanged = onClientApprovalChanged
@@ -480,6 +475,23 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
                     }
                     result = await attachmentReader.read(arguments: parameters.arguments)
                 } else {
+                    if ReaderPolicy.mailActionToolNames.contains(publicName) {
+                        guard let mailActionAccess else {
+                            return try Value(CallTool.Result(
+                                content: [.text(text: MailActionAccessController.disabledMessage, annotations: nil, _meta: nil)],
+                                isError: true
+                            ))
+                        }
+                        if let denial = await mailActionAccess.deniedMessage(
+                            for: publicName,
+                            arguments: parameters.arguments
+                        ) {
+                            return try Value(CallTool.Result(
+                                content: [.text(text: denial, annotations: nil, _meta: nil)],
+                                isError: true
+                            ))
+                        }
+                    }
                     result = try await router.call(
                         publicName: publicName,
                         arguments: parameters.arguments,

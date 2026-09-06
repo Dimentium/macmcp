@@ -46,9 +46,10 @@ retain `mac-agent-bridge` for migration compatibility.
   message, a fixed-text notification, sidecar restart recovery, and no data
   mutation.
 - A real remote ChatGPT tunnel call after login/reconnect.
-- The opt-in local mail-actions profile on iCloud and Gmail: create a
-  recipient-free draft, reject a human recipient edit, update an unchanged
-  draft, and confirm reader/tunnel tool lists remain unchanged.
+- Per-account mail actions on iCloud and Gmail: create a recipient-free draft,
+  reject a human recipient edit, update an unchanged draft, and confirm that
+  toggling `Read only` blocks and re-allows the same tools through local MCP
+  and the tunnel without a restart.
 
 ## Resolved Since The 2026-09-05 Audit
 

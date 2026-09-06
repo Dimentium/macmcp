@@ -9,17 +9,20 @@ final class BridgeServer {
     private let policy: ReaderPolicy
     private let statusSource: BridgeStatusSource
     private let attachmentReader: AttachmentTextReader?
+    private let mailActionAccess: MailActionAccessController?
 
     init(
         router: GatewayRouter? = nil,
         policy: ReaderPolicy = ReaderPolicy(),
         statusSource: BridgeStatusSource = BridgeStatusSource(),
-        attachmentReader: AttachmentTextReader? = nil
+        attachmentReader: AttachmentTextReader? = nil,
+        mailActionAccess: MailActionAccessController? = nil
     ) async {
         self.router = router
         self.policy = policy
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
+        self.mailActionAccess = mailActionAccess
         tools = await Self.exposedTools(router: router, policy: policy)
         server = Server(
             name: AppVersion.name,
@@ -54,9 +57,8 @@ final class BridgeServer {
     static func exposedTools(router: GatewayRouter?, policy: ReaderPolicy) async -> [Tool] {
         var exposed = Self.defineTools()
         if let router {
-            // The router can carry the separate local action policy so its
-            // sidecars may service that socket. This server remains the
-            // reader-only stdio/tunnel surface.
+            // The same published policy is used for stdio, local IPC, and the
+            // tunnel. Per-account mail-action access is checked at call time.
             exposed.append(contentsOf: await router.tools().filter {
                 policy.publicToolNames.contains($0.name)
             })
@@ -89,7 +91,7 @@ final class BridgeServer {
             ListTools.Result(tools: tools)
         }
 
-        await server.withMethodHandler(CallTool.self) { [router, policy, attachmentReader, weak self] params in
+        await server.withMethodHandler(CallTool.self) { [router, policy, attachmentReader, mailActionAccess, weak self] params in
             if params.name == "bridge_status" {
                 return await self?.bridgeStatusResult(arguments: params.arguments) ?? CallTool.Result(
                     content: [.text("Unable to encode status")],
@@ -112,6 +114,21 @@ final class BridgeServer {
                     content: [.text("Unknown or unavailable tool")],
                     isError: true
                 )
+            }
+
+            if ReaderPolicy.mailActionToolNames.contains(params.name) {
+                guard let mailActionAccess else {
+                    return CallTool.Result(
+                        content: [.text(MailActionAccessController.disabledMessage)],
+                        isError: true
+                    )
+                }
+                if let denial = await mailActionAccess.deniedMessage(
+                    for: params.name,
+                    arguments: params.arguments
+                ) {
+                    return CallTool.Result(content: [.text(denial)], isError: true)
+                }
             }
 
             do {

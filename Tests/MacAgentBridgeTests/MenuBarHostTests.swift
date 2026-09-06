@@ -68,21 +68,20 @@ final class MenuBarHostTests: XCTestCase {
 
         let quitItem = menu.items.last
         XCTAssertTrue(menu.delegate === host)
-        XCTAssertEqual(menu.items.prefix(4).map(\.isEnabled), [false, false, false, false])
+        XCTAssertEqual(menu.items.prefix(4).map(\.isEnabled), [false, true, false, false])
         XCTAssertEqual(menu.items[0], statusItems.overall)
         XCTAssertEqual(menu.items[1], statusItems.mail)
         XCTAssertEqual(menu.items[2], statusItems.calendar)
         XCTAssertEqual(menu.items[3], statusItems.reminders)
         XCTAssertEqual(menu.items[4], statusItems.notifications)
-        XCTAssertEqual(menu.items[5], statusItems.localMailActions)
-        XCTAssertEqual(menu.items[6], statusItems.loginItem)
-        XCTAssertEqual(menu.items[7], statusItems.tunnel)
-        XCTAssertEqual(menu.items[8], statusItems.clients)
+        XCTAssertEqual(menu.items[5], statusItems.loginItem)
+        XCTAssertEqual(menu.items[6], statusItems.tunnel)
+        XCTAssertEqual(menu.items[7], statusItems.clients)
         XCTAssertTrue(menu.items[4].isEnabled)
         XCTAssertFalse(menu.items[5].isEnabled)
+        XCTAssertTrue(menu.items[6].isEnabled)
+        XCTAssertNotNil(menu.items[6].submenu)
         XCTAssertTrue(menu.items[7].isEnabled)
-        XCTAssertNotNil(menu.items[7].submenu)
-        XCTAssertTrue(menu.items[8].isEnabled)
         XCTAssertEqual(quitItem?.title, "Quit")
         XCTAssertTrue(quitItem?.target === host)
         XCTAssertEqual(quitItem?.action, #selector(MenuBarHost.quit))
@@ -123,6 +122,29 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertEqual(MenuBarHost.componentTitle("Calendar", state: .connectedUnverified), "🟡 Calendar: checking")
         XCTAssertEqual(MenuBarHost.componentTitle("Reminders", state: .unavailable), "🔴 Reminders: unavailable")
         XCTAssertEqual(MenuBarHost.componentTitle("Mail", state: .notConfigured), "⚪ Mail: not configured")
+    }
+
+    func testMailMenuShowsPerAccountReadOnlyControls() throws {
+        let accounts = [
+            try MailAccountConfiguration.iCloud(address: "icloud@example.invalid"),
+            try MailAccountConfiguration.gmail(address: "gmail@example.invalid")
+        ]
+        let host = MenuBarHost(
+            configuration: BridgeLaunchConfiguration(
+                mailSidecarURL: URL(fileURLWithPath: "/opt/mail-mcp"),
+                eventKitSidecarURL: nil,
+                mailAccounts: accounts,
+                menuBar: true
+            )
+        )
+        let item = NSMenuItem(title: "Mail", action: nil, keyEquivalent: "")
+
+        host.updateMailAccountsMenu(item, writableAccountIDs: ["gmail"])
+
+        XCTAssertEqual(item.submenu?.items.map(\.title), ["icloud@example.invalid", "gmail@example.invalid"])
+        XCTAssertEqual(item.submenu?.items[0].submenu?.items.first?.title, "Read only")
+        XCTAssertEqual(item.submenu?.items[0].submenu?.items.first?.state, .on)
+        XCTAssertEqual(item.submenu?.items[1].submenu?.items.first?.state, .off)
     }
 
     func testLoginItemStatusTitlesUseCircles() {
@@ -174,10 +196,10 @@ final class MenuBarHostTests: XCTestCase {
         let menu = host.makeMenu(statusItems: .init())
 
         XCTAssertEqual(
-            menu.items[7].submenu?.items.first?.title,
+            menu.items[6].submenu?.items.first?.title,
             "Last failure: 2026-09-06T10:00:00Z Health: timed out"
         )
-        XCTAssertFalse(menu.items[7].submenu?.items.first?.isEnabled ?? true)
+        XCTAssertFalse(menu.items[6].submenu?.items.first?.isEnabled ?? true)
     }
 
     func testClientsMenuShowsPendingAndApprovedClients() {

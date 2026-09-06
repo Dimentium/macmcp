@@ -23,6 +23,44 @@ private actor IPCFakeSidecarClient: SidecarToolClient {
                     "properties": .object([:])
                 ]),
                 annotations: .init(readOnlyHint: true, openWorldHint: false)
+            ),
+            Tool(
+                name: "create_managed_draft",
+                description: "draft",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "account_id": .object(["type": .string("string")]),
+                        "subject": .object(["type": .string("string")]),
+                        "body_text": .object(["type": .string("string")]),
+                        "body_html": .object(["type": .string("string")])
+                    ])
+                ])
+            ),
+            Tool(
+                name: "update_managed_draft",
+                description: "draft",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "message_id": .object(["type": .string("string")]),
+                        "revision": .object(["type": .string("integer")]),
+                        "subject": .object(["type": .string("string")]),
+                        "body_text": .object(["type": .string("string")]),
+                        "body_html": .object(["type": .string("string")])
+                    ])
+                ])
+            ),
+            Tool(
+                name: "mark_email",
+                description: "mark",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "message_id": .object(["type": .string("string")]),
+                        "action": .object(["type": .string("string")])
+                    ])
+                ])
             )
         ], nil)
     }
@@ -343,6 +381,88 @@ final class LocalBridgeIPCTests: XCTestCase {
         XCTAssertEqual(approvedCalls, ["search_emails"])
     }
 
+    func testMailActionToggleTakesEffectWithoutRestartingIPCServer() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let socketURL = directory.appendingPathComponent("mcp.sock")
+        let identity = LocalClientIdentity(
+            uid: 501,
+            pid: 123,
+            executablePath: "/Applications/Codex.app/Contents/MacOS/Codex",
+            executableSHA256: "abc123"
+        )
+        let approvalStore = ClientApprovalStore(
+            fileURL: directory.appendingPathComponent("approved-clients.json"),
+            expectedUID: 501
+        )
+        _ = try await approvalStore.authorize(identity)
+        _ = try await approvalStore.approvePending()
+
+        let account = try MailAccountConfiguration.gmail(address: "reader@example.invalid")
+        let actionAccess = MailActionAccessController(
+            accounts: [account],
+            store: MailActionAccessStore(fileURL: directory.appendingPathComponent("access.json"))
+        )
+        let router = GatewayRouter()
+        let sidecar = IPCFakeSidecarClient()
+        let policy = ReaderPolicy(rules: ReaderPolicy.mailActionRules)
+        try await router.attach(sidecarID: "mail", client: sidecar, policy: policy)
+        let server = LocalBridgeIPCServer(
+            socketURL: socketURL,
+            tools: BridgeServer.defineTools() + (await router.tools()),
+            router: router,
+            policy: policy,
+            statusSource: BridgeStatusSource(),
+            mailActionAccess: actionAccess,
+            clientApprovalStore: approvalStore,
+            identityProvider: { _ in identity }
+        )
+        try server.start()
+        defer { Task { await server.stop() } }
+
+        let fd = try connect(to: socketURL.path)
+        defer { close(fd) }
+        let arguments: [String: Any] = [
+            "account_id": account.id,
+            "subject": "test",
+            "body_text": "body"
+        ]
+
+        let blocked = try request(
+            fd: fd,
+            id: 1,
+            method: "tools/call",
+            params: ["name": "mail.create_managed_draft", "arguments": arguments]
+        )
+        XCTAssertEqual(actionErrorText(blocked), MailActionAccessController.disabledMessage)
+        let callsWhileBlocked = await sidecar.calls
+        XCTAssertEqual(callsWhileBlocked, [])
+
+        try await actionAccess.setReadOnly(false, for: account.id)
+        let allowed = try request(
+            fd: fd,
+            id: 2,
+            method: "tools/call",
+            params: ["name": "mail.create_managed_draft", "arguments": arguments]
+        )
+        XCTAssertFalse((allowed["result"] as? [String: Any])?["isError"] as? Bool ?? true)
+        let callsWhileAllowed = await sidecar.calls
+        XCTAssertEqual(callsWhileAllowed, ["create_managed_draft"])
+
+        try await actionAccess.setReadOnly(true, for: account.id)
+        let blockedAgain = try request(
+            fd: fd,
+            id: 3,
+            method: "tools/call",
+            params: ["name": "mail.create_managed_draft", "arguments": arguments]
+        )
+        XCTAssertEqual(actionErrorText(blockedAgain), MailActionAccessController.disabledMessage)
+        let callsAfterDisabling = await sidecar.calls
+        XCTAssertEqual(callsAfterDisabling, ["create_managed_draft"])
+    }
+
     func testUnpublishedToolCannotBeCalledEvenWhenRouterKnowsIt() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -391,6 +511,12 @@ final class LocalBridgeIPCTests: XCTestCase {
             XCTAssertEqual(Darwin.connect(fd, address, length), 0)
         }
         return fd
+    }
+
+    private func actionErrorText(_ response: [String: Any]) -> String? {
+        let result = response["result"] as? [String: Any]
+        let content = result?["content"] as? [[String: Any]]
+        return content?.first?["text"] as? String
     }
 
     private func request(

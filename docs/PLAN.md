@@ -7,7 +7,7 @@ documents are evidence records, not forward plans.
 
 MacMCP is a local MVP+ for MCP clients that can launch a local stdio server:
 the installer, Homebrew formula, menu-bar app, Keychain password storage,
-iCloud/Gmail presets, multi-account config, reader-only gateway, upgrade and
+iCloud/Gmail presets, multi-account config, account-gated mail actions, upgrade and
 uninstall exist. The target Mac has a real local install with iCloud and Gmail
 configured. Local MCP reader-data calls require per-client approval.
 
@@ -41,8 +41,8 @@ inside a temporary HOME without touching a real user configuration.
    profile over the existing private STDIO proxy. The installer now provisions
    the Homebrew client when requested, stores the runtime key in Keychain, and
    the menu-bar app owns its lifecycle. Validate the developer-mode app,
-   workspace visibility, tunnel reconnect after login, and reader-only remote
-   calls. Claude Desktop support is opportunistic only.
+   workspace visibility, tunnel reconnect after login, account-gated remote
+   mail actions, and reader calls. Claude Desktop support is opportunistic only.
 
 3. Accept the reader notification workflow on a real account.
    The menu now provides an opt-in monitor. It establishes a baseline and then
@@ -57,12 +57,13 @@ inside a temporary HOME without touching a real user configuration.
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
-## Local Mail Actions Profile
+## Per-Account Mail Actions
 
-The opt-in local mail-actions profile is implemented and awaits live validation
-on iCloud and Gmail. It is a second user-local IPC socket with a separate
-per-client approval store; the normal reader socket, stdio bridge, and ChatGPT
-tunnel retain the exact reader-only surface.
+The standard MacMCP endpoint always advertises the three narrow mail-action
+tools and applies the same policy through local IPC, stdio, and the ChatGPT
+tunnel. Every configured account begins with `Read only` enabled. The
+`MacMCP > Mail > account` toggle enables or disables new action calls for that
+specific account immediately and persists across app restarts.
 
 It exposes only recipient-free managed drafts and one-message `read`, `unread`,
 `flagged`, or `unflagged` operations. SMTP, send, delete, move, archive,
@@ -83,7 +84,8 @@ action profile; it needs a capability-gated design instead of being mapped to
 ## Not In The Current Plan
 
 - Raw headless LaunchAgent as the EventKit owner.
-- Write tools in the reader profile or through the ChatGPT tunnel.
+- Mail mutations beyond recipient-free managed drafts and the four explicit
+  message-state changes, whether local or through the ChatGPT tunnel.
 - Notes, Contacts, Messages, Apple Mail private databases, Full Disk Access, or
   generic shell/browser/filesystem access.
 - Broad sidecar forks unrelated to the reviewed iCloud compatibility and

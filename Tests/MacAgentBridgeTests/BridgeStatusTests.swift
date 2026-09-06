@@ -20,7 +20,7 @@ private actor BridgeToolClient: SidecarToolClient {
 }
 
 final class BridgeStatusTests: XCTestCase {
-    func testReaderServerFiltersActionToolsFromSharedRouter() async throws {
+    func testServerRespectsTheExplicitPublishedPolicy() async throws {
         let inputSchema: Value = .object(["type": .string("object")])
         let readerRule = ReaderToolRule(
             publicName: "mail.reader",
@@ -31,7 +31,7 @@ final class BridgeStatusTests: XCTestCase {
             publicName: "mail.action",
             sidecarID: "mail",
             upstreamName: "action_tool",
-            exposure: .localAction
+            exposure: .mailAction
         )
         let router = GatewayRouter()
         try await router.attach(
@@ -105,6 +105,17 @@ final class BridgeStatusTests: XCTestCase {
         XCTAssertEqual(status.mail, .unavailable)
         XCTAssertEqual(status.calendar, .notConfigured)
         XCTAssertEqual(status.reminders, .notConfigured)
+    }
+
+    func testWriteCapabilityStatusUpdatesIndependently() async {
+        let source = BridgeStatusSource(status: .connected(mail: true, eventKit: false))
+
+        await source.updateWriteCapabilitiesEnabled(true)
+        let status = await source.snapshot()
+
+        XCTAssertTrue(status.writeCapabilitiesEnabled)
+        XCTAssertEqual(status.mail, .connectedUnverified)
+        XCTAssertEqual(status.calendar, .notConfigured)
     }
 
     func testBridgeStatusReadsUpdatedSnapshot() async throws {

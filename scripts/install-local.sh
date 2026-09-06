@@ -29,9 +29,6 @@ Options:
   --gmail-address ADDRESS    Gmail preset; repeatable
   --mail-account SPEC        custom account: ID=ADDRESS[,HOST[,PORT[,SECURITY]]]
   --allow-unsafe-plain-imap  permit only explicitly configured custom plain IMAP
-  --enable-local-mail-actions
-                            start a separate local-only MCP socket for managed
-                            drafts and read/unread/flagged state changes
   --reuse-existing-configuration
                             upgrade using the current account configuration;
                             preserves existing Keychain passwords
@@ -66,7 +63,6 @@ chatgpt_tunnel_client=""
 chatgpt_tunnel_profile="macmcp-local"
 existing_tunnel_json=""
 allow_unsafe_plain_imap=0
-local_mail_actions=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -91,10 +87,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --allow-unsafe-plain-imap)
       allow_unsafe_plain_imap=1
-      shift
-      ;;
-    --enable-local-mail-actions)
-      local_mail_actions=1
       shift
       ;;
     --reuse-existing-configuration)
@@ -149,9 +141,6 @@ done
 if [[ "$allow_unsafe_plain_imap" -eq 1 ]]; then
   mail_args=("--allow-unsafe-plain-imap" "${mail_args[@]}")
 fi
-if [[ "$local_mail_actions" -eq 1 ]]; then
-  mail_args+=("--enable-local-mail-actions")
-fi
 
 if [[ "$reuse_existing_configuration" -eq 1 && ${#mail_args[@]} -gt 0 ]]; then
   echo "--reuse-existing-configuration cannot be combined with account options" >&2
@@ -175,7 +164,7 @@ except Exception:
     sys.exit(1)
 
 account_flags = {"--icloud-address", "--gmail-address", "--mail-account"}
-valueless_flags = {"--allow-unsafe-plain-imap", "--enable-local-mail-actions"}
+valueless_flags = {"--allow-unsafe-plain-imap"}
 index = 0
 while index < len(args):
     if args[index] in valueless_flags:
@@ -239,12 +228,6 @@ print(profile)
   fi
 fi
 
-for argument in "${mail_args[@]}"; do
-  if [[ "$argument" == "--enable-local-mail-actions" ]]; then
-    local_mail_actions=1
-  fi
-done
-
 if [[ -n "$chatgpt_tunnel_id" ]] && ! [[ "$chatgpt_tunnel_id" =~ ^tunnel_[A-Za-z0-9_-]{16,128}$ ]]; then
   echo "invalid --chatgpt-tunnel-id" >&2
   exit 2
@@ -292,7 +275,6 @@ che_src="$build_root/che-ical-mcp"
 target_app="$app_dir/Mac Agent Bridge.app"
 cli_path="$cli_dir/mac-agent-bridge"
 mcp_config="$share_dir/mcp.local.json"
-mail_actions_mcp_config="$share_dir/mcp.mail-actions.local.json"
 app_config="$config_dir/launch.json"
 ipc_socket="$config_dir/mcp.sock"
 bin_link="$bin_dir/mac-agent-bridge"
@@ -305,7 +287,6 @@ stage_share_dir="$stage_install_root/share"
 stage_cli_dir="$stage_install_root/bin"
 stage_cli_path="$stage_cli_dir/mac-agent-bridge"
 stage_mcp_config="$stage_share_dir/mcp.local.json"
-stage_mail_actions_mcp_config="$stage_share_dir/mcp.mail-actions.local.json"
 stage_app_parent="$(mktemp -d "$app_dir/.macmcp-app.staging.XXXXXX")"
 stage_app="$stage_app_parent/Mac Agent Bridge.app"
 stage_config_parent="$(mktemp -d "$(dirname "$config_dir")/.macmcp-config.staging.XXXXXX")"
@@ -555,7 +536,6 @@ codesign --verify --strict --verbose=2 "$stage_cli_path"
 
 json_cli_path="$(printf '%s' "$cli_path" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
 json_ipc_socket="$(printf '%s' "$ipc_socket" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
-json_mail_actions_ipc_socket="$(printf '%s' "$config_dir/mail-actions.sock" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
 
 cat > "$stage_mcp_config" <<EOF
 {
@@ -571,23 +551,6 @@ cat > "$stage_mcp_config" <<EOF
 }
 EOF
 chmod 600 "$stage_mcp_config"
-
-if [[ "$local_mail_actions" -eq 1 ]]; then
-  cat > "$stage_mail_actions_mcp_config" <<EOF
-{
-  "mcpServers": {
-    "macmcp-mail-actions": {
-      "command": $json_cli_path,
-      "args": [
-        "--stdio-proxy",
-        $json_mail_actions_ipc_socket
-      ]
-    }
-  }
-}
-EOF
-  chmod 600 "$stage_mail_actions_mcp_config"
-fi
 
 python3 - \
   "$stage_app_config" \
@@ -677,13 +640,6 @@ MCP stdio config example:
   $mcp_config
 
 EOF
-if [[ "$local_mail_actions" -eq 1 ]]; then
-cat <<EOF
-Local mail action MCP config example:
-  $mail_actions_mcp_config
-
-EOF
-fi
 cat <<EOF
 Secure MCP Tunnel setup:
   Create or inspect tunnels: https://platform.openai.com/settings/organization/tunnels
