@@ -61,18 +61,9 @@ in `libexec`.
 - Resolution: choose one signed, authoritative sidecar location as part of the
   Cask packaging work.
 
-## Documentation Consistency
+## Naming Consistency
 
-### 6. Threat model needs an implementation pass
-
-The threat model still describes a token-based approval model; the product uses
-persistent executable-hash approvals. It also overstates sidecar artifact
-verification.
-
-- Resolution: update the threat model before presenting it as a security
-  guarantee, and distinguish pinned source from checksum-verified artifacts.
-
-### 7. Technical and product names remain intentionally split
+### 6. Technical and product names remain intentionally split
 
 The visible product is MacMCP, while existing bundle and protocol identifiers
 retain `mac-agent-bridge` for migration compatibility.
