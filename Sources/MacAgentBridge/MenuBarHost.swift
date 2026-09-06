@@ -47,6 +47,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let clientApprovalStore: ClientApprovalStore
     private let mailMonitorSettingsStore: MailMonitorSettingsStore
     private let mailNotificationPoster: MacOSAttentionNotificationPoster
+    private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
     private let startup = BridgeRuntimeStartup()
     private var runtime: BridgeRuntime?
     private var ipcServer: LocalBridgeIPCServer?
@@ -70,7 +71,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItemController: (any LoginItemControlling)? = SMAppLoginItemController(),
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         mailMonitorSettingsStore: MailMonitorSettingsStore = MailMonitorSettingsStore(),
-        mailNotificationPoster: MacOSAttentionNotificationPoster = MacOSAttentionNotificationPoster()
+        mailNotificationPoster: MacOSAttentionNotificationPoster = MacOSAttentionNotificationPoster(),
+        tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore()
     ) {
         self.configuration = configuration
         self.launchConfigurationStore = launchConfigurationStore
@@ -78,6 +80,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.clientApprovalStore = clientApprovalStore
         self.mailMonitorSettingsStore = mailMonitorSettingsStore
         self.mailNotificationPoster = mailNotificationPoster
+        self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
     }
 
     static func run(configuration: BridgeLaunchConfiguration) async {
@@ -287,10 +290,12 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 bridgeExecutableURL: executableURL,
                 ipcSocketURL: LocalBridgeIPC.defaultSocketURL(),
                 proxyWrapperURL: ChatGPTTunnelSupervisor.defaultProxyWrapperURL(),
+                failureHistoryStore: tunnelFailureHistoryStore,
                 onStateChanged: { [weak self] state in
                     self?.tunnelState = state
                     if let item = self?.tunnelMenuItem {
                         self?.updateTunnelMenu(item, state: state)
+                        self?.refreshTunnelActionsMenu(item)
                     }
                 }
             )
@@ -305,6 +310,10 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateTunnelMenu(_ item: NSMenuItem, state: ChatGPTTunnelState?) {
         item.title = Self.chatGPTTunnelTitle(state: state)
+    }
+
+    private func refreshTunnelActionsMenu(_ item: NSMenuItem) {
+        item.submenu = makeTunnelActionsMenu()
     }
 
     private func configureMailNotifications(_ item: NSMenuItem) {
@@ -431,6 +440,10 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func makeTunnelActionsMenu() -> NSMenu {
         let submenu = NSMenu()
+        let history = NSMenuItem(title: tunnelFailureHistoryTitle(), action: nil, keyEquivalent: "")
+        history.isEnabled = false
+        submenu.addItem(history)
+        submenu.addItem(.separator())
         if tunnelSupervisor != nil {
             let restart = NSMenuItem(
                 title: "Restart Tunnel",
@@ -463,6 +476,17 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         apiKeys.target = self
         submenu.addItem(apiKeys)
         return submenu
+    }
+
+    private func tunnelFailureHistoryTitle() -> String {
+        do {
+            guard let latest = try tunnelFailureHistoryStore.read().last else {
+                return "Recent failures: none"
+            }
+            return "Last failure: \(latest.occurredAt) \(latest.menuTitle)"
+        } catch {
+            return "Recent failures: unavailable"
+        }
     }
 
     func refreshClientsMenu() async {

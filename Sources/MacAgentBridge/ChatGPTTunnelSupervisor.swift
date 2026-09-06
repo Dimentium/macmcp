@@ -31,6 +31,17 @@ final class ChatGPTTunnelSupervisor {
         case initialize
         case doctor
         case run
+
+        var diagnosticPhase: ChatGPTTunnelPhase {
+            switch self {
+            case .initialize:
+                return .initialize
+            case .doctor:
+                return .doctor
+            case .run:
+                return .run
+            }
+        }
     }
 
     private let configuration: ChatGPTTunnelConfiguration
@@ -38,6 +49,7 @@ final class ChatGPTTunnelSupervisor {
     private let ipcSocketURL: URL
     private let proxyWrapperURL: URL
     private let credentialStore: any CredentialStore
+    private let failureHistoryStore: TunnelFailureHistoryStore
     private let healthProbe: HealthProbe
     private let onStateChanged: StateHandler
     private var activeProcess: Process?
@@ -75,6 +87,7 @@ final class ChatGPTTunnelSupervisor {
         credentialStore: any CredentialStore = KeychainCredentialStore(
             service: KeychainCredentialStore.chatGPTTunnelService
         ),
+        failureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
         healthProbe: @escaping HealthProbe = ChatGPTTunnelSupervisor.defaultHealthProbe,
         healthProbeTimeoutNanoseconds: UInt64 = 10_000_000_000,
         onStateChanged: @escaping StateHandler = { _ in }
@@ -84,6 +97,7 @@ final class ChatGPTTunnelSupervisor {
         self.ipcSocketURL = ipcSocketURL
         self.proxyWrapperURL = proxyWrapperURL
         self.credentialStore = credentialStore
+        self.failureHistoryStore = failureHistoryStore
         self.healthProbe = healthProbe
         self.healthProbeTimeoutNanoseconds = healthProbeTimeoutNanoseconds
         self.onStateChanged = onStateChanged
@@ -102,41 +116,49 @@ final class ChatGPTTunnelSupervisor {
         hasCompletedControlPlanePoll = false
         generation += 1
         let currentGeneration = generation
+        state = .starting
 
+        guard FileManager.default.isExecutableFile(atPath: configuration.clientPath) else {
+            becomeUnavailable(phase: .prerequisites, reason: .clientUnavailable)
+            return
+        }
+        guard FileManager.default.fileExists(atPath: ipcSocketURL.path) else {
+            becomeUnavailable(phase: .prerequisites, reason: .ipcUnavailable)
+            return
+        }
         do {
-            guard FileManager.default.isExecutableFile(atPath: configuration.clientPath),
-                  FileManager.default.fileExists(atPath: ipcSocketURL.path)
-            else {
-                state = .unavailable
-                return
-            }
             try writeProxyWrapper()
+        } catch {
+            becomeUnavailable(phase: .prerequisites, reason: .proxySetupFailed)
+            return
+        }
+        do {
             var key = try credentialStore.readSecret(
                 account: KeychainCredentialStore.chatGPTTunnelAccount
             )
             runtimeKey = String(decoding: key, as: UTF8.self)
             key.resetBytes(in: 0..<key.count)
-            guard let runtimeKey, !runtimeKey.isEmpty else {
-                state = .unavailable
-                return
-            }
-            state = .starting
-            launch(
-                phase: .initialize,
-                arguments: [
-                    "init",
-                    "--sample", "sample_mcp_stdio_local",
-                    "--profile", configuration.profile,
-                    "--tunnel-id", configuration.tunnelID,
-                    "--mcp-command", proxyWrapperURL.path,
-                    "--force"
-                ],
-                generation: currentGeneration
-            )
         } catch {
             runtimeKey = nil
-            state = .unavailable
+            becomeUnavailable(phase: .credential, reason: .credentialUnavailable)
+            return
         }
+        guard let runtimeKey, !runtimeKey.isEmpty else {
+            becomeUnavailable(phase: .credential, reason: .credentialMissing)
+            return
+        }
+        launch(
+            phase: .initialize,
+            arguments: [
+                "init",
+                "--sample", "sample_mcp_stdio_local",
+                "--profile", configuration.profile,
+                "--tunnel-id", configuration.tunnelID,
+                "--mcp-command", proxyWrapperURL.path,
+                "--force"
+            ],
+            generation: currentGeneration
+        )
     }
 
     func restart() async {
@@ -199,7 +221,7 @@ final class ChatGPTTunnelSupervisor {
                 refreshHealth(force: true)
             }
         } catch {
-            state = .unavailable
+            becomeUnavailable(phase: phase.diagnosticPhase, reason: .processLaunchFailed)
         }
     }
 
@@ -213,7 +235,7 @@ final class ChatGPTTunnelSupervisor {
         }
         guard status == 0 else {
             runtimeKey = nil
-            state = .unavailable
+            becomeUnavailable(phase: phase.diagnosticPhase, reason: .processExited)
             return
         }
 
@@ -232,14 +254,14 @@ final class ChatGPTTunnelSupervisor {
             )
         case .run:
             runtimeKey = nil
-            state = .unavailable
+            becomeUnavailable(phase: .run, reason: .processExited)
         }
     }
 
     func refreshHealth(force: Bool = false) {
         guard !stopped, tunnelClientIsRunning else { return }
         guard activeProcess?.isRunning == true else {
-            state = .unavailable
+            becomeUnavailable(phase: .run, reason: .processExited)
             return
         }
         guard healthProbeToken == nil else { return }
@@ -271,7 +293,7 @@ final class ChatGPTTunnelSupervisor {
             }
             self.healthProbeToken = nil
             self.healthProbeTimeoutTask = nil
-            self.state = .unavailable
+            self.becomeUnavailable(phase: .health, reason: .healthTimedOut)
         }
         Task { [weak self] in
             let isHealthy = await healthProbe(clientPath)
@@ -293,9 +315,18 @@ final class ChatGPTTunnelSupervisor {
                       Date().timeIntervalSince(tunnelRunStartedAt) < self.initialHealthProbeGracePeriod {
                 self.state = .starting
             } else {
-                self.state = .unavailable
+                self.becomeUnavailable(phase: .health, reason: .healthUnavailable)
             }
         }
+    }
+
+    private func becomeUnavailable(
+        phase: ChatGPTTunnelPhase,
+        reason: ChatGPTTunnelFailureReason
+    ) {
+        guard state != .unavailable else { return }
+        try? failureHistoryStore.record(.now(phase: phase, reason: reason))
+        state = .unavailable
     }
 
     nonisolated static func defaultHealthProbe(clientPath: String) async -> Bool {

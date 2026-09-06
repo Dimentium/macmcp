@@ -98,8 +98,10 @@ No Terminal needs to remain open, and neither the key nor an inbound network
 listener is written to disk.
 
 The `MacMCP` menu shows `ChatGPT Tunnel: running` only after the managed client
-has completed a successful control-plane poll. Its single status item also opens
-the `Restart Tunnel` command, `Replace Runtime API Key...`, and the two Platform
+has completed a successful control-plane poll. Its submenu shows the latest
+redacted tunnel failure, if any, with an ISO timestamp, fixed phase, and fixed
+reason; `macmcp diagnose` retains the most recent 12 records. It also opens the
+`Restart Tunnel` command, `Replace Runtime API Key...`, and the two Platform
 setup URLs. If Keychain asks MacMCP to access an already stored runtime key,
 choose `Always Allow` once.
 

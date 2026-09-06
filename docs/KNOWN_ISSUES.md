@@ -17,20 +17,9 @@ the identity seen by Keychain, TCC, and Login Item services.
 - Resolution: establish Developer ID signing, notarization, and a Cask release
   path. Run the live acceptance checklist on the first signed release.
 
-### 2. Tunnel diagnostics have no persistent failure history
-
-`macmcp diagnose` reports tunnel configuration and current control-plane health
-without secrets. The tunnel supervisor still discards phase-specific failures
-after the process or app restarts.
-
-- Impact: an intermittent init, doctor, health, or run failure can still need a
-  manual reproduction to explain.
-- Resolution: retain a bounded, redacted history with timestamps and phase
-  names; expose a summary in the menu and diagnose output.
-
 ## Medium Priority
 
-### 3. CheICalMCP transitive dependencies are resolved on the target Mac
+### 2. CheICalMCP transitive dependencies are resolved on the target Mac
 
 `mail-mcp` is downloaded as a pinned, checksum-verified release archive.
 CheICalMCP is pinned to a source commit, but its SwiftPM dependency graph is
@@ -41,7 +30,7 @@ resolved during setup.
 - Resolution: enforce the sidecar resolution file or distribute a verified,
   signed CheICalMCP artifact with the app.
 
-### 4. Reader transport needs resource and TLS hardening
+### 3. Reader transport needs resource and TLS hardening
 
 Custom IMAP configuration still permits `plain` authentication. The local IPC
 server also needs explicit limits for buffered frames, active clients, request
@@ -52,7 +41,7 @@ duration, and queued work.
 - Resolution: make plaintext an explicit unsafe override and add bounded IPC
   resource controls.
 
-### 5. EventKit sidecar has two installed copies
+### 4. EventKit sidecar has two installed copies
 
 The app bundle embeds CheICalMCP while launch configuration points to the copy
 in `libexec`.
@@ -63,7 +52,7 @@ in `libexec`.
 
 ## Naming Consistency
 
-### 6. Technical and product names remain intentionally split
+### 5. Technical and product names remain intentionally split
 
 The visible product is MacMCP, while existing bundle and protocol identifiers
 retain `mac-agent-bridge` for migration compatibility.
@@ -90,3 +79,6 @@ retain `mac-agent-bridge` for migration compatibility.
   every configured INBOX, use reader-only calls, and show fixed copy only.
 - macOS CI runs an isolated temporary-HOME acceptance through setup, upgrade,
   diagnose, and uninstall.
+- Tunnel diagnostics retain the 12 newest redacted failures across app and
+  process restarts, and expose the latest one in the menu and all records in
+  `macmcp diagnose`.

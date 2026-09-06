@@ -57,6 +57,11 @@ struct MacMCPDiagnosticReport: Codable, Equatable, Sendable {
         let approvalPending: Bool
     }
 
+    struct TunnelFailures: Codable, Equatable, Sendable {
+        let availability: DiagnosticAvailability
+        let recent: [ChatGPTTunnelFailure]
+    }
+
     let schemaVersion: Int
     let product: String
     let version: String
@@ -65,6 +70,7 @@ struct MacMCPDiagnosticReport: Codable, Equatable, Sendable {
     let clientApprovals: ClientApprovals
     let loginItem: String
     let tunnel: TunnelDiagnosticState
+    let tunnelFailures: TunnelFailures
 
     func encodedJSON() throws -> String {
         let encoder = JSONEncoder()
@@ -82,19 +88,22 @@ struct MacMCPDiagnosticCollector {
     private let bridgeStatusRequest: BridgeStatusRequest
     private let loginItemStatus: () -> LoginItemStatus
     private let tunnelHealthProbe: TunnelHealthProbe
+    private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
 
     init(
         launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         bridgeStatusRequest: @escaping BridgeStatusRequest = { try LocalBridgeIPC.requestBridgeStatus() },
         loginItemStatus: @escaping () -> LoginItemStatus = { SMAppLoginItemController().status },
-        tunnelHealthProbe: @escaping TunnelHealthProbe = ChatGPTTunnelSupervisor.defaultHealthProbe
+        tunnelHealthProbe: @escaping TunnelHealthProbe = ChatGPTTunnelSupervisor.defaultHealthProbe,
+        tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore()
     ) {
         self.launchConfigurationStore = launchConfigurationStore
         self.clientApprovalStore = clientApprovalStore
         self.bridgeStatusRequest = bridgeStatusRequest
         self.loginItemStatus = loginItemStatus
         self.tunnelHealthProbe = tunnelHealthProbe
+        self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
     }
 
     func collect() async -> MacMCPDiagnosticReport {
@@ -102,6 +111,7 @@ struct MacMCPDiagnosticCollector {
         let bridge = collectBridge()
         let approvals = await collectApprovals()
         let tunnel = await collectTunnel()
+        let tunnelFailures = collectTunnelFailures()
 
         return MacMCPDiagnosticReport(
             schemaVersion: 1,
@@ -111,7 +121,8 @@ struct MacMCPDiagnosticCollector {
             bridge: bridge,
             clientApprovals: approvals,
             loginItem: loginItemStatus().label,
-            tunnel: tunnel
+            tunnel: tunnel,
+            tunnelFailures: tunnelFailures
         )
     }
 
@@ -172,5 +183,13 @@ struct MacMCPDiagnosticCollector {
             return .clientUnavailable
         }
         return await tunnelHealthProbe(tunnel.clientPath) ? .running : .unavailable
+    }
+
+    private func collectTunnelFailures() -> MacMCPDiagnosticReport.TunnelFailures {
+        do {
+            return .init(availability: .available, recent: try tunnelFailureHistoryStore.read())
+        } catch {
+            return .init(availability: .unavailable, recent: [])
+        }
     }
 }

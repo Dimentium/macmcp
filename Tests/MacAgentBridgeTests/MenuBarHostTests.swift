@@ -149,6 +149,35 @@ final class MenuBarHostTests: XCTestCase {
         )
     }
 
+    func testTunnelMenuShowsLatestRedactedFailure() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let history = TunnelFailureHistoryStore(fileURL: directory.appendingPathComponent("tunnel-failures.json"))
+        try history.record(.init(
+            occurredAt: "2026-09-06T10:00:00Z",
+            phase: .health,
+            reason: .healthTimedOut
+        ))
+        let host = MenuBarHost(
+            configuration: BridgeLaunchConfiguration(
+                mailSidecarURL: nil,
+                eventKitSidecarURL: nil,
+                iCloudAddress: nil,
+                menuBar: true
+            ),
+            tunnelFailureHistoryStore: history
+        )
+        let menu = host.makeMenu(statusItems: .init())
+
+        XCTAssertEqual(
+            menu.items[6].submenu?.items.first?.title,
+            "Last failure: 2026-09-06T10:00:00Z Health: timed out"
+        )
+        XCTAssertFalse(menu.items[6].submenu?.items.first?.isEnabled ?? true)
+    }
+
     func testClientsMenuShowsPendingAndApprovedClients() {
         let host = MenuBarHost(
             configuration: BridgeLaunchConfiguration(

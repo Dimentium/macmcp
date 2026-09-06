@@ -14,6 +14,14 @@ final class DiagnosticsTests: XCTestCase {
         let launchConfiguration = directory.appendingPathComponent("launch.json")
         let privateAddress = "reader.private@example.com"
         let privateTunnelID = "tunnel_0123456789abcdef0123456789abcdef"
+        let failureHistoryStore = TunnelFailureHistoryStore(
+            fileURL: directory.appendingPathComponent("tunnel-failures.json")
+        )
+        try failureHistoryStore.record(.init(
+            occurredAt: "2026-09-06T10:00:00Z",
+            phase: .doctor,
+            reason: .processExited
+        ))
         try """
         {
           "schemaVersion": 1,
@@ -45,7 +53,8 @@ final class DiagnosticsTests: XCTestCase {
             clientApprovalStore: ClientApprovalStore(fileURL: directory.appendingPathComponent("clients.json")),
             bridgeStatusRequest: { try status.encodedJSON() },
             loginItemStatus: { .enabled },
-            tunnelHealthProbe: { _ in true }
+            tunnelHealthProbe: { _ in true },
+            tunnelFailureHistoryStore: failureHistoryStore
         )
 
         let report = await collector.collect()
@@ -59,6 +68,9 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertEqual(report.clientApprovals.approvedCount, 0)
         XCTAssertEqual(report.loginItem, "enabled")
         XCTAssertEqual(report.tunnel, .running)
+        XCTAssertEqual(report.tunnelFailures.availability, .available)
+        XCTAssertEqual(report.tunnelFailures.recent.last?.phase, .doctor)
+        XCTAssertEqual(report.tunnelFailures.recent.last?.reason, .processExited)
 
         let json = try report.encodedJSON()
         XCTAssertFalse(json.contains(privateAddress))
@@ -75,7 +87,10 @@ final class DiagnosticsTests: XCTestCase {
             clientApprovalStore: ClientApprovalStore(fileURL: directory.appendingPathComponent("clients.json")),
             bridgeStatusRequest: { throw LocalBridgeIPCClientError.unavailable },
             loginItemStatus: { .notRegistered },
-            tunnelHealthProbe: { _ in false }
+            tunnelHealthProbe: { _ in false },
+            tunnelFailureHistoryStore: TunnelFailureHistoryStore(
+                fileURL: directory.appendingPathComponent("tunnel-failures.json")
+            )
         )
 
         let report = await collector.collect()
@@ -85,6 +100,7 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertEqual(report.clientApprovals.availability, .available)
         XCTAssertEqual(report.loginItem, "not_registered")
         XCTAssertEqual(report.tunnel, .notConfigured)
+        XCTAssertEqual(report.tunnelFailures, .init(availability: .available, recent: []))
 
         let payload = try JSONSerialization.jsonObject(with: Data(report.encodedJSON().utf8)) as? [String: Any]
         let bridge = payload?["bridge"] as? [String: Any]

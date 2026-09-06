@@ -89,6 +89,9 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         let socketURL = directory.appendingPathComponent("mcp.sock")
         let bridgeURL = directory.appendingPathComponent("mac-agent-bridge")
         let proxyURL = directory.appendingPathComponent("chatgpt-tunnel-proxy")
+        let failureHistoryStore = TunnelFailureHistoryStore(
+            fileURL: directory.appendingPathComponent("tunnel-failures.json")
+        )
 
         try Data().write(to: socketURL)
         try "#!/bin/bash\nexit 0\n".write(to: bridgeURL, atomically: true, encoding: .utf8)
@@ -118,6 +121,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
             ipcSocketURL: socketURL,
             proxyWrapperURL: proxyURL,
             credentialStore: FixedTunnelCredentialStore(),
+            failureHistoryStore: failureHistoryStore,
             healthProbe: { _ in
                 try? await Task.sleep(nanoseconds: 100_000_000)
                 return true
@@ -135,7 +139,37 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         XCTAssertEqual(supervisor.state, .unavailable)
         try? await Task.sleep(nanoseconds: 150_000_000)
         XCTAssertEqual(supervisor.state, .unavailable)
+        let failures = try failureHistoryStore.read()
+        XCTAssertEqual(failures.last?.phase, .health)
+        XCTAssertEqual(failures.last?.reason, .healthTimedOut)
         await supervisor.stop()
+    }
+
+    func testMissingClientPersistsPrerequisiteFailure() async throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let failureHistoryStore = TunnelFailureHistoryStore(
+            fileURL: directory.appendingPathComponent("tunnel-failures.json")
+        )
+        let supervisor = ChatGPTTunnelSupervisor(
+            configuration: ChatGPTTunnelConfiguration(
+                tunnelID: "tunnel_0123456789abcdef0123456789abcdef",
+                clientPath: directory.appendingPathComponent("missing-client").path,
+                profile: "macmcp-local"
+            ),
+            bridgeExecutableURL: directory.appendingPathComponent("mac-agent-bridge"),
+            ipcSocketURL: directory.appendingPathComponent("mcp.sock"),
+            proxyWrapperURL: directory.appendingPathComponent("chatgpt-tunnel-proxy"),
+            credentialStore: FixedTunnelCredentialStore(),
+            failureHistoryStore: failureHistoryStore
+        )
+
+        await supervisor.start()
+
+        XCTAssertEqual(supervisor.state, .unavailable)
+        let failures = try failureHistoryStore.read()
+        XCTAssertEqual(failures.last?.phase, .prerequisites)
+        XCTAssertEqual(failures.last?.reason, .clientUnavailable)
     }
 
     private func temporaryDirectory() throws -> URL {

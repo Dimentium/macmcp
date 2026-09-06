@@ -52,7 +52,10 @@ inside a temporary HOME without touching a real user configuration.
 
 4. Keep diagnostics actionable.
    `macmcp diagnose` reports a sanitized state snapshot. Extend it only with
-   non-personal operational evidence when a real failure reveals a gap.
+   non-personal operational evidence when a real failure reveals a gap. Tunnel
+   failures persist as a bounded history of timestamps, fixed phases, and fixed
+   reasons, so intermittent init, doctor, run, and health failures survive an
+   app restart without retaining command output.
 
 ## Not In The Current Plan
 

@@ -82,8 +82,10 @@ macmcp diagnose
 ```
 
 The report includes component states and restart counts, configuration counts,
-client-approval counts, Login Item state, and tunnel health. It excludes email
-addresses, client names, paths, tunnel IDs, and secrets.
+client-approval counts, Login Item state, tunnel health, and up to 12 recent
+tunnel failures. Each tunnel record has only a timestamp, fixed phase, and
+fixed reason. It excludes email addresses, client names, paths, tunnel IDs,
+command output, and secrets.
 
 ## Updates And Removal
 
