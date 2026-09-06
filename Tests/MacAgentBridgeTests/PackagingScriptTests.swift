@@ -26,8 +26,9 @@ final class PackagingScriptTests: XCTestCase {
         )
 
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
-        XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.1.0\""))
-        XCTAssertTrue(script.contains("MAIL_ARM64_SHA256=\"f4f44a4073ee099a1eb9e92ec805958276f69c449405fa12b48757c6af229dff\""))
+        XCTAssertTrue(script.contains("MAIL_REPO=\"https://github.com/Dimentium/mail-mcp\""))
+        XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.1.1\""))
+        XCTAssertTrue(script.contains("MAIL_ARM64_SHA256=\"f9d7bc21b957927c68ed5e7466f82bc1d3c3673679eb549979825c0857188144\""))
         XCTAssertTrue(script.contains("CHE_COMMIT=\"a8598378b5e280b27005ab8cd21e9b5758312423\""))
         XCTAssertTrue(script.contains("-name 'mail-mcp-darwin-*'"))
         XCTAssertTrue(script.contains("--gmail-address"))

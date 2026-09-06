@@ -3,11 +3,11 @@
   "upstreams": [
     {
       "name": "mail-mcp",
-      "repository": "https://github.com/kacperkwapisz/mail-mcp",
-      "version": "v1.1.0",
-      "commit": "3bf846d7e538cfe967842fcd09d1111d4bb30b16",
+      "repository": "https://github.com/Dimentium/mail-mcp",
+      "version": "v1.1.1",
+      "commit": "f79c87b80154c5cc3197fecf69d5d2985b7e6b74",
       "license": "MIT",
-      "role": "iCloud IMAP sidecar"
+      "role": "IMAP mail sidecar"
     },
     {
       "name": "che-ical-mcp",

@@ -2,12 +2,11 @@
 
 ## Decision
 
-The first prototype uses two pinned, unmodified sidecars behind a Swift policy
-gateway:
+MacMCP uses two pinned sidecars behind a Swift policy gateway:
 
 | Component | Pin | License | Purpose |
 | --- | --- | --- | --- |
-| `kacperkwapisz/mail-mcp` | `v1.1.0` / `3bf846d7…` | MIT | iCloud IMAP reads |
+| `Dimentium/mail-mcp` | `v1.1.1` / `f79c87b8…` | MIT | IMAP reads for iCloud Mail and Gmail |
 | `PsychQuant/che-ical-mcp` | `v1.16.1` / `a8598378…` | MIT | EventKit Calendar/Reminders reads |
 
 The machine-readable pins live in `UPSTREAMS.lock.json`. The installer verifies
@@ -16,9 +15,16 @@ pinned source commit because the published CheICalMCP binary failed strict
 signature validation on the target Mac. Current artifact hashes are recorded in
 `docs/MAC_VALIDATION.md` and `docs/DEPLOYMENT.md`.
 
-## Why no fork yet
+## Mail MCP Fork
 
-The gateway can enforce the version 1 policy without modifying either server:
+`Dimentium/mail-mcp` is a minimal fork of
+`kacperkwapisz/mail-mcp`. It changes one compatibility path: when a server
+rejects `LIST ... RETURN (SPECIAL-USE)`, it retries plain IMAP `LIST`. This
+keeps server-declared roles for Gmail while restoring folder discovery for
+iCloud Mail. The behavior has dedicated unit coverage.
+
+The gateway continues to enforce the version 1 policy independently of the
+sidecar:
 
 - it projects a static tool allowlist instead of forwarding `tools/list`;
 - it rejects unknown tools and parameters;
@@ -28,8 +34,8 @@ The gateway can enforce the version 1 policy without modifying either server:
   attachment types;
 - it validates and bounds every result before returning it to an agent.
 
-This keeps upstream updates reviewable and avoids maintaining two forks before
-we have live macOS evidence that a fork is necessary.
+The fork is limited to this incompatibility; feature and policy changes remain
+in MacMCP unless they cannot be enforced before an upstream call.
 
 ## Known gaps accepted for the prototype
 
@@ -56,9 +62,11 @@ we have live macOS evidence that a fork is necessary.
   launchd child. The local deployment therefore needs a GUI/menu-bar responsible
   process; re-granting after replacing a binary is acceptable.
 
-## Fork triggers
+## Future Fork Criteria
 
-Fork an upstream only when at least one of these becomes true:
+The iCloud `LIST` incompatibility is the one current reason for the mail-mcp
+fork. Additional sidecar changes belong in a fork only when at least one of
+these becomes true:
 
 - the gateway cannot prevent a mutation before the call reaches the sidecar;
 - a sidecar performs an unwanted write during startup or a read operation;

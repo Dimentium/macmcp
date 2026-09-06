@@ -1,9 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-MAIL_VERSION="v1.1.0"
-MAIL_ARM64_SHA256="f4f44a4073ee099a1eb9e92ec805958276f69c449405fa12b48757c6af229dff"
-MAIL_AMD64_SHA256="7c9e4a357bc942b1653cb40df0148f86d48edb28df1b6a9f7467ff4e96c35029"
+MAIL_REPO="https://github.com/Dimentium/mail-mcp"
+MAIL_VERSION="v1.1.1"
+MAIL_ARM64_SHA256="f9d7bc21b957927c68ed5e7466f82bc1d3c3673679eb549979825c0857188144"
+MAIL_AMD64_SHA256="4e1c9edf0e49bb0af720b2ea2d6ae39a6f1cbc76d6e470a4c413611f8dd81a25"
 CHE_REPO="https://github.com/PsychQuant/che-ical-mcp.git"
 CHE_COMMIT="a8598378b5e280b27005ab8cd21e9b5758312423"
 
@@ -456,7 +457,7 @@ mkdir -p "$stage_libexec_dir" "$stage_share_dir" "$stage_cli_dir"
 
 echo "Downloading pinned mail-mcp $MAIL_VERSION for $(uname -m)"
 curl -fL \
-  "https://github.com/kacperkwapisz/mail-mcp/releases/download/$MAIL_VERSION/$mail_asset" \
+  "$MAIL_REPO/releases/download/$MAIL_VERSION/$mail_asset" \
   -o "$mail_archive"
 actual_mail_sha256="$(shasum -a 256 "$mail_archive" | awk '{print $1}')"
 if [[ "$actual_mail_sha256" != "$mail_sha256" ]]; then

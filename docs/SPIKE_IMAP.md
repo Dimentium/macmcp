@@ -5,10 +5,11 @@ independent no-mutation snapshots are complete in one stdio bridge runtime.
 Idle recovery, stale-handle, revoked-secret, and controlled temporary-mailbox
 checks remain open.
 
-## Upstream examined
+## Sidecar source
 
-- Repository: `https://github.com/kacperkwapisz/mail-mcp`
-- Commit: `3bf846d7e538cfe967842fcd09d1111d4bb30b16`
+- MacMCP fork: `https://github.com/Dimentium/mail-mcp`
+- Release: `v1.1.1` / `f79c87b80154c5cc3197fecf69d5d2985b7e6b74`
+- Original upstream: `https://github.com/kacperkwapisz/mail-mcp`
 - License: MIT
 - Implementation: Go 1.25.4, `emersion/go-imap` v2
 - Transport: MCP over stdio or authenticated Streamable HTTP
@@ -38,9 +39,9 @@ checks remain open.
   avoid SMTP entirely and the gateway must deny `verify_account`, because that
   tool verifies both IMAP and SMTP.
 - iCloud accepts plain `LIST "" "*"` but rejects `LIST "" "*" RETURN
-  (SPECIAL-USE)` with `BAD`. mail-mcp v1.1.0 always requests `ReturnSpecialUse`,
-  so its `list_folders` is not usable with this account. The v1 monitor uses the
-  explicit `INBOX` mailbox while this upstream incompatibility remains.
+  (SPECIAL-USE)` with `BAD`. The pinned `mail-mcp v1.1.1` first requests
+  `ReturnSpecialUse` and retries plain `LIST` when that extension is rejected.
+  This preserves Gmail role metadata and makes iCloud `list_folders` usable.
 
 ## Reader projection
 
