@@ -48,6 +48,7 @@ enum CommandLineInterface {
       mac-agent-bridge --delete-chatgpt-tunnel-key
       mac-agent-bridge --stdio-proxy SOCKET_PATH
       mac-agent-bridge --status-json
+      mac-agent-bridge --diagnose-json
       mac-agent-bridge --client-approvals-json
       mac-agent-bridge --approve-pending-client
       mac-agent-bridge --revoke-client FINGERPRINT
@@ -61,7 +62,9 @@ enum CommandLineInterface {
     account flags to configure multiple mailboxes. Passwords are read without
     echo and stored in macOS Keychain by account address. Never put a password
     in command-line arguments or environment variables. --status-json queries
-    the running MacMCP menu-bar app over local IPC.
+    the running MacMCP menu-bar app over local IPC. --diagnose-json prints a
+    sanitized local runtime report and does not expose account identifiers,
+    client names, file paths, or secrets.
     """
 
     static func launchConfiguration(arguments: [String]) throws -> BridgeLaunchConfiguration {

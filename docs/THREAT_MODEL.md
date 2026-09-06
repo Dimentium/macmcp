@@ -23,11 +23,13 @@ prompt injections, crafted MIME messages, and accidental model behaviour.
 
 ### Trusted control plane
 
-- signed `mac-agent-bridge` code and configuration;
+- locally installed MacMCP code and configuration; Developer ID signing and
+  notarization are pending;
 - static reader policy shipped with the bridge;
 - local per-client approval grants for MCP reader-data access;
 - macOS Keychain and TCC decisions made by the user;
-- pinned, checksum-verified sidecar binaries.
+- pinned `mail-mcp` release archive with a verified checksum, and CheICalMCP
+  source pinned to a reviewed commit.
 
 ### Constrained services
 
@@ -73,12 +75,12 @@ prompt injections, crafted MIME messages, and accidental model behaviour.
 | Mail mutation | Model calls STORE/MOVE/EXPUNGE | No write tools; `EXAMINE`; command allowlist; integration tests compare mailbox flags before/after |
 | Local file access | Crafted attachment path targets `~/.ssh` | Fixed private attachment directory; no path parameters; canonical path and regular-file checks; immediate cleanup; monitor has no generic filesystem tool |
 | Excessive data exposure | Huge thread or HTML exfiltrates context | Byte and message-count limits; plain-text conversion; quote truncation; no remote resource loading |
-| Sidecar compromise | Dependency update adds hidden behaviour | Pin commit/version and checksum; minimal environment; review upgrades; gateway validates all responses |
+| Sidecar compromise | Dependency update adds hidden behaviour | Pin version/commit; verify the mail release checksum; use a minimal environment; review upgrades; gateway validates all responses |
 | Unexpected local MCP client | Another local process connects to the app socket | User-local socket permissions, peer UID/PID identity, persistent per-client approval before reader-data calls |
 | Replay/duplicate alerts | Reconnect processes the same UID | Persist account/mailbox UIDVALIDITY and last handled UID; idempotent notification keys |
 | Stale checkpoint | UIDVALIDITY changes | Invalidate cursor safely, bounded rescan, never infer deletion or issue mutations |
 | Confused deputy | Reader asks actions process to change data | No reader-to-actions transport; separate launch configuration and endpoint |
-| Approval replay | Old approval reused for different email | Short-lived single-use token bound to tool name and canonical argument hash |
+| Approval replay | Replaced local executable attempts to reuse approval | Approval is bound to peer UID, executable path, and executable hash; upgrades collapse obsolete grants for the same executable path |
 
 ## Important limitations
 
@@ -90,8 +92,9 @@ prompt injections, crafted MIME messages, and accidental model behaviour.
   not replace the gateway's capability policy.
 - Datamarking reduces prompt-injection success but is not a security boundary.
   The absence of dangerous tools is the boundary.
-- A model can still misclassify urgency. Notifications must explain the reason,
-  show confidence, and avoid taking automatic action.
+- A model can still misclassify urgency. Notifications use fixed privacy-safe
+  copy and avoid taking automatic action; they do not show message content,
+  reason codes, or confidence.
 
 ## Reader process capability budget
 
@@ -125,4 +128,5 @@ Forbidden:
 - Calendar and Reminders fixtures are byte-for-byte/logically unchanged after
   reader integration tests.
 - Logs are scanned for credentials and fixture body fragments.
-- Sidecar checksum mismatch prevents startup.
+- A mail sidecar checksum mismatch prevents startup. CheICalMCP is pinned by
+  source commit but does not yet have a release-artifact checksum gate.

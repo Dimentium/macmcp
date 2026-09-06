@@ -13,6 +13,7 @@ Commands:
   setup       Install MacMCP and configure a first local runtime.
   upgrade     Install the current version and retain existing configuration.
   uninstall   Remove the local MacMCP runtime and configuration.
+  diagnose    Print a sanitized local runtime report.
   help        Show this help.
 
 Options after setup or upgrade are passed to the MacMCP installer.
@@ -47,6 +48,14 @@ case "$command_name" in
     ;;
   uninstall)
     exec "$source_root/scripts/uninstall-local.sh" "$@"
+    ;;
+  diagnose)
+    runtime_cli="${MACMCP_RUNTIME_CLI:-$HOME/.local/bin/mac-agent-bridge}"
+    [[ -x "$runtime_cli" ]] || {
+      echo "MacMCP runtime is not installed at $runtime_cli" >&2
+      exit 1
+    }
+    exec "$runtime_cli" --diagnose-json
     ;;
   help|--help|-h)
     usage

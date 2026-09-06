@@ -36,6 +36,7 @@ struct BridgeLaunchConfiguration: Equatable, Sendable {
     }
 
     var hasSidecars: Bool { mailSidecarURL != nil || eventKitSidecarURL != nil }
+    var requiresAppOwnedRuntime: Bool { hasSidecars && !menuBar }
     var iCloudAddress: String? {
         mailAccounts.first { $0.id == "icloud" }?.username
     }
@@ -89,6 +90,7 @@ final class BridgeRuntime {
     let policy: ReaderPolicy
     let statusSource: BridgeStatusSource
     let attachmentReader: AttachmentTextReader?
+    private var mailSidecarConfiguration: MaterializedMailConfiguration?
     private var mailHealthTask: Task<Void, Never>?
     private var eventKitHealthTask: Task<Void, Never>?
     private var recurringHealthTask: Task<Void, Never>?
@@ -98,13 +100,21 @@ final class BridgeRuntime {
         router: GatewayRouter,
         policy: ReaderPolicy,
         statusSource: BridgeStatusSource,
-        attachmentReader: AttachmentTextReader?
+        attachmentReader: AttachmentTextReader?,
+        mailSidecarConfiguration: MaterializedMailConfiguration?
     ) {
         self.supervisor = supervisor
         self.router = router
         self.policy = policy
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
+        self.mailSidecarConfiguration = mailSidecarConfiguration
+    }
+
+    deinit {
+        // A caller that abandons a partially started runtime must not leave a
+        // Keychain-derived mail configuration on disk.
+        mailSidecarConfiguration?.remove()
     }
 
     static func start(
@@ -119,11 +129,13 @@ final class BridgeRuntime {
             )
         )
         let statusObserver = SidecarStatusObserver(statusSource: statusSource)
+        let runtimeObserver = SidecarRuntimeObserver(statusObserver: statusObserver)
         let supervisor = SidecarSupervisor { event in
-            Task { await statusObserver.handle(event) }
+            Task { await runtimeObserver.handle(event) }
         }
         let router = GatewayRouter()
         let policy = ReaderPolicy()
+        await runtimeObserver.bind(supervisor: supervisor, router: router, policy: policy)
         try Task.checkCancellation()
         try await startup?.bind(supervisor: supervisor, router: router)
 
@@ -136,6 +148,7 @@ final class BridgeRuntime {
             attachmentStorage = nil
         }
 
+        var materializedMailConfiguration: MaterializedMailConfiguration?
         do {
             try Task.checkCancellation()
             try await startup?.checkRunning()
@@ -160,7 +173,7 @@ final class BridgeRuntime {
                     accounts: accountSecrets,
                     attachmentDirectory: attachmentStorage?.directoryURL
                 )
-                defer { privateConfig.remove() }
+                materializedMailConfiguration = privateConfig
 
                 let io = try await supervisor.start(
                     SidecarSpec(
@@ -171,9 +184,9 @@ final class BridgeRuntime {
                             "--config", privateConfig.fileURL.path,
                             "--log-level", "warn"
                         ],
-                        // A restart needs a freshly materialized Keychain secret and
-                        // a new MCP client. Until that orchestration exists, fail
-                        // closed instead of leaving a secret file on disk.
+                        // The private config remains available only while this
+                        // runtime owns the sidecar, so a supervised restart can
+                        // reconnect without re-reading Keychain secrets.
                         restartPolicy: .onUnexpectedExit(maxAttempts: 3, initialDelayMilliseconds: 500)
                     )
                 )
@@ -202,6 +215,7 @@ final class BridgeRuntime {
                 )
             }
         } catch {
+            materializedMailConfiguration?.remove()
             attachmentStorage?.clear()
             await router.detach(sidecarID: ReaderPolicy.mailSidecarID)
             await router.detach(sidecarID: ReaderPolicy.eventKitSidecarID)
@@ -216,7 +230,8 @@ final class BridgeRuntime {
             statusSource: statusSource,
             attachmentReader: attachmentStorage.map {
                 AttachmentTextReader(router: router, policy: policy, storage: $0)
-            }
+            },
+            mailSidecarConfiguration: materializedMailConfiguration
         )
         runtime.startHealthChecks(
             mailConfigured: configuration.mailSidecarURL != nil,
@@ -258,6 +273,28 @@ final class BridgeRuntime {
         await eventKitHealthTask?.value
     }
 
+    func makeMailMonitor(
+        accountIDs: [String],
+        notifications: any AttentionNotificationPosting,
+        stateStore: MonitorStateStore? = nil
+    ) throws -> MailMonitor {
+        let resolvedStateStore: MonitorStateStore
+        if let stateStore {
+            resolvedStateStore = stateStore
+        } else {
+            resolvedStateStore = try MonitorStateStore(
+                fileURL: MonitorStateStore.defaultFileURL()
+            )
+        }
+        let scanner = MailScanner(
+            router: router,
+            policy: policy,
+            state: resolvedStateStore,
+            notifications: notifications
+        )
+        return MailMonitor(scanner: scanner, accountIDs: accountIDs)
+    }
+
     func stop() async {
         let healthTasks = [mailHealthTask, eventKitHealthTask, recurringHealthTask]
         mailHealthTask = nil
@@ -267,6 +304,8 @@ final class BridgeRuntime {
         await router.detach(sidecarID: ReaderPolicy.mailSidecarID)
         await router.detach(sidecarID: ReaderPolicy.eventKitSidecarID)
         await supervisor.stopAll()
+        mailSidecarConfiguration?.remove()
+        mailSidecarConfiguration = nil
         attachmentReader?.storage.clear()
         for task in healthTasks {
             await task?.value

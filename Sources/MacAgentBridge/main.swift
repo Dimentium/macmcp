@@ -50,6 +50,16 @@ if CommandLine.arguments.contains("--status-json") {
     }
 }
 
+if CommandLine.arguments.contains("--diagnose-json") {
+    do {
+        print(try await MacMCPDiagnosticCollector().collect().encodedJSON())
+        exit(0)
+    } catch {
+        writeStderr("Unable to collect MacMCP diagnostics")
+        exit(1)
+    }
+}
+
 if CommandLine.arguments.contains("--client-approvals-json") {
     do {
         let snapshot = try await ClientApprovalStore().snapshot()
@@ -204,6 +214,10 @@ if let index = userArguments.firstIndex(where: { deletePasswordOptions.contains(
 
 do {
     let configuration = try CommandLineInterface.launchConfiguration(arguments: userArguments)
+    if configuration.requiresAppOwnedRuntime {
+        writeStderr("Reader sidecars must be started by the MacMCP menu-bar app")
+        exit(2)
+    }
     if configuration.menuBar {
         await MenuBarHost.run(configuration: configuration)
         exit(0)

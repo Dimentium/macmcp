@@ -298,7 +298,7 @@ final class ChatGPTTunnelSupervisor {
         }
     }
 
-    nonisolated private static func defaultHealthProbe(clientPath: String) async -> Bool {
+    nonisolated static func defaultHealthProbe(clientPath: String) async -> Bool {
         await withCheckedContinuation { continuation in
             let process = Process()
             let completion = HealthProcessCompletion()

@@ -32,6 +32,8 @@ enum ReaderOutputSchema {
             "mail": componentState,
             "calendar": componentState,
             "reminders": componentState,
+            "mailRestartCount": .object(["type": .string("integer"), "minimum": .int(0)]),
+            "eventKitRestartCount": .object(["type": .string("integer"), "minimum": .int(0)]),
             "writeCapabilitiesEnabled": .object(["type": .string("boolean")])
         ]),
         "required": .array([
@@ -40,6 +42,8 @@ enum ReaderOutputSchema {
             .string("mail"),
             .string("calendar"),
             .string("reminders"),
+            .string("mailRestartCount"),
+            .string("eventKitRestartCount"),
             .string("writeCapabilitiesEnabled")
         ]),
         "additionalProperties": .bool(false)

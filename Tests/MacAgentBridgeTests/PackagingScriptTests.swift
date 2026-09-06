@@ -95,6 +95,22 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("scripts/install-local.sh --gmail-address you@gmail.com"))
     }
 
+    func testDeploymentAcceptanceScriptIsIsolated() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/verify-local-deployment.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
+        XCTAssertTrue(script.contains("test_home=\"$test_root/home\""))
+        XCTAssertTrue(script.contains("--no-open"))
+        XCTAssertTrue(script.contains("--skip-password"))
+        XCTAssertTrue(script.contains("--reuse-existing-configuration"))
+        XCTAssertTrue(script.contains("--diagnose-json"))
+        XCTAssertTrue(script.contains("uninstall-local.sh"))
+    }
+
     func testLocalUninstallScriptPreservesKeychainByDefault() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let script = try String(

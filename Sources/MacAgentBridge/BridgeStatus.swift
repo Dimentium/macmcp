@@ -17,6 +17,8 @@ struct BridgeStatus: Codable, Equatable {
     let mail: ComponentState
     let calendar: ComponentState
     let reminders: ComponentState
+    let mailRestartCount: Int
+    let eventKitRestartCount: Int
     let writeCapabilitiesEnabled: Bool
 
     static let initial = BridgeStatus(
@@ -25,6 +27,8 @@ struct BridgeStatus: Codable, Equatable {
         mail: .notConfigured,
         calendar: .notConfigured,
         reminders: .notConfigured,
+        mailRestartCount: 0,
+        eventKitRestartCount: 0,
         writeCapabilitiesEnabled: false
     )
 
@@ -35,6 +39,8 @@ struct BridgeStatus: Codable, Equatable {
             mail: mail ? .connectedUnverified : .notConfigured,
             calendar: eventKit ? .connectedUnverified : .notConfigured,
             reminders: eventKit ? .connectedUnverified : .notConfigured,
+            mailRestartCount: 0,
+            eventKitRestartCount: 0,
             writeCapabilitiesEnabled: false
         )
     }
@@ -64,6 +70,8 @@ actor BridgeStatusSource {
             mail: status.mail,
             calendar: state,
             reminders: status.reminders,
+            mailRestartCount: status.mailRestartCount,
+            eventKitRestartCount: status.eventKitRestartCount,
             writeCapabilitiesEnabled: status.writeCapabilitiesEnabled
         )
     }
@@ -75,6 +83,8 @@ actor BridgeStatusSource {
             mail: state,
             calendar: status.calendar,
             reminders: status.reminders,
+            mailRestartCount: status.mailRestartCount,
+            eventKitRestartCount: status.eventKitRestartCount,
             writeCapabilitiesEnabled: status.writeCapabilitiesEnabled
         )
     }
@@ -86,6 +96,34 @@ actor BridgeStatusSource {
             mail: status.mail,
             calendar: status.calendar,
             reminders: state,
+            mailRestartCount: status.mailRestartCount,
+            eventKitRestartCount: status.eventKitRestartCount,
+            writeCapabilitiesEnabled: status.writeCapabilitiesEnabled
+        )
+    }
+
+    func updateMailRestartCount(_ count: Int) {
+        status = BridgeStatus(
+            version: status.version,
+            mode: status.mode,
+            mail: status.mail,
+            calendar: status.calendar,
+            reminders: status.reminders,
+            mailRestartCount: max(0, count),
+            eventKitRestartCount: status.eventKitRestartCount,
+            writeCapabilitiesEnabled: status.writeCapabilitiesEnabled
+        )
+    }
+
+    func updateEventKitRestartCount(_ count: Int) {
+        status = BridgeStatus(
+            version: status.version,
+            mode: status.mode,
+            mail: status.mail,
+            calendar: status.calendar,
+            reminders: status.reminders,
+            mailRestartCount: status.mailRestartCount,
+            eventKitRestartCount: max(0, count),
             writeCapabilitiesEnabled: status.writeCapabilitiesEnabled
         )
     }

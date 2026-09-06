@@ -10,9 +10,20 @@ struct SidecarStatusObserver: Sendable {
         case .stopped(let id, _), .failed(let id, _):
             sidecarID = id
             componentState = .unavailable
-        case .started(let id, _), .restarting(let id, _):
+        case .started(let id, _):
             sidecarID = id
             componentState = .connectedUnverified
+        case .restarting(let id, let attempt):
+            sidecarID = id
+            componentState = .connectedUnverified
+            switch id {
+            case ReaderPolicy.mailSidecarID:
+                await statusSource.updateMailRestartCount(attempt)
+            case ReaderPolicy.eventKitSidecarID:
+                await statusSource.updateEventKitRestartCount(attempt)
+            default:
+                return
+            }
         case .stderr:
             return
         }

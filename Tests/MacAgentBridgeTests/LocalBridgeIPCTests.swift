@@ -119,6 +119,8 @@ final class LocalBridgeIPCTests: XCTestCase {
             mail: .ready,
             calendar: .unavailable,
             reminders: .connectedUnverified,
+            mailRestartCount: 2,
+            eventKitRestartCount: 1,
             writeCapabilitiesEnabled: false
         )
         let server = LocalBridgeIPCServer(

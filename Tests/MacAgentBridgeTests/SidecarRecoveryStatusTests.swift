@@ -13,6 +13,8 @@ final class SidecarRecoveryStatusTests: XCTestCase {
 
         let snapshot = await status.snapshot()
         XCTAssertEqual(snapshot.mail, .connectedUnverified)
+        XCTAssertEqual(snapshot.mailRestartCount, 1)
+        XCTAssertEqual(snapshot.eventKitRestartCount, 0)
         XCTAssertEqual(snapshot.calendar, .ready)
         XCTAssertEqual(snapshot.reminders, .ready)
     }
@@ -28,6 +30,8 @@ final class SidecarRecoveryStatusTests: XCTestCase {
 
         let snapshot = await status.snapshot()
         XCTAssertEqual(snapshot.mail, .ready)
+        XCTAssertEqual(snapshot.mailRestartCount, 0)
+        XCTAssertEqual(snapshot.eventKitRestartCount, 1)
         XCTAssertEqual(snapshot.calendar, .connectedUnverified)
         XCTAssertEqual(snapshot.reminders, .connectedUnverified)
     }

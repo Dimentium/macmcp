@@ -21,3 +21,5 @@ jobs:
         run: swift build --configuration debug
       - name: Test
         run: swift test
+      - name: Local deployment acceptance
+        run: scripts/verify-local-deployment.sh

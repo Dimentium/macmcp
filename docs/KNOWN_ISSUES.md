@@ -1,177 +1,101 @@
 # Known Issues
 
-This is the engineering issue register for MacMCP. It records confirmed
-implementation and delivery gaps found during the consistency audit on
-2026-09-05. It does not contain account addresses, credentials, or personal
-data.
-
-The project is a usable local reader MVP. It is not yet a production-grade
-deployment package until the high-priority items below are resolved.
+This is the current engineering issue register for MacMCP. It records remaining
+delivery and reliability gaps without account addresses, credentials, or
+personal data.
 
 ## High Priority
 
-### 1. Direct CLI mode bypasses app-owned client approval
+### 1. Stable signing and notarization are not available yet
 
-The installed executable still accepts `--mail-sidecar` and
-`--eventkit-sidecar` and starts a full bridge directly. That path does not pass
-through the menu-bar app's local IPC server or `ClientApprovalStore`.
+The source formula builds locally and the installer stages artifacts before
+activation, but it uses ad-hoc signing. Replacing the app can therefore change
+the identity seen by Keychain, TCC, and Login Item services.
 
-- Evidence: `Sources/MacAgentBridge/main.swift` starts `BridgeRuntime` directly
-  when sidecar arguments are supplied.
-- Impact: the documented per-client approval boundary applies only to the proxy
-  path, not to every production data-serving path.
-- Resolution: make the app-owned IPC/proxy path the only production reader
-  entry point. Keep raw sidecar execution in a separate developer-only target,
-  or remove it once development tooling no longer needs it.
+- Impact: an upgrade can require Keychain, Calendar, Reminders, Login Item, or
+  client approvals to be granted again.
+- Resolution: establish Developer ID signing, notarization, and a Cask release
+  path. Run the live acceptance checklist on the first signed release.
 
-### 2. Sidecar recovery is still manual
+### 2. Tunnel diagnostics have no persistent failure history
 
-Runtime status is now verified with bounded initial and recurring probes, and
-sidecar termination marks the affected reader unavailable. The sidecars still
-use `restartPolicy: .never`; a failed Mail or EventKit process remains down
-until the app is restarted.
+`macmcp diagnose` reports tunnel configuration and current control-plane health
+without secrets. The tunnel supervisor still discards phase-specific failures
+after the process or app restarts.
 
-- Evidence: `Sources/MacAgentBridge/BridgeRuntime.swift`,
-  `MailHealthProber.swift`, and `SidecarStatusObserver.swift`.
-- Impact: the menu and `bridge_status` report failure accurately, but an
-  unattended transient sidecar failure interrupts service until manual recovery.
-- Resolution: add controlled sidecar restart with backoff. Mail recovery must
-  rematerialize a new private configuration from Keychain before restart.
-
-### 3. Ad-hoc signing causes recurring permissions
-
-The installer now stages and validates artifacts before stopping the active
-runtime, then has an ordinary-error rollback path during activation. It still
-uses ad-hoc signing. Each replacement can change the identity seen by Keychain,
-TCC, and Login Item services.
-
-- Evidence: `scripts/install-local.sh` stages before activation;
-  `scripts/build-local-app.sh` uses `codesign --sign -`.
-- Impact: users can repeatedly need Keychain, Calendar, Reminders, Login Item,
-  and local client approvals after an upgrade. A forced kill or power loss in
-  the multi-file activation window also cannot be rolled back automatically.
-- Resolution: distribute with a stable Developer ID signing identity and
-  notarization. Add an activation journal and startup recovery if interruption
-  resilience becomes necessary before that release channel exists.
-
-### 4. Tunnel failure diagnostics are incomplete
-
-The tunnel supervisor now serializes lifecycle changes, waits for a bounded
-termination grace period, and bounds health probes. It only keeps transient
-status text, so the reason for a failed tunnel start or control-plane check is
-lost after a restart.
-
-- Evidence: `Sources/MacAgentBridge/ChatGPTTunnelSupervisor.swift`.
-- Impact: duplicate-process and stuck-probe failure modes are addressed, but
-  intermittent remote failures remain harder to diagnose after the fact.
-- Resolution: persist a bounded, redacted diagnostic history for failed
-  init, health, and run phases, and expose it through the menu and
-  `bridge_status`.
+- Impact: an intermittent init, doctor, health, or run failure can still need a
+  manual reproduction to explain.
+- Resolution: retain a bounded, redacted history with timestamps and phase
+  names; expose a summary in the menu and diagnose output.
 
 ## Medium Priority
 
-### 5. Dependency resolution is not fully reproducible
+### 3. CheICalMCP transitive dependencies are resolved on the target Mac
 
-`mail-mcp` is downloaded with a pinned checksum. CheICalMCP is pinned to a git
-commit, but its SwiftPM dependency graph is resolved on the target Mac.
-`Package.resolved` is ignored, and `UPSTREAMS.lock.json` is not consumed by
-SwiftPM or the installer.
+`mail-mcp` is downloaded as a pinned, checksum-verified release archive.
+CheICalMCP is pinned to a source commit, but its SwiftPM dependency graph is
+resolved during setup.
 
-- Evidence: `scripts/install-local.sh`, `.gitignore`, and
-  `UPSTREAMS.lock.json`.
-- Impact: a clean installation can build a different transitive dependency set
-  from the one validated locally.
-- Resolution: commit and enforce resolution files for both bridge and pinned
-  sidecar builds, or distribute verified release artifacts for every dependency
-  boundary.
+- Impact: a fresh Mac can build a different transitive dependency set from the
+  one validated in CI.
+- Resolution: enforce the sidecar resolution file or distribute a verified,
+  signed CheICalMCP artifact with the app.
 
-### 6. Reader transport needs resource and TLS hardening
+### 4. Reader transport needs resource and TLS hardening
 
-Custom IMAP configuration permits `plain` authentication despite the security
-model describing TLS connections. The local IPC server has no maximum buffered
-JSON-line frame and no connection or request limits.
+Custom IMAP configuration still permits `plain` authentication. The local IPC
+server also needs explicit limits for buffered frames, active clients, request
+duration, and queued work.
 
-- Evidence: `Sources/MacAgentBridge/MailSidecarConfiguration.swift` and
-  `Sources/MacAgentBridge/LocalBridgeIPC.swift`.
-- Impact: accidental plaintext credential transport for custom providers and
-  same-user resource exhaustion against the IPC host.
-- Resolution: reject plaintext by default behind an explicit, separately
-  reviewed unsafe override; cap frame size, active clients, request duration,
-  and queued work.
+- Impact: a custom-provider misconfiguration can lower transport security, and
+  a same-user process can consume unbounded local IPC resources.
+- Resolution: make plaintext an explicit unsafe override and add bounded IPC
+  resource controls.
 
-### 7. App bundle ownership is unclear for the EventKit sidecar
+### 5. EventKit sidecar has two installed copies
 
-The app bundle contains `CheICalMCP`, but generated launch configuration points
-to a second copy in `~/.local/opt/mac-agent-bridge/libexec`.
+The app bundle embeds CheICalMCP while launch configuration points to the copy
+in `libexec`.
 
-- Evidence: `scripts/build-local-app.sh` embeds the sidecar while
-  `scripts/install-local.sh` writes the libexec path into `launch.json`.
-- Impact: duplicated artifacts complicate signing, update correctness, and the
-  claim that the app is the runtime owner.
-- Resolution: choose one authoritative location. Prefer a self-contained app
-  bundle for app-owned sidecars, or stop embedding unused binaries.
+- Impact: duplicated artifacts complicate signing and release ownership.
+- Resolution: choose one signed, authoritative sidecar location as part of the
+  Cask packaging work.
 
-## Product and Documentation Consistency
+## Documentation Consistency
 
-### 8. The documented V1 scope includes features not wired into the runtime
+### 6. Threat model needs an implementation pass
 
-`docs/SCOPE.md` describes classification and deduplicated notifications as V1.
-`docs/PLAN.md` correctly lists notifications and end-to-end acceptance as future
-work. `MailScanner` exists but has no runtime scheduler or macOS notification
-implementation, and its default account is only `icloud`.
+The threat model still describes a token-based approval model; the product uses
+persistent executable-hash approvals. It also overstates sidecar artifact
+verification.
 
-- Impact: the product boundary is ambiguous, especially for multi-account
-  monitoring.
-- Resolution: treat interactive reader MCP as the shipped MVP, mark monitor and
-  notifications as planned, and define multi-account monitor scheduling before
-  wiring it in.
+- Resolution: update the threat model before presenting it as a security
+  guarantee, and distinguish pinned source from checksum-verified artifacts.
 
-### 9. Threat model contains obsolete claims
+### 7. Technical and product names remain intentionally split
 
-The threat model says approval replay is prevented by a short-lived, single-use
-token bound to operation arguments. The implementation uses persistent
-executable-hash approvals instead. It also calls all sidecars checksum-verified,
-which is not true for the CheICalMCP transitive dependency graph.
+The visible product is MacMCP, while existing bundle and protocol identifiers
+retain `mac-agent-bridge` for migration compatibility.
 
-- Evidence: `docs/THREAT_MODEL.md`, `ClientApprovalStore`, and the installer.
-- Resolution: revise claims to match actual controls before presenting the
-  document as a security model; add the missing controls only if they remain
-  intended requirements.
+- Resolution: complete the Developer ID migration before changing bundle and
+  TCC-facing identifiers. [docs/NAMING.md](NAMING.md) is the canonical mapping.
 
-### 10. Branding has three competing names
+## Verification Still Needed
 
-The visible menu says `MacMCP`, while the app bundle is `Mac Agent Bridge`, the
-server identity is `mac-agent-bridge`, and privacy prompts retain the older
-name.
+- Live acceptance of the first signed build: iCloud and Gmail reads and folder
+  listing, Calendar, Reminders, approvals, tunnel reconnect, and upgrade.
+- Opt-in mail notifications on a real account: baseline, one classified new
+  message, a fixed-text notification, sidecar restart recovery, and no data
+  mutation.
+- A real remote ChatGPT tunnel call after login/reconnect.
 
-- Evidence: `Packaging/Info.plist`, `Sources/MacAgentBridge/Info.plist`, and
-  `Sources/MacAgentBridge/AppVersion.swift`.
-- Impact: permission dialogs and MCP discovery are less clear than the menu.
-- Resolution: explicitly separate a stable technical server identifier from the
-  user-facing product name, then apply the product name consistently to the app
-  bundle and TCC wording.
+## Resolved Since The 2026-09-05 Audit
 
-## Verification Gaps
-
-### 11. The automated suite does not exercise a clean install or upgrade
-
-The Swift suite currently passes 115 tests, but packaging tests inspect script
-text rather than running a staged install under an isolated `HOME`. It does not
-exercise an interrupted upgrade, custom config paths, TCC/Keychain behavior,
-sidecar crash recovery, tunnel restart races, a real attachment download, or an
-actual remote ChatGPT call.
-
-- Evidence: `Tests/MacAgentBridgeTests/PackagingScriptTests.swift`.
-- Resolution: add hermetic installer tests with fake sidecars/tools and a
-  dedicated manual release checklist for macOS permissions and remote ChatGPT.
-
-## Recommended Order
-
-1. Remove the direct production bridge path and make approval enforcement
-   complete.
-2. Implement controlled sidecar recovery after the truthful health checks.
-3. Establish stable signing before wider deploy and add an actual installer test.
-4. Consolidate tunnel ownership and add persistent diagnostics.
-5. Make dependencies reproducible and unify sidecar ownership.
-6. Reconcile scope, threat model, branding, and verification gates with the
-   actual shipped MVP.
+- Reader sidecars cannot start through the direct production CLI path; data
+  clients use the app-owned IPC/proxy path and per-client approval.
+- Sidecars restart with bounded backoff, retain the private mail config for the
+  runtime lifetime, reconnect the router, and surface restart counts.
+- Notifications are an opt-in menu feature, disabled by default. They baseline
+  every configured INBOX, use reader-only calls, and show fixed copy only.
+- macOS CI runs an isolated temporary-HOME acceptance through setup, upgrade,
+  diagnose, and uninstall.

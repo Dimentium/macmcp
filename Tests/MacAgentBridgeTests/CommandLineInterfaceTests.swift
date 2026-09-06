@@ -18,6 +18,7 @@ final class CommandLineInterfaceTests: XCTestCase {
         XCTAssertEqual(configuration.iCloudAddress, "reader@icloud.com")
         XCTAssertEqual(configuration.mailAccounts.map(\.id), ["icloud"])
         XCTAssertFalse(configuration.menuBar)
+        XCTAssertTrue(configuration.requiresAppOwnedRuntime)
     }
 
     func testParsesGmailPresetWithoutSecrets() throws {
@@ -36,6 +37,7 @@ final class CommandLineInterfaceTests: XCTestCase {
 
     func testHelpDocumentsStdioProxy() {
         XCTAssertTrue(CommandLineInterface.help.contains("--stdio-proxy SOCKET_PATH"))
+        XCTAssertTrue(CommandLineInterface.help.contains("--diagnose-json"))
         XCTAssertTrue(CommandLineInterface.help.contains("--client-approvals-json"))
         XCTAssertTrue(CommandLineInterface.help.contains("--approve-pending-client"))
         XCTAssertTrue(CommandLineInterface.help.contains("--revoke-client FINGERPRINT"))
@@ -73,6 +75,7 @@ final class CommandLineInterfaceTests: XCTestCase {
     func testParsesMenuBarFlag() throws {
         let configuration = try CommandLineInterface.launchConfiguration(arguments: ["--menu-bar"])
         XCTAssertTrue(configuration.menuBar)
+        XCTAssertFalse(configuration.requiresAppOwnedRuntime)
     }
 
     func testAppBundleDefaultsToMenuBarAndEmbeddedEventKitSidecar() throws {

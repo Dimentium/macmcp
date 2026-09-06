@@ -55,6 +55,14 @@ actor MonitorStateStore {
         }
     }
 
+    static func defaultFileURL() -> URL {
+        LocalUserPaths.homeDirectoryURL()
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("mac-agent-bridge", isDirectory: true)
+            .appendingPathComponent("mail-monitor-state.json")
+    }
+
     func observe(
         opaqueMessageID: String,
         decision: AttentionDecision

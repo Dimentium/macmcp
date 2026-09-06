@@ -68,17 +68,19 @@ final class MenuBarHostTests: XCTestCase {
 
         let quitItem = menu.items.last
         XCTAssertTrue(menu.delegate === host)
-        XCTAssertEqual(menu.items.prefix(5).map(\.isEnabled), [false, false, false, false, false])
+        XCTAssertEqual(menu.items.prefix(4).map(\.isEnabled), [false, false, false, false])
         XCTAssertEqual(menu.items[0], statusItems.overall)
         XCTAssertEqual(menu.items[1], statusItems.mail)
         XCTAssertEqual(menu.items[2], statusItems.calendar)
         XCTAssertEqual(menu.items[3], statusItems.reminders)
-        XCTAssertEqual(menu.items[4], statusItems.loginItem)
-        XCTAssertEqual(menu.items[5], statusItems.tunnel)
-        XCTAssertEqual(menu.items[6], statusItems.clients)
-        XCTAssertTrue(menu.items[5].isEnabled)
-        XCTAssertNotNil(menu.items[5].submenu)
+        XCTAssertEqual(menu.items[4], statusItems.notifications)
+        XCTAssertEqual(menu.items[5], statusItems.loginItem)
+        XCTAssertEqual(menu.items[6], statusItems.tunnel)
+        XCTAssertEqual(menu.items[7], statusItems.clients)
+        XCTAssertTrue(menu.items[4].isEnabled)
         XCTAssertTrue(menu.items[6].isEnabled)
+        XCTAssertNotNil(menu.items[6].submenu)
+        XCTAssertTrue(menu.items[7].isEnabled)
         XCTAssertEqual(quitItem?.title, "Quit")
         XCTAssertTrue(quitItem?.target === host)
         XCTAssertEqual(quitItem?.action, #selector(MenuBarHost.quit))
@@ -102,6 +104,8 @@ final class MenuBarHostTests: XCTestCase {
                 mail: .ready,
                 calendar: .connectedUnverified,
                 reminders: .unavailable,
+                mailRestartCount: 0,
+                eventKitRestartCount: 0,
                 writeCapabilitiesEnabled: false
             )
         )

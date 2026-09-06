@@ -6,10 +6,10 @@ documents are evidence records, not forward plans.
 ## Status
 
 MacMCP is a local MVP+ for MCP clients that can launch a local stdio server:
-the installer, menu-bar app, Keychain password storage, iCloud/Gmail presets,
-multi-account config, reader-only gateway, upgrade, uninstall, and transfer
-archive exist. The target Mac has a real local install with iCloud and Gmail
-configured. Local MCP reader-data calls now require per-client approval.
+the installer, Homebrew formula, menu-bar app, Keychain password storage,
+iCloud/Gmail presets, multi-account config, reader-only gateway, upgrade and
+uninstall exist. The target Mac has a real local install with iCloud and Gmail
+configured. Local MCP reader-data calls require per-client approval.
 
 Local stdio MCP validation has passed with iCloud and Gmail in one runtime:
 tool surface, account auth, `mail.search`, `mail.read`, and independent IMAP
@@ -17,18 +17,21 @@ no-mutation snapshots. The menu-bar app now owns the local bridge/sidecars, and
 local MCP clients attach through a stdio proxy over user-local IPC. Restart and
 app-owned `--status-json` validation have passed. The post-upgrade and final
 post-reboot gates both pass for components, Login Item persistence, local
-approval, and the two-account no-mutation reader path. The menu refreshes
-component/client approval status, and local approval grants are collapsed to the
-current executable hash during upgrade.
+approval, and the two-account no-mutation reader path. `mail-mcp` is pinned to
+the small `Dimentium/mail-mcp` compatibility fork, which restores iCloud folder
+listing while preserving Gmail SPECIAL-USE metadata. Sidecar restarts retain
+their private config, reconnect the router, and expose restart counts in bridge
+status. A CI deployment acceptance runs setup, upgrade, diagnose, and uninstall
+inside a temporary HOME without touching a real user configuration.
 
 ## Direction
 
-1. Polish local deployment.
-   Keep install/upgrade/uninstall simple, preserve Keychain passwords by
-   default, and stage/validate upgrades before switching away from a working
-   runtime. Document the one-command local install and keep the archive path
-   clean for a fresh Mac. Add a Homebrew tap/formula only after the local
-   archive flow is stable enough to justify it.
+1. Ship a signed local package.
+   Build Developer ID signing, notarization, and a Cask release path. Until
+   then the source formula is supported, but replacing an ad-hoc-signed app can
+   require macOS permissions to be granted again. Run the live acceptance gate
+   against iCloud, Gmail, EventKit, approvals, and the tunnel after the first
+   signed release.
 
 2. Validate the app-managed ChatGPT tunnel beyond the validated local Work path.
    ChatGPT Work on the desktop app is the primary client target and has now
@@ -41,10 +44,15 @@ current executable hash during upgrade.
    workspace visibility, tunnel reconnect after login, and reader-only remote
    calls. Claude Desktop support is opportunistic only.
 
-3. Finish the reader MVP workflow.
-   Add the macOS notification path and run the end-to-end acceptance test:
-   new mail, classification, notification, and no mutation of Mail, Calendar,
-   or Reminders.
+3. Accept the reader notification workflow on a real account.
+   The menu now provides an opt-in monitor. It establishes a baseline and then
+   scans every configured INBOX using the existing reader policy; notifications
+   use fixed copy only. Validate a new-mail classification, notification,
+   restart recovery, and no mutation of Mail, Calendar, or Reminders.
+
+4. Keep diagnostics actionable.
+   `macmcp diagnose` reports a sanitized state snapshot. Extend it only with
+   non-personal operational evidence when a real failure reveals a gap.
 
 ## Not In The Current Plan
 
@@ -52,8 +60,8 @@ current executable hash during upgrade.
 - Write tools or action tools in the reader profile.
 - Notes, Contacts, Messages, Apple Mail private databases, Full Disk Access, or
   generic shell/browser/filesystem access.
-- Forking upstream sidecars unless validation proves the gateway cannot enforce
-  the reader contract.
+- Broad sidecar forks. The existing `Dimentium/mail-mcp` fork is limited to the
+  iCloud `LIST SPECIAL-USE` compatibility fallback.
 
 ## Deferred: Managed Drafts and Message State
 

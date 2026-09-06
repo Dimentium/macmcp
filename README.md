@@ -32,9 +32,8 @@ macmcp setup
 
 `macmcp setup` installs the app and starts first-run configuration. It is the
 only setup command users need to run; the implementation scripts remain
-internal. After installation, use the MacMCP menu-bar item to add mail accounts
-and inspect the bridge, mail, Calendar, Reminders, client approvals, and the
-optional tunnel.
+internal. After installation, the MacMCP menu-bar item shows bridge, mail,
+Calendar, Reminders, client approvals, notifications, and the optional tunnel.
 
 macOS may ask for Keychain, Calendar, or Reminders access on first use. Grant
 only the permissions needed for the features you enable.
@@ -52,14 +51,39 @@ ChatGPT, configure the optional tunnel from the MacMCP menu.
    brew install openai/tools/tunnel-client
    ```
 
-4. In the MacMCP menu, configure the tunnel ID and runtime key, then start the
-   tunnel. The key is stored in Keychain; the tunnel ID is stored in MacMCP
-   configuration.
+4. Configure the tunnel during installation, or add it to an existing local
+   runtime:
+
+   ```bash
+   macmcp upgrade --chatgpt-tunnel-id tunnel_YOUR_ID
+   ```
+
+   This requests the runtime key once and stores it in Keychain; the tunnel ID
+   is stored in MacMCP configuration. The menu owns tunnel startup and offers
+   restart and key replacement controls.
 5. Add the resulting MacMCP connector in ChatGPT's Apps and Connectors
    settings. ChatGPT Work is the currently validated client.
 
 The tunnel is optional. Do not create or configure it when local-only MCP use
 is sufficient.
+
+## Daily Use
+
+Use the menu-bar item to inspect component health, approve local MCP clients,
+manage the optional tunnel, and enable mail notifications. Notifications are
+off by default. When enabled, MacMCP establishes a baseline, then watches the
+INBOX of every configured account without modifying messages. Notification text
+does not include email content.
+
+For a privacy-safe support snapshot, run:
+
+```bash
+macmcp diagnose
+```
+
+The report includes component states and restart counts, configuration counts,
+client-approval counts, Login Item state, and tunnel health. It excludes email
+addresses, client names, paths, tunnel IDs, and secrets.
 
 ## Updates And Removal
 
