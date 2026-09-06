@@ -12,7 +12,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Swift version
         run: swift --version
       - name: Resolve pinned packages
@@ -20,6 +20,19 @@ jobs:
       - name: Build
         run: swift build --configuration debug
       - name: Test
-        run: swift test
+        shell: bash
+        run: |
+          set -o pipefail
+          output="$RUNNER_TEMP/macmcp-swift-test.log"
+          set +e
+          swift test 2>&1 | tee "$output"
+          status="${PIPESTATUS[0]}"
+          set -e
+          if [[ "$status" -ne 0 ]]; then
+            failure="$(grep -E -m1 'Test Case .* failed|error:|fatal error:' "$output" || true)"
+            printf '::error title=MacMCP Swift test failure::%s\n' \
+              "${failure:-swift test exited with status $status}"
+            exit "$status"
+          fi
       - name: Local deployment acceptance
         run: scripts/verify-local-deployment.sh
