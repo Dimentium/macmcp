@@ -81,6 +81,23 @@ brew uninstall macmcp
 The source formula is an interim package. It will be replaced by a signed and
 notarized MacMCP cask when the release pipeline is available.
 
+## Third-Party Components
+
+MacMCP directly uses the following upstream projects:
+
+| Component | Purpose | License | Source |
+| --- | --- | --- | --- |
+| [mail-mcp](https://github.com/kacperkwapisz/mail-mcp) v1.1.0 | IMAP mail sidecar for iCloud Mail and Gmail | MIT | [upstream](https://github.com/kacperkwapisz/mail-mcp) |
+| [che-ical-mcp](https://github.com/PsychQuant/che-ical-mcp) v1.16.1 | EventKit Calendar and Reminders sidecar | MIT | [upstream](https://github.com/PsychQuant/che-ical-mcp) |
+| [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) | Local MCP server implementation | MIT | [upstream](https://github.com/modelcontextprotocol/swift-sdk) |
+| [Swift System](https://github.com/apple/swift-system) | Swift system interfaces | Apache-2.0 | [upstream](https://github.com/apple/swift-system) |
+
+The exact sidecar revisions are recorded in
+[UPSTREAMS.lock.json](UPSTREAMS.lock.json); direct and transitive Swift package
+revisions are pinned in [Package.resolved](Package.resolved). `tunnel-client`
+is an optional, separately installed OpenAI component and is not included in a
+MacMCP release.
+
 ## Security Model
 
 - Mail passwords and tunnel keys are stored in Keychain, not in the repository
