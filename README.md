@@ -21,18 +21,22 @@ mail, calendar events, or reminders.
 
 ## Installation
 
-A packaged Homebrew installation is being built. It will install MacMCP as an
-app and use the menu bar for first-run configuration; users will not need to
-clone this repository or run an installer script.
+Install the source package through Homebrew:
 
-Until that package is published, the scripts in this repository are a
-development and maintenance path only. They are deliberately not documented as
-an end-user installation method here.
+```bash
+brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
+brew install macmcp
+macmcp setup
+```
 
-After installation, use the MacMCP menu-bar item to add mail accounts and
-inspect the bridge, mail, Calendar, Reminders, client approvals, and optional
-tunnel. macOS may ask for Keychain, Calendar, or Reminders access on first use.
-Grant only the permissions needed for the features you enable.
+`macmcp setup` installs the app and starts first-run configuration. It is the
+only setup command users need to run; the implementation scripts remain
+internal. After installation, use the MacMCP menu-bar item to add mail accounts
+and inspect the bridge, mail, Calendar, Reminders, client approvals, and the
+optional tunnel.
+
+macOS may ask for Keychain, Calendar, or Reminders access on first use. Grant
+only the permissions needed for the features you enable.
 
 ## Connect ChatGPT
 
@@ -58,8 +62,23 @@ is sufficient.
 
 ## Updates And Removal
 
-The Homebrew package will provide the supported update and removal path. The
-current source scripts remain available to developers maintaining local builds.
+Update the source package and the installed runtime:
+
+```bash
+brew update
+brew upgrade macmcp
+macmcp upgrade
+```
+
+Remove MacMCP:
+
+```bash
+macmcp uninstall
+brew uninstall macmcp
+```
+
+The source formula is an interim package. It will be replaced by a signed and
+notarized MacMCP cask when the release pipeline is available.
 
 ## Security Model
 
