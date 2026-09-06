@@ -20,4 +20,4 @@ jobs:
       - name: Build
         run: swift build --configuration debug
       - name: Test
-        run: swift test --parallel
+        run: swift test
