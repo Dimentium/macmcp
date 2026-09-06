@@ -150,6 +150,14 @@ actor ClientApprovalStore {
             .appendingPathComponent("approved-clients.json")
     }
 
+    static func localMailActionFileURL() -> URL {
+        LocalUserPaths.homeDirectoryURL()
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("mac-agent-bridge", isDirectory: true)
+            .appendingPathComponent("approved-mail-action-clients.json")
+    }
+
     func authorize(_ identity: LocalClientIdentity, now: Date = Date()) throws -> ClientApprovalDecision {
         guard identity.uid == expectedUID else {
             return .rejected

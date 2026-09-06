@@ -114,7 +114,9 @@ except Exception:
 count = 0
 index = 0
 while index < len(args):
-    if args[index] in ("--icloud-address", "--gmail-address", "--mail-account"):
+    if args[index] in {"--allow-unsafe-plain-imap", "--enable-local-mail-actions"}:
+        index += 1
+    elif args[index] in ("--icloud-address", "--gmail-address", "--mail-account"):
         count += 1
         index += 2
     else:

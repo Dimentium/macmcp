@@ -105,6 +105,29 @@ The script installs for the current user by default:
 The local deployment scripts use `/bin/bash`; they do not require the user's
 login shell to be zsh.
 
+## Optional Local Mail Actions
+
+The reader profile is the default and the only profile that may be connected to
+ChatGPT. To enable local-only recipient-free drafts and message state changes,
+add the opt-in flag during first installation:
+
+```sh
+scripts/install-local.sh \
+  --gmail-address you@gmail.com \
+  --enable-local-mail-actions
+```
+
+The installer writes a second local config at
+`~/.local/opt/mac-agent-bridge/share/mcp.mail-actions.local.json`, backed by
+`~/Library/Application Support/mac-agent-bridge/mail-actions.sock`. It has a
+separate approvals file, so approve the local client again from the `Local Mail
+Actions` menu item. This config must not be added to ChatGPT or a tunnel.
+
+The action profile can create recipient-free managed drafts and change one
+message's `read`, `unread`, `flagged`, or `unflagged` state. It has no SMTP or
+send operation. Updating a managed draft requires its exact revision and fails
+closed if a human added a recipient or changed the draft.
+
 It downloads the pinned `mail-mcp` macOS archive and verifies its SHA-256. It
 does not use the published CheICalMCP release binary because that artifact has
 already failed strict code-signature validation on the target Mac. Instead it
@@ -183,6 +206,7 @@ the prior files and relaunches the previous app. The activated files are:
 - `~/.local/opt/mac-agent-bridge/libexec/mail-mcp`
 - `~/.local/opt/mac-agent-bridge/libexec/CheICalMCP`
 - `~/.local/opt/mac-agent-bridge/share/mcp.local.json`
+- `~/.local/opt/mac-agent-bridge/share/mcp.mail-actions.local.json` when opted in
 - `~/Library/Application Support/mac-agent-bridge/launch.json`
 
 Existing Keychain passwords are preserved. This guards against build, download,
@@ -234,6 +258,9 @@ scripts/uninstall-local.sh \
 The script does not run broad TCC resets. macOS privacy grants may remain in
 System Settings after the files are removed.
 
+The Keychain key that authenticates locally managed drafts is also preserved by
+default, so an uninstall followed by a reinstall does not orphan safe drafts.
+
 ## Verify
 
 Basic local check:
@@ -257,6 +284,16 @@ tool surface, validates mail account auth, calls `mail.search` and `mail.read`,
 and compares independent IMAP snapshots before and after the MCP reads. It
 prints only aggregate status and never prints credentials, message content,
 subjects, senders, folder names, events, or reminder text.
+
+For a live tunnel reconnect or notification acceptance run, use:
+
+```sh
+scripts/validate-live-acceptance.sh --phase tunnel-reconnect --require-tunnel
+```
+
+It verifies the local reader-only runtime, optional tunnel state, and
+no-mutation mail behavior. Observing a real ChatGPT tool call and a macOS
+notification remains a required manual step.
 
 The first validation run from a new client can fail with `Client approval
 required in MacMCP`. Approve the pending client from the `MacMCP` menu under

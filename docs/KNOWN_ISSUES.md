@@ -19,29 +19,7 @@ the identity seen by Keychain, TCC, and Login Item services.
 
 ## Medium Priority
 
-### 2. CheICalMCP transitive dependencies are resolved on the target Mac
-
-`mail-mcp` is downloaded as a pinned, checksum-verified release archive.
-CheICalMCP is pinned to a source commit, but its SwiftPM dependency graph is
-resolved during setup.
-
-- Impact: a fresh Mac can build a different transitive dependency set from the
-  one validated in CI.
-- Resolution: enforce the sidecar resolution file or distribute a verified,
-  signed CheICalMCP artifact with the app.
-
-### 3. Reader transport needs resource and TLS hardening
-
-Custom IMAP configuration still permits `plain` authentication. The local IPC
-server also needs explicit limits for buffered frames, active clients, request
-duration, and queued work.
-
-- Impact: a custom-provider misconfiguration can lower transport security, and
-  a same-user process can consume unbounded local IPC resources.
-- Resolution: make plaintext an explicit unsafe override and add bounded IPC
-  resource controls.
-
-### 4. EventKit sidecar has two installed copies
+### 2. EventKit sidecar has two installed copies
 
 The app bundle embeds CheICalMCP while launch configuration points to the copy
 in `libexec`.
@@ -52,7 +30,7 @@ in `libexec`.
 
 ## Naming Consistency
 
-### 5. Technical and product names remain intentionally split
+### 3. Technical and product names remain intentionally split
 
 The visible product is MacMCP, while existing bundle and protocol identifiers
 retain `mac-agent-bridge` for migration compatibility.
@@ -68,6 +46,9 @@ retain `mac-agent-bridge` for migration compatibility.
   message, a fixed-text notification, sidecar restart recovery, and no data
   mutation.
 - A real remote ChatGPT tunnel call after login/reconnect.
+- The opt-in local mail-actions profile on iCloud and Gmail: create a
+  recipient-free draft, reject a human recipient edit, update an unchanged
+  draft, and confirm reader/tunnel tool lists remain unchanged.
 
 ## Resolved Since The 2026-09-05 Audit
 
@@ -82,3 +63,7 @@ retain `mac-agent-bridge` for migration compatibility.
 - Tunnel diagnostics retain the 12 newest redacted failures across app and
   process restarts, and expose the latest one in the menu and all records in
   `macmcp diagnose`.
+- CheICalMCP now builds only with the reviewed, checksum-verified
+  `CheICalMCP.Package.resolved` graph and `--disable-automatic-resolution`.
+- Custom plain IMAP requires an explicit `--allow-unsafe-plain-imap` override.
+  Local IPC has bounded frames, clients, concurrent requests, and deadlines.

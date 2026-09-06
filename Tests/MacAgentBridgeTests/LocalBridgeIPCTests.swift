@@ -38,6 +38,37 @@ private actor IPCFakeSidecarClient: SidecarToolClient {
     }
 }
 
+private actor IPCSlowSidecarClient: SidecarToolClient {
+    private var connected = false
+
+    func connect() async throws {
+        connected = true
+    }
+
+    func listTools(cursor: String?) async throws -> (tools: [Tool], nextCursor: String?) {
+        if !connected { throw GatewayError.sidecarNotConnected }
+        return ([
+            Tool(
+                name: "search_emails",
+                description: "search",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([:])
+                ])
+            )
+        ], nil)
+    }
+
+    func callTool(name: String, arguments: [String: Value]?) async throws -> CallTool.Result {
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        return CallTool.Result(content: [.text(text: "ok", annotations: nil, _meta: nil)])
+    }
+
+    func disconnect() async {
+        connected = false
+    }
+}
+
 final class LocalBridgeIPCTests: XCTestCase {
     func testIPCServerHandlesInitializeToolsAndStatus() async throws {
         let directory = FileManager.default.temporaryDirectory
@@ -165,6 +196,86 @@ final class LocalBridgeIPCTests: XCTestCase {
         XCTAssertTrue(json.contains("\"writeCapabilitiesEnabled\":false"))
     }
 
+    func testOversizedFrameClosesClientConnection() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let socketURL = directory.appendingPathComponent("mcp.sock")
+        let server = LocalBridgeIPCServer(
+            socketURL: socketURL,
+            tools: BridgeServer.defineTools(),
+            router: GatewayRouter(),
+            policy: ReaderPolicy(),
+            statusSource: BridgeStatusSource(),
+            limits: LocalBridgeIPCLimits(maximumFrameBytes: 32)
+        )
+        try server.start()
+        defer {
+            Task { await server.stop() }
+        }
+
+        let fd = try connect(to: socketURL.path)
+        defer { close(fd) }
+        try writeAll(Data(repeating: UInt8(ascii: "x"), count: 33), to: fd)
+
+        var timeout = timeval(tv_sec: 1, tv_usec: 0)
+        let timeoutLength = socklen_t(MemoryLayout<timeval>.size)
+        XCTAssertEqual(setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, timeoutLength), 0)
+        var byte: UInt8 = 0
+        XCTAssertEqual(read(fd, &byte, 1), 0)
+    }
+
+    func testTimedOutRequestReturnsStructuredIPCError() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let socketURL = directory.appendingPathComponent("mcp.sock")
+        let approvalURL = directory.appendingPathComponent("approved-clients.json")
+        let identity = LocalClientIdentity(
+            uid: 501,
+            pid: 123,
+            executablePath: "/Applications/Codex.app/Contents/MacOS/Codex",
+            executableSHA256: "abc123"
+        )
+        let approvalStore = ClientApprovalStore(fileURL: approvalURL, expectedUID: 501)
+        let router = GatewayRouter()
+        let policy = ReaderPolicy(rules: [
+            ReaderToolRule(
+                publicName: "mail.search",
+                sidecarID: "mail",
+                upstreamName: "search_emails"
+            )
+        ])
+        try await router.attach(sidecarID: "mail", client: IPCSlowSidecarClient(), policy: policy)
+        _ = try await approvalStore.authorize(identity)
+        _ = try await approvalStore.approvePending()
+        let server = LocalBridgeIPCServer(
+            socketURL: socketURL,
+            tools: BridgeServer.defineTools() + (await router.tools()),
+            router: router,
+            policy: policy,
+            statusSource: BridgeStatusSource(),
+            clientApprovalStore: approvalStore,
+            identityProvider: { _ in identity },
+            limits: LocalBridgeIPCLimits(requestTimeout: 0.01)
+        )
+        try server.start()
+        defer {
+            Task { await server.stop() }
+        }
+
+        let fd = try connect(to: socketURL.path)
+        defer { close(fd) }
+        let response = try request(
+            fd: fd,
+            id: 1,
+            method: "tools/call",
+            params: ["name": "mail.search", "arguments": [:]]
+        )
+
+        XCTAssertEqual((response["error"] as? [String: Any])?["code"] as? Int, -32003)
+    }
+
     func testDataToolsRequireApprovedClient() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -230,6 +341,47 @@ final class LocalBridgeIPCTests: XCTestCase {
         let approvedCalls = await sidecar.calls
         XCTAssertNil(approved["error"])
         XCTAssertEqual(approvedCalls, ["search_emails"])
+    }
+
+    func testUnpublishedToolCannotBeCalledEvenWhenRouterKnowsIt() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let socketURL = directory.appendingPathComponent("mcp.sock")
+        let router = GatewayRouter()
+        let policy = ReaderPolicy(rules: [
+            ReaderToolRule(
+                publicName: "mail.search",
+                sidecarID: "mail",
+                upstreamName: "search_emails"
+            )
+        ])
+        let sidecar = IPCFakeSidecarClient()
+        try await router.attach(sidecarID: "mail", client: sidecar, policy: policy)
+        let server = LocalBridgeIPCServer(
+            socketURL: socketURL,
+            tools: BridgeServer.defineTools(),
+            router: router,
+            policy: policy,
+            statusSource: BridgeStatusSource()
+        )
+        try server.start()
+        defer {
+            Task { await server.stop() }
+        }
+
+        let fd = try connect(to: socketURL.path)
+        defer { close(fd) }
+        let response = try request(
+            fd: fd,
+            id: 1,
+            method: "tools/call",
+            params: ["name": "mail.search", "arguments": [:]]
+        )
+
+        XCTAssertEqual((response["error"] as? [String: Any])?["code"] as? Int, -32601)
+        let calls = await sidecar.calls
+        XCTAssertEqual(calls, [])
     }
 
     private func connect(to path: String) throws -> Int32 {

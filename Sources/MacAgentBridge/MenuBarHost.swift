@@ -10,12 +10,20 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case unavailable
     }
 
+    enum LocalMailActionState: Equatable {
+        case off
+        case starting
+        case ready
+        case unavailable
+    }
+
     struct StatusMenuItems {
         let overall: NSMenuItem
         let mail: NSMenuItem
         let calendar: NSMenuItem
         let reminders: NSMenuItem
         let notifications: NSMenuItem
+        let localMailActions: NSMenuItem
         let loginItem: NSMenuItem
         let tunnel: NSMenuItem
         let clients: NSMenuItem
@@ -26,6 +34,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             calendar: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             reminders: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             notifications: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
+            localMailActions: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             loginItem: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             tunnel: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             clients: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -35,6 +44,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.calendar = calendar
             self.reminders = reminders
             self.notifications = notifications
+            self.localMailActions = localMailActions
             self.loginItem = loginItem
             self.tunnel = tunnel
             self.clients = clients
@@ -45,22 +55,26 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let launchConfigurationStore: AppLaunchConfigurationStore
     private let loginItemController: (any LoginItemControlling)?
     private let clientApprovalStore: ClientApprovalStore
+    private let localMailActionApprovalStore: ClientApprovalStore
     private let mailMonitorSettingsStore: MailMonitorSettingsStore
     private let mailNotificationPoster: MacOSAttentionNotificationPoster
     private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
     private let startup = BridgeRuntimeStartup()
     private var runtime: BridgeRuntime?
     private var ipcServer: LocalBridgeIPCServer?
+    private var localMailActionIPCServer: LocalBridgeIPCServer?
     private var runtimeTask: Task<BridgeRuntime, Error>?
     private var statusItem: NSStatusItem?
     private var statusMenuItems: StatusMenuItems?
     private var clientsMenuItem: NSMenuItem?
     private var tunnelMenuItem: NSMenuItem?
     private var mailNotificationsMenuItem: NSMenuItem?
+    private var localMailActionsMenuItem: NSMenuItem?
     private var tunnelSupervisor: ChatGPTTunnelSupervisor?
     private var tunnelState: ChatGPTTunnelState?
     private var mailMonitor: MailMonitor?
     private var mailNotificationState: MailNotificationState = .off
+    private var localMailActionState: LocalMailActionState = .off
     private var startTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var stopTask: Task<Void, Never>?
@@ -70,6 +84,9 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
         loginItemController: (any LoginItemControlling)? = SMAppLoginItemController(),
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
+        localMailActionApprovalStore: ClientApprovalStore = ClientApprovalStore(
+            fileURL: ClientApprovalStore.localMailActionFileURL()
+        ),
         mailMonitorSettingsStore: MailMonitorSettingsStore = MailMonitorSettingsStore(),
         mailNotificationPoster: MacOSAttentionNotificationPoster = MacOSAttentionNotificationPoster(),
         tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore()
@@ -78,6 +95,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.launchConfigurationStore = launchConfigurationStore
         self.loginItemController = loginItemController
         self.clientApprovalStore = clientApprovalStore
+        self.localMailActionApprovalStore = localMailActionApprovalStore
         self.mailMonitorSettingsStore = mailMonitorSettingsStore
         self.mailNotificationPoster = mailNotificationPoster
         self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
@@ -105,6 +123,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             )
         )
         configureMailNotifications(statusItems.notifications)
+        configureLocalMailActions(statusItems.localMailActions)
         configureLaunchAtLogin(statusItems.loginItem)
         configureChatGPTTunnel(statusItems.tunnel)
         statusMenuItems = statusItems
@@ -152,6 +171,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         statusItems.notifications.isEnabled = true
         menu.addItem(statusItems.notifications)
+        statusItems.localMailActions.isEnabled = configuration.localMailActions
+        menu.addItem(statusItems.localMailActions)
         statusItems.loginItem.isEnabled = false
         menu.addItem(statusItems.loginItem)
         statusItems.tunnel.isEnabled = true
@@ -193,6 +214,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 _ = try? await clientApprovalStore.approveAppOwnedTunnelProxy(identity)
                 await refreshClientsMenu()
             }
+            await startLocalMailActions(runtime: runtime)
             await tunnelSupervisor?.start()
             await runtime.waitForInitialHealthChecks()
             let snapshot = await runtime.statusSource.snapshot()
@@ -215,6 +237,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func refreshMenuState() async {
         await refreshStatusMenu()
         await refreshClientsMenu()
+        await refreshLocalMailActionsMenu()
         tunnelSupervisor?.refreshHealth()
         if let tunnelMenuItem {
             updateTunnelMenu(tunnelMenuItem, state: tunnelState)
@@ -324,6 +347,114 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             mailNotificationState = .unavailable
         }
         updateMailNotificationsMenu(item)
+    }
+
+    private func configureLocalMailActions(_ item: NSMenuItem) {
+        localMailActionsMenuItem = item
+        localMailActionState = configuration.localMailActions ? .starting : .off
+        updateLocalMailActionsMenu(item, snapshot: nil)
+    }
+
+    private func startLocalMailActions(runtime: BridgeRuntime) async {
+        guard configuration.localMailActions else { return }
+        guard let server = await runtime.makeLocalMailActionIPCServer(
+            clientApprovalStore: localMailActionApprovalStore,
+            onClientApprovalChanged: { [weak self] in
+                Task { @MainActor in
+                    await self?.refreshLocalMailActionsMenu()
+                }
+            }
+        ) else {
+            localMailActionState = .unavailable
+            await refreshLocalMailActionsMenu()
+            return
+        }
+
+        do {
+            try server.start()
+            localMailActionIPCServer = server
+            localMailActionState = .ready
+        } catch {
+            localMailActionState = .unavailable
+        }
+        await refreshLocalMailActionsMenu()
+    }
+
+    static func localMailActionsTitle(
+        state: LocalMailActionState,
+        snapshot: ClientApprovalSnapshot?
+    ) -> String {
+        switch state {
+        case .off:
+            return "⚪ Local Mail Actions: disabled"
+        case .starting:
+            return "🟡 Local Mail Actions: starting"
+        case .unavailable:
+            return "🔴 Local Mail Actions: unavailable"
+        case .ready:
+            if snapshot?.pending != nil {
+                return "🟡 Local Mail Actions: approval needed"
+            }
+            let count = snapshot?.approved.count ?? 0
+            return "🟢 Local Mail Actions: ready (\(count) approved)"
+        }
+    }
+
+    private func refreshLocalMailActionsMenu() async {
+        guard let item = localMailActionsMenuItem else { return }
+        guard configuration.localMailActions else {
+            updateLocalMailActionsMenu(item, snapshot: nil)
+            return
+        }
+        do {
+            updateLocalMailActionsMenu(
+                item,
+                snapshot: try await localMailActionApprovalStore.snapshot()
+            )
+        } catch {
+            localMailActionState = .unavailable
+            updateLocalMailActionsMenu(item, snapshot: nil)
+        }
+    }
+
+    private func updateLocalMailActionsMenu(
+        _ item: NSMenuItem,
+        snapshot: ClientApprovalSnapshot?
+    ) {
+        item.title = Self.localMailActionsTitle(state: localMailActionState, snapshot: snapshot)
+        guard localMailActionState == .ready, let snapshot else {
+            item.submenu = nil
+            return
+        }
+
+        let submenu = NSMenu()
+        if let pending = snapshot.pending {
+            let approve = NSMenuItem(
+                title: "Approve: \(clientPresentationName(identity: pending))",
+                action: #selector(approvePendingLocalMailActionClient),
+                keyEquivalent: ""
+            )
+            approve.target = self
+            submenu.addItem(approve)
+            submenu.addItem(.separator())
+        }
+        if snapshot.approved.isEmpty {
+            let empty = NSMenuItem(title: "Approved: none", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            submenu.addItem(empty)
+        } else {
+            for client in snapshot.approved {
+                let revoke = NSMenuItem(
+                    title: "Revoke: \(clientPresentationName(identity: client.identity))",
+                    action: #selector(revokeLocalMailActionClient),
+                    keyEquivalent: ""
+                )
+                revoke.target = self
+                revoke.representedObject = client.fingerprint
+                submenu.addItem(revoke)
+            }
+        }
+        item.submenu = submenu
     }
 
     static func mailNotificationTitle(state: MailNotificationState) -> String {
@@ -638,6 +769,21 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc func approvePendingLocalMailActionClient() {
+        Task { @MainActor in
+            _ = try? await localMailActionApprovalStore.approvePending()
+            await refreshMenuState()
+        }
+    }
+
+    @objc func revokeLocalMailActionClient(_ sender: NSMenuItem) {
+        guard let fingerprint = sender.representedObject as? String else { return }
+        Task { @MainActor in
+            try? await localMailActionApprovalStore.revoke(fingerprint: fingerprint)
+            await refreshMenuState()
+        }
+    }
+
     @objc private func enableMailNotifications() {
         Task { await startMailNotifications(allowPrompt: true, persist: true) }
     }
@@ -725,6 +871,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             await startup.stop()
             await ipcServer?.stop()
             ipcServer = nil
+            await localMailActionIPCServer?.stop()
+            localMailActionIPCServer = nil
             let runtimeToStop = runtime
             runtime = nil
             await runtimeToStop?.stop()

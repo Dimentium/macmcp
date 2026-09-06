@@ -62,13 +62,17 @@ struct MailAccountConfiguration: Equatable, Sendable {
         username: String,
         imapHost: String,
         imapPort: Int = 993,
-        imapSecurity: MailConnectionSecurity = .tls
+        imapSecurity: MailConnectionSecurity = .tls,
+        allowsUnsafePlaintext: Bool = false
     ) throws {
         try Self.validateID(id)
         try Self.validateUsername(username)
         try Self.validateHost(imapHost)
         guard (1...65535).contains(imapPort) else {
             throw MailSidecarConfigurationError.invalidPort
+        }
+        guard imapSecurity != .plain || allowsUnsafePlaintext else {
+            throw MailSidecarConfigurationError.unsafePlaintextRequiresExplicitOverride
         }
         self.id = id
         self.username = username
@@ -126,6 +130,7 @@ enum MailSidecarConfigurationError: LocalizedError, Equatable {
     case unsupportedMailProvider
     case noAccounts
     case duplicateAccountID(String)
+    case unsafePlaintextRequiresExplicitOverride
     case secretEncoding
     case unableToCreatePrivateFile
 
@@ -145,6 +150,8 @@ enum MailSidecarConfigurationError: LocalizedError, Equatable {
             return "At least one mail account is required"
         case .duplicateAccountID(let id):
             return "Mail account id is duplicated: \(id)"
+        case .unsafePlaintextRequiresExplicitOverride:
+            return "Plain IMAP requires an explicit unsafe override"
         case .secretEncoding:
             return "Unable to encode the temporary mail configuration"
         case .unableToCreatePrivateFile:
@@ -163,19 +170,21 @@ struct MailSidecarConfigurationMaterializer {
     func materialize(
         address: String,
         password: Data,
-        attachmentDirectory: URL? = nil
+        attachmentDirectory: URL? = nil,
+        managedDraftKey: Data? = nil
     ) throws -> MaterializedMailConfiguration {
         try materialize(accounts: [
             MailAccountSecret(
                 configuration: .iCloud(address: address),
                 password: password
             )
-        ], attachmentDirectory: attachmentDirectory)
+        ], attachmentDirectory: attachmentDirectory, managedDraftKey: managedDraftKey)
     }
 
     func materialize(
         accounts: [MailAccountSecret],
-        attachmentDirectory: URL? = nil
+        attachmentDirectory: URL? = nil,
+        managedDraftKey: Data? = nil
     ) throws -> MaterializedMailConfiguration {
         guard !accounts.isEmpty else { throw MailSidecarConfigurationError.noAccounts }
         var seenIDs = Set<String>()
@@ -199,10 +208,20 @@ struct MailSidecarConfigurationMaterializer {
                 attributes: [.posixPermissions: 0o700]
             )
 
+            let managedDraftKeyYAML: String
+            if let managedDraftKey {
+                guard managedDraftKey.count == ManagedDraftKeyStore.keyLength else {
+                    throw MailSidecarConfigurationError.secretEncoding
+                }
+                managedDraftKeyYAML = "managed_draft_key: \(try yamlScalar(base64URLEncodedString(managedDraftKey)))\n"
+            } else {
+                managedDraftKeyYAML = ""
+            }
+
             let yaml = try """
             allow_send: false
             allow_delete: false
-            limits:
+            \(managedDraftKeyYAML)limits:
               max_body_chars: 12000
               max_search_results: 25
               max_attachment_bytes: \(AttachmentStorage.maximumAttachmentBytes)
@@ -261,10 +280,18 @@ struct MailSidecarConfigurationMaterializer {
                   security: plain
                   username: disabled@example.invalid
                   password: disabled
+                from_address: \(try yamlScalar(config.username))
                 allow_send: false
                 allow_delete: false
                 save_sent: false
             """
         }.joined(separator: "\n")
+    }
+
+    private func base64URLEncodedString(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }

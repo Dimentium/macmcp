@@ -41,6 +41,8 @@ enum CommandLineInterface {
       mac-agent-bridge [--mail-sidecar PATH]
                        [--icloud-address ADDRESS] [--gmail-address ADDRESS]
                        [--mail-account ID=ADDRESS[,HOST[,PORT[,tls|starttls|plain]]]]
+                       [--allow-unsafe-plain-imap]
+                       [--enable-local-mail-actions]
                        [--eventkit-sidecar PATH] [--menu-bar]
       mac-agent-bridge --store-mail-password ADDRESS
       mac-agent-bridge --delete-mail-password ADDRESS
@@ -61,10 +63,16 @@ enum CommandLineInterface {
     --icloud-address and --gmail-address are provider presets. Repeat mail
     account flags to configure multiple mailboxes. Passwords are read without
     echo and stored in macOS Keychain by account address. Never put a password
-    in command-line arguments or environment variables. --status-json queries
+    in command-line arguments or environment variables. Plain IMAP is rejected
+    unless --allow-unsafe-plain-imap is explicitly present; prefer TLS or
+    STARTTLS. --status-json queries
     the running MacMCP menu-bar app over local IPC. --diagnose-json prints a
     sanitized local runtime report and does not expose account identifiers,
     client names, file paths, or secrets.
+
+    --enable-local-mail-actions starts a separate local-only MCP socket for
+    recipient-free managed drafts and message flags. It is not exposed through
+    the ChatGPT tunnel and requires its own per-client approval.
     """
 
     static func launchConfiguration(arguments: [String]) throws -> BridgeLaunchConfiguration {
@@ -84,12 +92,23 @@ enum CommandLineInterface {
         var eventKit: URL?
         var mailAccounts: [MailAccountConfiguration] = []
         var menuBar = bundleURL.pathExtension == "app"
+        var localMailActions = false
+        let allowsUnsafePlaintext = arguments.contains("--allow-unsafe-plain-imap")
         var index = 0
 
         while index < arguments.count {
             let option = arguments[index]
             if option == "--menu-bar" {
                 menuBar = true
+                index += 1
+                continue
+            }
+            if option == "--allow-unsafe-plain-imap" {
+                index += 1
+                continue
+            }
+            if option == "--enable-local-mail-actions" {
+                localMailActions = true
                 index += 1
                 continue
             }
@@ -117,7 +136,10 @@ enum CommandLineInterface {
                     )
                 )
             case "--mail-account":
-                mailAccounts.append(try parseMailAccount(value))
+                mailAccounts.append(try parseMailAccount(
+                    value,
+                    allowsUnsafePlaintext: allowsUnsafePlaintext
+                ))
             default:
                 throw CommandLineInterfaceError.unknownOption(option)
             }
@@ -132,11 +154,15 @@ enum CommandLineInterface {
             mailSidecarURL: mail,
             eventKitSidecarURL: eventKit,
             mailAccounts: mailAccounts,
-            menuBar: menuBar
+            menuBar: menuBar,
+            localMailActions: localMailActions
         )
     }
 
-    private static func parseMailAccount(_ value: String) throws -> MailAccountConfiguration {
+    private static func parseMailAccount(
+        _ value: String,
+        allowsUnsafePlaintext: Bool
+    ) throws -> MailAccountConfiguration {
         let idAndRest = value.split(separator: "=", maxSplits: 1).map(String.init)
         guard idAndRest.count == 2 else {
             throw CommandLineInterfaceError.invalidMailAccount(value)
@@ -177,7 +203,8 @@ enum CommandLineInterface {
                 username: parts[0],
                 imapHost: parts[1],
                 imapPort: port,
-                imapSecurity: security
+                imapSecurity: security,
+                allowsUnsafePlaintext: allowsUnsafePlaintext
             )
         } catch let error as CommandLineInterfaceError {
             throw error

@@ -57,30 +57,34 @@ inside a temporary HOME without touching a real user configuration.
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
+## Local Mail Actions Profile
+
+The opt-in local mail-actions profile is implemented and awaits live validation
+on iCloud and Gmail. It is a second user-local IPC socket with a separate
+per-client approval store; the normal reader socket, stdio bridge, and ChatGPT
+tunnel retain the exact reader-only surface.
+
+It exposes only recipient-free managed drafts and one-message `read`, `unread`,
+`flagged`, or `unflagged` operations. SMTP, send, delete, move, archive,
+calendar, and reminder writes remain unavailable.
+
+Each managed draft has an HMAC marker created from a persistent Keychain key
+and held only in the private runtime sidecar config. Updating requires the
+exact revision returned by the previous operation; it refuses a missing or
+invalid marker, a changed draft, or any `To`, `Cc`, `Bcc`, `Reply-To`, or
+`Resent-*` recipient header.
+
+Updating appends the replacement before marking the prior draft deleted, without
+expunging it. A partial retirement is reported as `saved_unretired` and must
+not be blindly retried. Gmail-specific importance is not part of the portable
+action profile; it needs a capability-gated design instead of being mapped to
+`\\Flagged`.
+
 ## Not In The Current Plan
 
 - Raw headless LaunchAgent as the EventKit owner.
-- Write tools or action tools in the reader profile.
+- Write tools in the reader profile or through the ChatGPT tunnel.
 - Notes, Contacts, Messages, Apple Mail private databases, Full Disk Access, or
   generic shell/browser/filesystem access.
-- Broad sidecar forks. The existing `Dimentium/mail-mcp` fork is limited to the
-  iCloud `LIST SPECIAL-USE` compatibility fallback.
-
-## Deferred: Managed Drafts and Message State
-
-After runtime reliability and deployment work, add a separate, opt-in actions
-profile. It may create recipient-free managed drafts and change the read or
-flagged state of one message at a time. It never exposes SMTP or a send tool.
-
-Managed drafts must be created without `To`, `Cc`, `Bcc`, `Reply-To`, or
-`Resent-*` headers. The actions profile may edit only a draft that remains
-recipient-free and is verified as MacMCP-managed through a provider-supported
-persistent IMAP keyword plus a locally authenticated ownership record. Once a
-human adds a recipient, MacMCP must refuse further edits. Providers that do not
-preserve the required keyword may support draft creation but not managed-draft
-editing.
-
-IMAP body edits are replacement operations, not in-place updates. Start with
-draft creation; add replacement only with a revision token and a validated
-append-then-retire protocol. Gmail-specific importance is separate from the
-portable `\\Flagged` state and must remain capability-gated.
+- Broad sidecar forks unrelated to the reviewed iCloud compatibility and
+  managed-draft contract.

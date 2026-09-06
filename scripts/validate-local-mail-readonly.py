@@ -231,7 +231,9 @@ def parse_accounts(args: list[str]) -> list[Account]:
     while index < len(args):
         option = args[index]
         value = args[index + 1] if index + 1 < len(args) else ""
-        if option == "--icloud-address":
+        if option in {"--allow-unsafe-plain-imap", "--enable-local-mail-actions"}:
+            index += 1
+        elif option == "--icloud-address":
             accounts.append(
                 Account(next_label("icloud", accounts), value, "imap.mail.me.com", 993, "tls")
             )
@@ -278,6 +280,10 @@ def mail_only_args(args: list[str]) -> list[str]:
     index = 0
     while index < len(args):
         option = args[index]
+        if option in {"--allow-unsafe-plain-imap", "--enable-local-mail-actions"}:
+            result.append(option)
+            index += 1
+            continue
         if option == "--eventkit-sidecar":
             index += 2
             continue

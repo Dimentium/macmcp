@@ -57,6 +57,23 @@ final class MailSidecarConfigurationTests: XCTestCase {
         XCTAssertEqual(account.imapSecurity, .tls)
     }
 
+    func testPlainIMAPRequiresExplicitUnsafeOverride() {
+        XCTAssertThrowsError(
+            try MailAccountConfiguration(
+                id: "legacy",
+                username: "reader@example.com",
+                imapHost: "imap.example.com",
+                imapPort: 143,
+                imapSecurity: .plain
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? MailSidecarConfigurationError,
+                .unsafePlaintextRequiresExplicitOverride
+            )
+        }
+    }
+
     func testMaterializesMultipleReaderOnlyAccounts() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
@@ -123,5 +140,25 @@ final class MailSidecarConfigurationTests: XCTestCase {
 
         let text = try String(contentsOf: materialized.fileURL, encoding: .utf8)
         XCTAssertTrue(text.contains("attachment_dir: \"\(attachmentDirectory.path)\""))
+    }
+
+    func testMaterializesManagedDraftKeyOnlyWhenProvided() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let key = Data(repeating: 0x42, count: ManagedDraftKeyStore.keyLength)
+        let materialized = try MailSidecarConfigurationMaterializer(
+            temporaryRoot: root
+        ).materialize(
+            address: "reader@icloud.com",
+            password: Data("fixture-secret".utf8),
+            managedDraftKey: key
+        )
+        defer { materialized.remove() }
+
+        let text = try String(contentsOf: materialized.fileURL, encoding: .utf8)
+        XCTAssertTrue(text.contains("managed_draft_key:"))
+        XCTAssertTrue(text.contains("from_address: \"reader@icloud.com\""))
     }
 }

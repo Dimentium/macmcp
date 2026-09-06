@@ -2,10 +2,12 @@
 
 MacMCP is a local MCP bridge for macOS. It gives an approved MCP client
 read-only access to configured mail accounts, Calendar, and Reminders without
-placing mail passwords in the client configuration.
+placing mail passwords in the client configuration. An optional, separately
+approved local mail-action profile can create safe drafts and change message
+read/flagged state; it is never exposed through the ChatGPT tunnel.
 
 The app owns the local runtime, stores secrets in macOS Keychain, and exposes a
-single local MCP endpoint. An optional OpenAI tunnel makes that endpoint
+reader MCP endpoint. An optional OpenAI tunnel makes that reader endpoint
 available to ChatGPT.
 
 ## What It Can Do
@@ -15,9 +17,12 @@ available to ChatGPT.
 - Read supported text attachments.
 - Read Calendar events and Reminders through EventKit.
 - Provide structured MCP responses for reliable client use.
+- Optionally create recipient-free managed drafts and change one message's
+  read/unread or flagged/unflagged state through a second, local-only endpoint.
 
-MacMCP is intentionally read-only. It cannot send, delete, move, or modify
-mail, calendar events, or reminders.
+The default MacMCP profile is read-only. It cannot send, delete, move, or
+modify mail, calendar events, or reminders. The optional local action profile
+cannot send email and has no recipient fields.
 
 ## Installation
 
@@ -29,6 +34,11 @@ brew trust Dimentium/macmcp
 brew install macmcp
 macmcp setup
 ```
+
+To opt in to the separate local mail-action profile during setup, add
+`--enable-local-mail-actions`. It has a different IPC socket and its own
+per-client approval. The generated local client config is
+`mcp.mail-actions.local.json`; do not add it to ChatGPT or a tunnel.
 
 `macmcp setup` installs the app and starts first-run configuration. It is the
 only setup command users need to run; the implementation scripts remain
@@ -113,7 +123,7 @@ MacMCP directly uses the following upstream projects:
 
 | Component | Purpose | License | Source |
 | --- | --- | --- | --- |
-| [mail-mcp](https://github.com/Dimentium/mail-mcp) v1.1.1 | IMAP mail sidecar for iCloud Mail and Gmail, including the iCloud folder-list fallback | MIT | [MacMCP fork](https://github.com/Dimentium/mail-mcp), based on [upstream](https://github.com/kacperkwapisz/mail-mcp) |
+| [mail-mcp](https://github.com/Dimentium/mail-mcp) v1.2.2 | IMAP mail sidecar for iCloud Mail and Gmail, including the iCloud folder-list fallback and authenticated managed drafts | MIT | [MacMCP fork](https://github.com/Dimentium/mail-mcp), based on [upstream](https://github.com/kacperkwapisz/mail-mcp) |
 | [che-ical-mcp](https://github.com/PsychQuant/che-ical-mcp) v1.16.1 | EventKit Calendar and Reminders sidecar | MIT | [upstream](https://github.com/PsychQuant/che-ical-mcp) |
 | [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) | Local MCP server implementation | MIT | [upstream](https://github.com/modelcontextprotocol/swift-sdk) |
 | [Swift System](https://github.com/apple/swift-system) | Swift system interfaces | Apache-2.0 | [upstream](https://github.com/apple/swift-system) |
@@ -129,6 +139,10 @@ MacMCP release.
 - Mail passwords and tunnel keys are stored in Keychain, not in the repository
   or MCP-client configuration.
 - Each local MCP client needs approval from MacMCP before it can use data tools.
+- Reader and local mail-action clients have separate approvals; an approval for
+  the reader endpoint never grants mail-action access.
+- Managed drafts carry an HMAC marker derived from a Keychain key. Drafts with
+  recipients, an invalid marker, or a stale revision cannot be edited.
 - The bridge does not expose arbitrary shell, file-system, or automation tools.
 - The tunnel uses an explicit restricted runtime key and can be disabled at any
   time from the menu.

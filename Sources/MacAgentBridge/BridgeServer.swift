@@ -20,11 +20,7 @@ final class BridgeServer {
         self.policy = policy
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
-        var exposed = Self.defineTools()
-        if let router {
-            exposed.append(contentsOf: await router.tools())
-        }
-        tools = exposed.sorted { $0.name < $1.name }
+        tools = await Self.exposedTools(router: router, policy: policy)
         server = Server(
             name: AppVersion.name,
             version: AppVersion.version,
@@ -53,6 +49,19 @@ final class BridgeServer {
                 outputSchema: ReaderOutputSchema.bridgeStatus
             )
         ]
+    }
+
+    static func exposedTools(router: GatewayRouter?, policy: ReaderPolicy) async -> [Tool] {
+        var exposed = Self.defineTools()
+        if let router {
+            // The router can carry the separate local action policy so its
+            // sidecars may service that socket. This server remains the
+            // reader-only stdio/tunnel surface.
+            exposed.append(contentsOf: await router.tools().filter {
+                policy.publicToolNames.contains($0.name)
+            })
+        }
+        return exposed.sorted { $0.name < $1.name }
     }
 
     func bridgeStatusResult(arguments: [String: Value]?) async -> CallTool.Result {

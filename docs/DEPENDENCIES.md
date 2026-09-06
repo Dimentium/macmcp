@@ -6,7 +6,7 @@ MacMCP uses two pinned sidecars behind a Swift policy gateway:
 
 | Component | Pin | License | Purpose |
 | --- | --- | --- | --- |
-| `Dimentium/mail-mcp` | `v1.1.1` / `f79c87b8…` | MIT | IMAP reads for iCloud Mail and Gmail |
+| `Dimentium/mail-mcp` | `v1.2.2` / `a62cf5f…` | MIT | IMAP reads and authenticated managed drafts for iCloud Mail and Gmail |
 | `PsychQuant/che-ical-mcp` | `v1.16.1` / `a8598378…` | MIT | EventKit Calendar/Reminders reads |
 
 The machine-readable pins live in `UPSTREAMS.lock.json`. The installer verifies
@@ -17,8 +17,9 @@ signature validation on the target Mac. Current artifact hashes are recorded in
 
 ## Mail MCP Fork
 
-`Dimentium/mail-mcp` is a minimal fork of
-`kacperkwapisz/mail-mcp`. It changes one compatibility path: when a server
+`Dimentium/mail-mcp` is a focused fork of `kacperkwapisz/mail-mcp`. It changes
+the iCloud compatibility path and adds the reviewed local managed-draft
+contract. When a server
 rejects `LIST ... RETURN (SPECIAL-USE)`, it retries plain IMAP `LIST`. This
 keeps server-declared roles for Gmail while restoring folder discovery for
 iCloud Mail. The behavior has dedicated unit coverage.
@@ -34,8 +35,9 @@ sidecar:
   attachment types;
 - it validates and bounds every result before returning it to an agent.
 
-The fork is limited to this incompatibility; feature and policy changes remain
-in MacMCP unless they cannot be enforced before an upstream call.
+The fork is limited to this compatibility and managed-draft contract; feature
+and policy changes remain in MacMCP unless they cannot be enforced before an
+upstream call.
 
 ## Known gaps accepted for the prototype
 
@@ -64,9 +66,9 @@ in MacMCP unless they cannot be enforced before an upstream call.
 
 ## Future Fork Criteria
 
-The iCloud `LIST` incompatibility is the one current reason for the mail-mcp
-fork. Additional sidecar changes belong in a fork only when at least one of
-these becomes true:
+The iCloud `LIST` incompatibility and managed-draft contract are the current
+reasons for the mail-mcp fork. Additional sidecar changes belong in a fork only
+when at least one of these becomes true:
 
 - the gateway cannot prevent a mutation before the call reaches the sidecar;
 - a sidecar performs an unwanted write during startup or a read operation;

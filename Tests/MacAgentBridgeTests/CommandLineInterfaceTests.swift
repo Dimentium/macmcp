@@ -78,6 +78,36 @@ final class CommandLineInterfaceTests: XCTestCase {
         XCTAssertFalse(configuration.requiresAppOwnedRuntime)
     }
 
+    func testParsesOptInLocalMailActions() throws {
+        let configuration = try CommandLineInterface.launchConfiguration(arguments: [
+            "--enable-local-mail-actions"
+        ])
+
+        XCTAssertTrue(configuration.localMailActions)
+    }
+
+    func testRejectsPlainIMAPWithoutExplicitUnsafeOverride() {
+        XCTAssertThrowsError(
+            try CommandLineInterface.launchConfiguration(arguments: [
+                "--mail-account", "legacy=reader@example.com,imap.example.com,143,plain"
+            ])
+        ) { error in
+            XCTAssertEqual(
+                error as? CommandLineInterfaceError,
+                .invalidMailAccount("legacy=reader@example.com,imap.example.com,143,plain")
+            )
+        }
+    }
+
+    func testParsesPlainIMAPOnlyWithExplicitUnsafeOverride() throws {
+        let configuration = try CommandLineInterface.launchConfiguration(arguments: [
+            "--mail-account", "legacy=reader@example.com,imap.example.com,143,plain",
+            "--allow-unsafe-plain-imap"
+        ])
+
+        XCTAssertEqual(configuration.mailAccounts.first?.imapSecurity, .plain)
+    }
+
     func testAppBundleDefaultsToMenuBarAndEmbeddedEventKitSidecar() throws {
         let configuration = try CommandLineInterface.launchConfiguration(
             arguments: [],

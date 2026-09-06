@@ -2,11 +2,12 @@
 set -euo pipefail
 
 MAIL_REPO="https://github.com/Dimentium/mail-mcp"
-MAIL_VERSION="v1.1.1"
-MAIL_ARM64_SHA256="f9d7bc21b957927c68ed5e7466f82bc1d3c3673679eb549979825c0857188144"
-MAIL_AMD64_SHA256="4e1c9edf0e49bb0af720b2ea2d6ae39a6f1cbc76d6e470a4c413611f8dd81a25"
+MAIL_VERSION="v1.2.2"
+MAIL_ARM64_SHA256="617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4"
+MAIL_AMD64_SHA256="83ddb17c30da07e6be502cb1df230d6c9fb453cb52e5e79ea1980db666c6f4ac"
 CHE_REPO="https://github.com/PsychQuant/che-ical-mcp.git"
 CHE_COMMIT="a8598378b5e280b27005ab8cd21e9b5758312423"
+CHE_RESOLUTION_SHA256="31e37279b97c071a741551f69025515fef7f697aace71c29f436fc8f04a72814"
 
 usage() {
   cat <<'EOF'
@@ -27,6 +28,10 @@ Options:
   --icloud-address ADDRESS   iCloud preset; repeatable
   --gmail-address ADDRESS    Gmail preset; repeatable
   --mail-account SPEC        custom account: ID=ADDRESS[,HOST[,PORT[,SECURITY]]]
+  --allow-unsafe-plain-imap  permit only explicitly configured custom plain IMAP
+  --enable-local-mail-actions
+                            start a separate local-only MCP socket for managed
+                            drafts and read/unread/flagged state changes
   --reuse-existing-configuration
                             upgrade using the current account configuration;
                             preserves existing Keychain passwords
@@ -60,6 +65,8 @@ chatgpt_tunnel_id=""
 chatgpt_tunnel_client=""
 chatgpt_tunnel_profile="macmcp-local"
 existing_tunnel_json=""
+allow_unsafe_plain_imap=0
+local_mail_actions=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -81,6 +88,14 @@ while [[ $# -gt 0 ]]; do
       account_value="${2#*=}"
       password_accounts+=("${account_value%%,*}")
       shift 2
+      ;;
+    --allow-unsafe-plain-imap)
+      allow_unsafe_plain_imap=1
+      shift
+      ;;
+    --enable-local-mail-actions)
+      local_mail_actions=1
+      shift
       ;;
     --reuse-existing-configuration)
       reuse_existing_configuration=1
@@ -131,6 +146,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$allow_unsafe_plain_imap" -eq 1 ]]; then
+  mail_args=("--allow-unsafe-plain-imap" "${mail_args[@]}")
+fi
+if [[ "$local_mail_actions" -eq 1 ]]; then
+  mail_args+=("--enable-local-mail-actions")
+fi
+
 if [[ "$reuse_existing_configuration" -eq 1 && ${#mail_args[@]} -gt 0 ]]; then
   echo "--reuse-existing-configuration cannot be combined with account options" >&2
   exit 2
@@ -153,8 +175,13 @@ except Exception:
     sys.exit(1)
 
 account_flags = {"--icloud-address", "--gmail-address", "--mail-account"}
+valueless_flags = {"--allow-unsafe-plain-imap", "--enable-local-mail-actions"}
 index = 0
 while index < len(args):
+    if args[index] in valueless_flags:
+        print(args[index])
+        index += 1
+        continue
     if args[index] in account_flags:
         if index + 1 >= len(args) or "\n" in args[index + 1] or "\r" in args[index + 1]:
             sys.exit(1)
@@ -212,6 +239,12 @@ print(profile)
   fi
 fi
 
+for argument in "${mail_args[@]}"; do
+  if [[ "$argument" == "--enable-local-mail-actions" ]]; then
+    local_mail_actions=1
+  fi
+done
+
 if [[ -n "$chatgpt_tunnel_id" ]] && ! [[ "$chatgpt_tunnel_id" =~ ^tunnel_[A-Za-z0-9_-]{16,128}$ ]]; then
   echo "invalid --chatgpt-tunnel-id" >&2
   exit 2
@@ -222,7 +255,7 @@ if [[ -n "$chatgpt_tunnel_client" ]] && [[ ! "$chatgpt_tunnel_client" = /* ]]; t
 fi
 
 [[ "$(uname -s)" == "Darwin" ]] || { echo "macOS is required" >&2; exit 1; }
-[[ ${#mail_args[@]} -gt 0 ]] || {
+[[ "$reuse_existing_configuration" -eq 1 || ${#password_accounts[@]} -gt 0 ]] || {
   echo "at least one mail account is required" >&2
   exit 2
 }
@@ -259,6 +292,7 @@ che_src="$build_root/che-ical-mcp"
 target_app="$app_dir/Mac Agent Bridge.app"
 cli_path="$cli_dir/mac-agent-bridge"
 mcp_config="$share_dir/mcp.local.json"
+mail_actions_mcp_config="$share_dir/mcp.mail-actions.local.json"
 app_config="$config_dir/launch.json"
 ipc_socket="$config_dir/mcp.sock"
 bin_link="$bin_dir/mac-agent-bridge"
@@ -271,6 +305,7 @@ stage_share_dir="$stage_install_root/share"
 stage_cli_dir="$stage_install_root/bin"
 stage_cli_path="$stage_cli_dir/mac-agent-bridge"
 stage_mcp_config="$stage_share_dir/mcp.local.json"
+stage_mail_actions_mcp_config="$stage_share_dir/mcp.mail-actions.local.json"
 stage_app_parent="$(mktemp -d "$app_dir/.macmcp-app.staging.XXXXXX")"
 stage_app="$stage_app_parent/Mac Agent Bridge.app"
 stage_config_parent="$(mktemp -d "$(dirname "$config_dir")/.macmcp-config.staging.XXXXXX")"
@@ -484,7 +519,15 @@ if [[ ! -d "$che_src/.git" ]]; then
 fi
 git -C "$che_src" fetch --tags origin
 git -C "$che_src" checkout --detach "$CHE_COMMIT"
-swift build -c release --product CheICalMCP --package-path "$che_src"
+che_resolution="$project_dir/Packaging/CheICalMCP.Package.resolved"
+[[ -f "$che_resolution" ]] || { echo "pinned CheICalMCP resolution is missing" >&2; exit 1; }
+actual_che_resolution_sha256="$(shasum -a 256 "$che_resolution" | awk '{print $1}')"
+if [[ "$actual_che_resolution_sha256" != "$CHE_RESOLUTION_SHA256" ]]; then
+  echo "CheICalMCP resolution checksum mismatch" >&2
+  exit 1
+fi
+cp "$che_resolution" "$che_src/Package.resolved"
+swift build --disable-automatic-resolution -c release --product CheICalMCP --package-path "$che_src"
 che_binary="$che_src/.build/release/CheICalMCP"
 [[ -x "$che_binary" ]] || { echo "CheICalMCP release binary was not produced" >&2; exit 1; }
 
@@ -512,11 +555,12 @@ codesign --verify --strict --verbose=2 "$stage_cli_path"
 
 json_cli_path="$(printf '%s' "$cli_path" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
 json_ipc_socket="$(printf '%s' "$ipc_socket" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
+json_mail_actions_ipc_socket="$(printf '%s' "$config_dir/mail-actions.sock" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
 
 cat > "$stage_mcp_config" <<EOF
 {
   "mcpServers": {
-    "mac-agent-bridge": {
+    "macmcp": {
       "command": $json_cli_path,
       "args": [
         "--stdio-proxy",
@@ -527,6 +571,23 @@ cat > "$stage_mcp_config" <<EOF
 }
 EOF
 chmod 600 "$stage_mcp_config"
+
+if [[ "$local_mail_actions" -eq 1 ]]; then
+  cat > "$stage_mail_actions_mcp_config" <<EOF
+{
+  "mcpServers": {
+    "macmcp-mail-actions": {
+      "command": $json_cli_path,
+      "args": [
+        "--stdio-proxy",
+        $json_mail_actions_ipc_socket
+      ]
+    }
+  }
+}
+EOF
+  chmod 600 "$stage_mail_actions_mcp_config"
+fi
 
 python3 - \
   "$stage_app_config" \
@@ -615,6 +676,15 @@ Sidecars:
 MCP stdio config example:
   $mcp_config
 
+EOF
+if [[ "$local_mail_actions" -eq 1 ]]; then
+cat <<EOF
+Local mail action MCP config example:
+  $mail_actions_mcp_config
+
+EOF
+fi
+cat <<EOF
 Secure MCP Tunnel setup:
   Create or inspect tunnels: https://platform.openai.com/settings/organization/tunnels
   Create restricted runtime API keys: https://platform.openai.com/api-keys

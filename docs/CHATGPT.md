@@ -30,7 +30,7 @@ tools. Use `Work` for the local MacMCP workflow.
 
 1. Start `~/Applications/Mac Agent Bridge.app`.
 2. In ChatGPT desktop, open Settings, then MCP servers.
-3. Add a server named `mac-agent-bridge`.
+3. Add a server named `macmcp`.
 4. Choose STDIO.
 5. Command:
 
@@ -126,6 +126,18 @@ The tunnel path preserves the current reader-only contract:
 - fail closed if the menu-bar app, sidecars, tunnel, runtime API key, or local
   approval is missing.
 
+## Local Mail Actions
+
+The optional mail-action profile is deliberately not a ChatGPT feature. It is
+available only to an explicitly configured local MCP client and uses a second
+socket plus a separate client approval. Do not add its generated config to
+ChatGPT, developer-mode apps, or an OpenAI tunnel.
+
+Install it with `macmcp setup --enable-local-mail-actions`; its local config is
+`~/.local/opt/mac-agent-bridge/share/mcp.mail-actions.local.json`. It can create
+recipient-free managed drafts and change `read`, `unread`, `flagged`, or
+`unflagged` state. It cannot send email.
+
 ## Validation Gate
 
 Desktop-local validation:
@@ -146,3 +158,12 @@ The remote developer-mode validation gate is:
 3. Tool listing exposes only reader tools.
 4. `bridge_status` works before approval.
 5. `mail.search` and `mail.read` pass the same no-mutation validation.
+
+After restarting the tunnel from the MacMCP menu, run:
+
+```sh
+scripts/validate-live-acceptance.sh --phase tunnel-reconnect --require-tunnel
+```
+
+The script verifies local prerequisites and the no-mutation path. A real tool
+call in ChatGPT still needs to be observed in the client UI.

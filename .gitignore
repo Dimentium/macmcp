@@ -6,3 +6,5 @@
 *.xcodeproj/
 xcuserdata/
 Package.resolved
+__pycache__/
+*.pyc

@@ -101,6 +101,60 @@ final class ReaderPolicyTests: XCTestCase {
         }
     }
 
+    func testLocalMailActionPolicyAllowsOnlyDeclaredFlagActions() throws {
+        let policy = ReaderPolicy(rules: ReaderPolicy.localMailActionRules)
+        XCTAssertEqual(policy.publicToolNames, [
+            "mail.create_managed_draft", "mail.update_managed_draft", "mail.mark"
+        ])
+        XCTAssertEqual(
+            try policy.prepareArguments(
+                for: "mail.mark",
+                supplied: ["message_id": .string("opaque"), "action": .string("flagged")]
+            )["action"],
+            .string("flagged")
+        )
+        XCTAssertThrowsError(
+            try policy.prepareArguments(
+                for: "mail.mark",
+                supplied: ["message_id": .string("opaque"), "action": .string("answered")]
+            )
+        ) { error in
+            XCTAssertEqual(error as? ReaderPolicyError, .invalidArgument("action"))
+        }
+        XCTAssertThrowsError(
+            try policy.prepareArguments(
+                for: "mail.create_managed_draft",
+                supplied: ["to": .array([.string("person@example.com")])]
+            )
+        ) { error in
+            XCTAssertEqual(error as? ReaderPolicyError, .unknownArgument("to"))
+        }
+    }
+
+    func testLocalMailActionProjectionMarksMutatingToolAndNarrowedEnum() throws {
+        let upstream = Tool(
+            name: "mark_email",
+            description: "Change any message flag",
+            inputSchema: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "message_id": .object(["type": .string("string")]),
+                    "action": .object(["type": .string("string")])
+                ]),
+                "required": .array([.string("message_id"), .string("action")])
+            ])
+        )
+        let policy = ReaderPolicy(rules: ReaderPolicy.localMailActionRules)
+        let projected = try policy.project(upstream: upstream, using: policy.rule(for: "mail.mark"))
+
+        XCTAssertEqual(projected.annotations.readOnlyHint, false)
+        XCTAssertEqual(projected.annotations.idempotentHint, true)
+        XCTAssertEqual(
+            projected.inputSchema.objectValue?["properties"]?.objectValue?["action"]?.objectValue?["enum"],
+            .array([.string("flagged"), .string("read"), .string("unflagged"), .string("unread")])
+        )
+    }
+
     func testProjectedSchemaRemovesMutationFields() throws {
         let upstream = Tool(
             name: "read_email",

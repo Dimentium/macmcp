@@ -2,7 +2,55 @@ import XCTest
 import MCP
 @testable import MacAgentBridge
 
+private actor BridgeToolClient: SidecarToolClient {
+    private let advertisedTools: [Tool]
+
+    init(advertisedTools: [Tool]) {
+        self.advertisedTools = advertisedTools
+    }
+
+    func connect() async throws {}
+    func listTools(cursor: String?) async throws -> (tools: [Tool], nextCursor: String?) {
+        (advertisedTools, nil)
+    }
+    func callTool(name: String, arguments: [String: Value]?) async throws -> CallTool.Result {
+        CallTool.Result(content: [.text(text: "ok", annotations: nil, _meta: nil)])
+    }
+    func disconnect() async {}
+}
+
 final class BridgeStatusTests: XCTestCase {
+    func testReaderServerFiltersActionToolsFromSharedRouter() async throws {
+        let inputSchema: Value = .object(["type": .string("object")])
+        let readerRule = ReaderToolRule(
+            publicName: "mail.reader",
+            sidecarID: "mail",
+            upstreamName: "reader_tool"
+        )
+        let actionRule = ReaderToolRule(
+            publicName: "mail.action",
+            sidecarID: "mail",
+            upstreamName: "action_tool",
+            exposure: .localAction
+        )
+        let router = GatewayRouter()
+        try await router.attach(
+            sidecarID: "mail",
+            client: BridgeToolClient(advertisedTools: [
+                Tool(name: "reader_tool", description: "", inputSchema: inputSchema),
+                Tool(name: "action_tool", description: "", inputSchema: inputSchema)
+            ]),
+            policy: ReaderPolicy(rules: [readerRule, actionRule])
+        )
+
+        let tools = await BridgeServer.exposedTools(
+            router: router,
+            policy: ReaderPolicy(rules: [readerRule])
+        )
+
+        XCTAssertEqual(tools.map(\.name), ["bridge_status", "mail.reader"])
+    }
+
     func testInitialStatusIsReaderOnly() throws {
         let status = BridgeStatus.initial
 

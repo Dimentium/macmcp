@@ -12,6 +12,14 @@ enum LocalBridgeIPC {
             .appendingPathComponent("mcp.sock")
     }
 
+    static func localMailActionSocketURL() -> URL {
+        LocalUserPaths.homeDirectoryURL()
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("mac-agent-bridge", isDirectory: true)
+            .appendingPathComponent("mail-actions.sock")
+    }
+
     static func requestBridgeStatus(socketPath: String = defaultSocketURL().path) throws -> String {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else {
@@ -40,9 +48,12 @@ enum LocalBridgeIPC {
 
     private static func configureRequestTimeout(_ fd: Int32) throws {
         var timeout = timeval(tv_sec: 3, tv_usec: 0)
+        var suppressSIGPIPE: Int32 = 1
         let length = socklen_t(MemoryLayout<timeval>.size)
+        let optionLength = socklen_t(MemoryLayout<Int32>.size)
         guard setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, length) == 0,
-              setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, length) == 0
+              setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, length) == 0,
+              setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &suppressSIGPIPE, optionLength) == 0
         else {
             throw LocalBridgeIPCClientError.unavailable
         }
@@ -139,6 +150,25 @@ enum LocalBridgeIPCServerError: LocalizedError, Equatable {
     }
 }
 
+struct LocalBridgeIPCLimits: Equatable, Sendable {
+    let maximumFrameBytes: Int
+    let maximumActiveClients: Int
+    let maximumConcurrentRequests: Int
+    let requestTimeout: TimeInterval
+
+    init(
+        maximumFrameBytes: Int = 256 * 1024,
+        maximumActiveClients: Int = 64,
+        maximumConcurrentRequests: Int = 8,
+        requestTimeout: TimeInterval = 30
+    ) {
+        self.maximumFrameBytes = max(1, maximumFrameBytes)
+        self.maximumActiveClients = max(1, maximumActiveClients)
+        self.maximumConcurrentRequests = max(1, maximumConcurrentRequests)
+        self.requestTimeout = max(0.001, requestTimeout)
+    }
+}
+
 enum LocalBridgeIPCClientError: LocalizedError, Equatable {
     case unavailable
     case invalidResponse
@@ -176,6 +206,7 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
 
     private let socketURL: URL
     private let tools: [Tool]
+    private let toolNames: Set<String>
     private let router: GatewayRouter
     private let policy: ReaderPolicy
     private let statusSource: BridgeStatusSource
@@ -183,6 +214,8 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
     private let clientApprovalStore: ClientApprovalStore
     private let identityProvider: IdentityProvider
     private let onClientApprovalChanged: (@Sendable () -> Void)?
+    private let limits: LocalBridgeIPCLimits
+    private let requestLimiter: DispatchSemaphore
     private let lock = NSLock()
     private var listenerFD: Int32 = -1
     private var clientFDs: Set<Int32> = []
@@ -197,10 +230,12 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
         attachmentReader: AttachmentTextReader? = nil,
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         identityProvider: @escaping IdentityProvider = { try LocalClientIdentity.localPeer(fd: $0) },
-        onClientApprovalChanged: (@Sendable () -> Void)? = nil
+        onClientApprovalChanged: (@Sendable () -> Void)? = nil,
+        limits: LocalBridgeIPCLimits = LocalBridgeIPCLimits()
     ) {
         self.socketURL = socketURL
         self.tools = tools
+        self.toolNames = Set(tools.map(\.name))
         self.router = router
         self.policy = policy
         self.statusSource = statusSource
@@ -208,6 +243,8 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
         self.clientApprovalStore = clientApprovalStore
         self.identityProvider = identityProvider
         self.onClientApprovalChanged = onClientApprovalChanged
+        self.limits = limits
+        self.requestLimiter = DispatchSemaphore(value: limits.maximumConcurrentRequests)
     }
 
     func start() throws {
@@ -230,7 +267,7 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
                 }
             }
             chmod(socketURL.path, 0o600)
-            guard listen(fd, 16) == 0 else {
+            guard listen(fd, Int32(limits.maximumActiveClients)) == 0 else {
                 throw LocalBridgeIPCServerError.listenFailed
             }
         } catch {
@@ -279,13 +316,27 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
                 if errno == EINTR { continue }
                 break
             }
-            _ = lock.withLock {
+            configureClientSocket(client)
+            let accepted = lock.withLock {
+                guard clientFDs.count < limits.maximumActiveClients else { return false }
                 clientFDs.insert(client)
+                return true
+            }
+            guard accepted else {
+                shutdown(client, SHUT_RDWR)
+                close(client)
+                continue
             }
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 self?.handleClient(fd: client)
             }
         }
+    }
+
+    private func configureClientSocket(_ fd: Int32) {
+        var suppressSIGPIPE: Int32 = 1
+        let length = socklen_t(MemoryLayout<Int32>.size)
+        _ = setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &suppressSIGPIPE, length)
     }
 
     // A stdio MCP client can hold a connection open indefinitely between requests.
@@ -317,6 +368,7 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
                 return
             }
             pending.append(buffer, count: count)
+            guard pending.count <= limits.maximumFrameBytes else { return }
             while let newline = pending.firstIndex(of: UInt8(ascii: "\n")) {
                 let frame = pending[..<newline]
                 pending = pending[(newline + 1)...]
@@ -329,14 +381,40 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
     }
 
     private func responseSynchronously(for frame: Data, identity: LocalClientIdentity) -> Data? {
+        guard requestLimiter.wait(timeout: .now()) == .success else {
+            return resourceErrorResponse(
+                for: frame,
+                code: -32004,
+                message: "MacMCP local IPC is busy"
+            )
+        }
         let result = LocalBridgeIPCResponseBox()
         let completed = DispatchSemaphore(value: 0)
+        let requestLimiter = requestLimiter
         Task { [weak self] in
+            defer {
+                requestLimiter.signal()
+                completed.signal()
+            }
             result.set(await self?.response(for: frame, identity: identity))
-            completed.signal()
         }
-        completed.wait()
+        guard completed.wait(timeout: .now() + limits.requestTimeout) == .success else {
+            return resourceErrorResponse(
+                for: frame,
+                code: -32003,
+                message: "MacMCP local IPC request timed out"
+            )
+        }
         return result.value()
+    }
+
+    private func resourceErrorResponse(for frame: Data, code: Int, message: String) -> Data? {
+        let id = (try? JSONDecoder().decode(JSONRPCMessage.self, from: frame))?.id
+        return try? JSONEncoder().encode(JSONRPCResponse(
+            id: id,
+            result: nil,
+            error: JSONRPCErrorObject(code: code, message: message)
+        ))
     }
 
     private func response(for frame: Data, identity: LocalClientIdentity) async -> Data? {
@@ -388,6 +466,9 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
         case "tools/call":
             let parameters = try decodeParams(CallTool.Parameters.self, from: params)
             let publicName = canonicalToolName(parameters.name)
+            guard toolNames.contains(publicName) else {
+                throw LocalBridgeJSONRPCError.unavailableTool
+            }
             let result: CallTool.Result
             if publicName == "bridge_status" {
                 result = await bridgeStatusResult(arguments: parameters.arguments)
