@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 
 @MainActor
 final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -43,6 +44,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
     private let tunnelLogStore: TunnelClientLogStore
     private let caskUpdater: HomebrewCaskUpdater
+    // Retained for the complete lifetime of the menu-bar runtime.
+    private let instanceLock: MacMCPInstanceLock?
     private let startup = BridgeRuntimeStartup()
     private var runtime: BridgeRuntime?
     private var ipcServer: LocalBridgeIPCServer?
@@ -57,12 +60,13 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var tunnelState: ChatGPTTunnelState?
     private var startTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
-    private var stopTask: Task<Void, Never>?
     private var updateCheckTask: Task<Void, Never>?
     private var periodicUpdateTask: Task<Void, Never>?
     private var updateState: UpdateMenuState = .checking
     private var displayedWritableAccountIDs: Set<String>?
     private var displayedClientApprovalSnapshot: ClientApprovalSnapshot?
+    private var terminationRequested = false
+    private var terminationReplySent = false
 
     private let updateCheckIntervalNanoseconds: UInt64 = 21_600_000_000_000
 
@@ -73,7 +77,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
         tunnelLogStore: TunnelClientLogStore = TunnelClientLogStore(),
-        caskUpdater: HomebrewCaskUpdater = HomebrewCaskUpdater()
+        caskUpdater: HomebrewCaskUpdater = HomebrewCaskUpdater(),
+        instanceLock: MacMCPInstanceLock? = nil
     ) {
         self.configuration = configuration
         self.launchConfigurationStore = launchConfigurationStore
@@ -82,11 +87,16 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
         self.tunnelLogStore = tunnelLogStore
         self.caskUpdater = caskUpdater
+        self.instanceLock = instanceLock
     }
 
     static func run(configuration: BridgeLaunchConfiguration) async {
         let application = NSApplication.shared
-        let host = MenuBarHost(configuration: configuration)
+        guard let instanceLock = try? MacMCPInstanceLock.acquire() else {
+            activateExistingApplication()
+            return
+        }
+        let host = MenuBarHost(configuration: configuration, instanceLock: instanceLock)
         application.setActivationPolicy(.accessory)
         application.delegate = host
         withExtendedLifetime(host) {
@@ -123,12 +133,19 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !terminationRequested else {
+            return .terminateLater
+        }
         guard runtime != nil || startTask != nil else {
             return .terminateNow
         }
+        terminationRequested = true
         Task {
             await stopRuntime()
-            sender.reply(toApplicationShouldTerminate: true)
+            finishTermination(sender)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak sender] in
+            self?.finishTermination(sender)
         }
         return .terminateLater
     }
@@ -828,8 +845,9 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         helper.executableURL = URL(fileURLWithPath: "/bin/sh")
         helper.arguments = [
             "-c",
-            "/bin/sleep 1; exec /usr/bin/open -n \"$1\"",
+            "pid=\"$1\"; app=\"$2\"; while /bin/kill -0 \"$pid\" 2>/dev/null; do /bin/sleep 0.1; done; exec /usr/bin/open -n \"$app\"",
             "macmcp-restart",
+            String(getpid()),
             bundleURL.path
         ]
 
@@ -857,36 +875,41 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func stopRuntime() async {
-        if let stopTask {
-            await stopTask.value
-            return
+        startTask?.cancel()
+        refreshTask?.cancel()
+        updateCheckTask?.cancel()
+        periodicUpdateTask?.cancel()
+        runtimeTask?.cancel()
+        await tunnelSupervisor?.stop()
+        await startup.stop()
+        await ipcServer?.stop()
+        ipcServer = nil
+        let runtimeToStop = runtime
+        runtime = nil
+        await runtimeToStop?.stop()
+        if let runtimeTask {
+            do {
+                let startedRuntime = try await runtimeTask.value
+                await startedRuntime.stop()
+            } catch {}
         }
+        runtimeTask = nil
+        startTask = nil
+        refreshTask = nil
+    }
 
-        let task = Task { @MainActor in
-            startTask?.cancel()
-            refreshTask?.cancel()
-            updateCheckTask?.cancel()
-            periodicUpdateTask?.cancel()
-            runtimeTask?.cancel()
-            await tunnelSupervisor?.stop()
-            await startup.stop()
-            await ipcServer?.stop()
-            ipcServer = nil
-            let runtimeToStop = runtime
-            runtime = nil
-            await runtimeToStop?.stop()
-            if let runtimeTask {
-                do {
-                    let startedRuntime = try await runtimeTask.value
-                    await startedRuntime.stop()
-                } catch {}
-            }
-            runtimeTask = nil
-            startTask = nil
-            refreshTask = nil
-        }
-        stopTask = task
-        await task.value
-        stopTask = nil
+    private func finishTermination(_ application: NSApplication?) {
+        guard !terminationReplySent, let application else { return }
+        terminationReplySent = true
+        application.reply(toApplicationShouldTerminate: true)
+    }
+
+    private static func activateExistingApplication() {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
+        let currentProcessIdentifier = getpid()
+        let existingApplication = NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first { $0.processIdentifier != currentProcessIdentifier }
+        existingApplication?.activate()
     }
 }
