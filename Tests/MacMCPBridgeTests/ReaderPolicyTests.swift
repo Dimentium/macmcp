@@ -74,6 +74,14 @@ final class ReaderPolicyTests: XCTestCase {
         XCTAssertEqual(arguments["limit"], .int(25))
     }
 
+    func testReminderListUsesACompactDefault() throws {
+        let arguments = try ReaderPolicy().prepareArguments(
+            for: "reminders.list",
+            supplied: nil
+        )
+        XCTAssertEqual(arguments["limit"], .int(10))
+    }
+
     func testCalendarDetailIsForcedToSummary() throws {
         let arguments = try ReaderPolicy().prepareArguments(
             for: "calendar.events",

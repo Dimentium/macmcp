@@ -173,7 +173,7 @@ struct ReaderPolicy: Sendable {
             allowedArguments: [
                 "completed", "filter", "sort", "limit", "calendar_name", "calendar_source"
             ],
-            defaultArguments: ["limit": .int(100)],
+            defaultArguments: ["limit": .int(10)],
             maximumIntegers: ["limit": 100]
         ),
         ReaderToolRule(

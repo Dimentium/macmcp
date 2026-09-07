@@ -13,15 +13,14 @@ personal data.
   reject a human recipient edit, update an unchanged draft, and confirm that
   toggling `Read only` blocks and re-allows the same tools through local MCP
   and the tunnel without a restart.
-- Reproduce one ChatGPT chat whose connector is marked unavailable after a
-  tool call, then correlate it with the redacted local tunnel log. In the
-  current reproduction, the proxy received and answered `bridge_status`, but
-  no subsequent `mail` request reached MacMCP before ChatGPT disabled the
-  connector. A direct `mail.list_accounts` through the same proxy succeeded.
-  This localizes the observed drop to the remote ChatGPT session or tunnel
-  dispatcher rather than IMAP or a MacMCP sidecar. A fully new ChatGPT chat
-  successfully completed consecutive `mail.list_accounts` and Drafts-folder
-  calls through the same live tunnel. Start a new chat when an older chat has
+- Recheck remote ChatGPT calls after the `0.2.14` response-size bound. A live
+  `reminders.list` response with the old default of 100 items occupied about
+  125 KiB because the untrusted-data envelope is intentionally present in both
+  `content` and `structuredContent`; the connector then disabled the tool.
+  The new filter measures the fully JSON-escaped public result and bounds it
+  below 12 KiB before JSON-RPC framing, while `reminders.list` now defaults to
+  10 items. A fully new ChatGPT chat has completed consecutive mail calls
+  through the same live tunnel. Start a new chat when an older chat has already
   disabled its connector; a branch may help because it creates a new chat, but
   is not a reliable repair for an already disabled tool session.
 
@@ -51,3 +50,7 @@ personal data.
 - A live remote ChatGPT tunnel session completed consecutive Mail calls after
   tunnel reconnect. The app, tunnel client, local proxy, and both mail
   sidecars remained healthy throughout.
+- Public sidecar outputs are bounded after JSON escaping and structured-output
+  duplication, rather than only at their raw source-text size. This prevents a
+  large Calendar, Reminders, mail, or attachment response from producing an
+  oversized remote MCP frame.

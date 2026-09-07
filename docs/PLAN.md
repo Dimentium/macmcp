@@ -50,7 +50,11 @@ each ad-hoc-signed replacement.
    consecutive remote mail calls after reconnect. Continue validating
    account-gated remote mail actions and treat a connector disabled in one
    existing ChatGPT chat as remote per-chat state: a new chat is the reliable
-   workaround. Claude Desktop support is opportunistic only.
+   workaround. The public untrusted-data envelope is bounded below 12 KiB
+   after JSON escaping and duplication into both MCP response fields; this
+   keeps large mail, Calendar, Reminder, and attachment results within a
+   conservative remote transport budget. Claude Desktop support is
+   opportunistic only.
 
 3. Keep diagnostics actionable.
    `macmcp diagnose` reports a sanitized state snapshot. Extend it only with
