@@ -4,8 +4,8 @@
     {
       "name": "mail-mcp",
       "repository": "https://github.com/Dimentium/mail-mcp",
-      "version": "v1.2.3",
-      "commit": "33b95d571ae7b55c7caffa4f2a5fae1e2755b424",
+      "version": "v1.2.4",
+      "commit": "e26b28ef87e6eab46d796d63ec1bbaa210d080d4",
       "license": "MIT",
       "role": "IMAP mail sidecar"
     },

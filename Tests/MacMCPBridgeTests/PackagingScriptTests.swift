@@ -161,8 +161,8 @@ final class PackagingScriptTests: XCTestCase {
 
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
         XCTAssertTrue(script.contains("MAIL_REPO=\"https://github.com/Dimentium/mail-mcp.git\""))
-        XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.2.3\""))
-        XCTAssertTrue(script.contains("MAIL_COMMIT=\"33b95d571ae7b55c7caffa4f2a5fae1e2755b424\""))
+        XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.2.4\""))
+        XCTAssertTrue(script.contains("MAIL_COMMIT=\"e26b28ef87e6eab46d796d63ec1bbaa210d080d4\""))
         XCTAssertTrue(script.contains("MAIL_GO_MOD_SHA256=\"41c501de585b0948adc7aadf0c80f493d79a29779f1648b99124a20388d643b4\""))
         XCTAssertTrue(script.contains("MAIL_GO_SUM_SHA256=\"65acf0c5d1563f6749f1fb495f8b1a03edf7882a0e2febb73ed659604062d5e6\""))
         XCTAssertTrue(script.contains("MAIL_MINIMUM_GO_VERSION=\"1.25.4\""))
@@ -253,9 +253,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.16\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.16</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.16</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.17\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.17</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.17</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {
