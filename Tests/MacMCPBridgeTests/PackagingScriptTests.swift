@@ -213,6 +213,28 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("binary \"#{appdir}/MacMCP.app/Contents/Resources/macmcp\""))
         XCTAssertTrue(script.contains("depends_on arch: :arm64"))
         XCTAssertTrue(script.contains("~/Library/Application Support/macmcp"))
+        XCTAssertTrue(script.contains("~/Library/Logs/MacMCP"))
+        XCTAssertFalse(script.contains("AuthKey_"))
+    }
+
+    func testReleaseScriptPublishesTheFullSignedCaskFlow() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/release.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
+        XCTAssertTrue(script.contains("--install-local"))
+        XCTAssertTrue(script.contains("git status --porcelain"))
+        XCTAssertTrue(script.contains("swift test"))
+        XCTAssertTrue(script.contains("notarize-local-app.sh"))
+        XCTAssertTrue(script.contains("git tag -a \"$tag\""))
+        XCTAssertTrue(script.contains("gh release create \"$tag\""))
+        XCTAssertTrue(script.contains("write-cask-formula.sh"))
+        XCTAssertTrue(script.contains("git push \"$remote\" \"$branch:main\""))
+        XCTAssertTrue(script.contains("brew upgrade --cask macmcp"))
+        XCTAssertTrue(script.contains("Release failed at step"))
         XCTAssertFalse(script.contains("AuthKey_"))
     }
 

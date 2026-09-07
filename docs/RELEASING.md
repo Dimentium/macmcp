@@ -45,7 +45,37 @@ software:
 xcrun notarytool history --keychain-profile macmcp-notarization
 ```
 
-## Build a Notarized App
+## Publish a Release
+
+The normal release path is one command. First bump all source version fields,
+commit the intended release, and ensure the worktree is clean. The command
+runs the full tests, builds the pinned sidecars, signs and notarizes the app,
+validates Gatekeeper, tags and pushes the source commit, creates the GitHub
+Release, regenerates and commits the Cask and source formula, and pushes that
+metadata commit. Every stage is printed as a numbered step; on failure it
+reports the last completed boundary and does not run later publication steps.
+
+Run this only on the release Mac:
+
+```sh
+scripts/release.sh \
+  --signing-identity "Developer ID Application: Your Name (TEAMID)" \
+  --install-local
+```
+
+`--install-local` is optional. It refreshes Homebrew, installs or upgrades the
+published Cask, verifies its bundled version, then performs a single-instance
+MacMCP restart and prints `macmcp diagnose --json`. Omit it when publishing
+without changing the release Mac's installed application.
+
+The release script requires an authenticated `gh` CLI, the `public` Git remote,
+and the one-time signing/notary setup above. `--remote NAME` and
+`--notary-profile NAME` override their defaults. It deliberately refuses a
+dirty worktree, mismatched version fields, existing version tag, absent GitHub
+authentication, missing artifact, checksum mismatch, or mismatched Cask and
+formula revision.
+
+## Low-Level Notarization
 
 Run this only on the release Mac:
 
@@ -71,8 +101,10 @@ codesign --verify --deep --strict --verbose=2 /path/to/MacMCP.app
 spctl --assess --type execute --verbose=4 /path/to/MacMCP.app
 ```
 
-## Publish the Cask
+## Low-Level Cask Publishing
 
+`scripts/release.sh` is preferred. These lower-level commands remain useful
+only for diagnosing a failed release step after its state has been inspected.
 After creating the signed artifact, create a GitHub Release for the matching
 `v<version>` tag and upload both files from `dist/`. Then generate and commit
 the Cask formula with the archive that was uploaded:

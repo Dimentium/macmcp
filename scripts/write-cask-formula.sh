@@ -83,6 +83,7 @@ cask "macmcp" do
   zap trash: [
     "~/Library/Application Support/macmcp",
     "~/Library/Caches/macmcp",
+    "~/Library/Logs/MacMCP",
   ]
 end
 EOF

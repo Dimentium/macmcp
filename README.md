@@ -175,7 +175,8 @@ brew uninstall macmcp
 ```
 
 The source formula remains supported after the Cask is published. The Developer
-ID release pipeline is documented in [docs/RELEASING.md](docs/RELEASING.md).
+ID release pipeline is one numbered command, documented in
+[docs/RELEASING.md](docs/RELEASING.md).
 
 ## Third-Party Components
 
