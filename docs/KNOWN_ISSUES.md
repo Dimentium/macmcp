@@ -14,6 +14,10 @@ personal data.
   reject a human recipient edit, update an unchanged draft, and confirm that
   toggling `Read only` blocks and re-allows the same tools through local MCP
   and the tunnel without a restart.
+- Reproduce one ChatGPT chat whose connector is marked unavailable after a
+  tool call, then correlate it with the redacted local tunnel log. Branching
+  the ChatGPT conversation is a confirmed workaround: it starts a fresh chat
+  while retaining the history copy.
 
 ## Resolved Since The 2026-09-05 Audit
 

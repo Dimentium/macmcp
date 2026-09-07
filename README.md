@@ -142,6 +142,12 @@ tunnel failures. Each tunnel record has only a timestamp, fixed phase, and
 fixed reason. It excludes email addresses, client names, paths, tunnel IDs,
 command output, and secrets.
 
+When the ChatGPT tunnel is configured, `ChatGPT Tunnel > Open Tunnel Log` opens
+`~/Library/Logs/MacMCP/chatgpt-tunnel.log`. The app keeps the active log and up
+to four rotated files; each file is capped at 10 MiB. It records tunnel process
+events and a redacted allowlist of `tunnel-client` JSON fields, never MCP
+payloads, mail data, headers, tunnel IDs, or credentials.
+
 ## Updates And Removal
 
 Update the source package and the installed runtime:

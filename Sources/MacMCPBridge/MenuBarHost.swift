@@ -41,6 +41,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let loginItemController: (any LoginItemControlling)?
     private let clientApprovalStore: ClientApprovalStore
     private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
+    private let tunnelLogStore: TunnelClientLogStore
     private let caskUpdater: HomebrewCaskUpdater
     private let startup = BridgeRuntimeStartup()
     private var runtime: BridgeRuntime?
@@ -71,6 +72,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItemController: (any LoginItemControlling)? = SMAppLoginItemController(),
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
+        tunnelLogStore: TunnelClientLogStore = TunnelClientLogStore(),
         caskUpdater: HomebrewCaskUpdater = HomebrewCaskUpdater()
     ) {
         self.configuration = configuration
@@ -78,6 +80,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.loginItemController = loginItemController
         self.clientApprovalStore = clientApprovalStore
         self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
+        self.tunnelLogStore = tunnelLogStore
         self.caskUpdater = caskUpdater
     }
 
@@ -313,6 +316,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 ipcSocketURL: LocalBridgeIPC.defaultSocketURL(),
                 proxyWrapperURL: ChatGPTTunnelSupervisor.defaultProxyWrapperURL(),
                 failureHistoryStore: tunnelFailureHistoryStore,
+                tunnelLogStore: tunnelLogStore,
                 onStateChanged: { [weak self] state in
                     self?.tunnelState = state
                     if let item = self?.tunnelMenuItem {
@@ -343,6 +347,9 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updatesMenuItem.title = Self.updateTitle(state: updateState)
 
         let submenu = NSMenu()
+        // AppKit otherwise re-enables any item with an available action when
+        // the menu opens, bypassing the state derived from the release check.
+        submenu.autoenablesItems = false
         let check = NSMenuItem(
             title: "Check for Updates",
             action: #selector(checkForUpdatesFromMenu),
@@ -466,6 +473,13 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let history = NSMenuItem(title: tunnelFailureHistoryTitle(), action: nil, keyEquivalent: "")
         history.isEnabled = false
         submenu.addItem(history)
+        let openLog = NSMenuItem(
+            title: "Open Tunnel Log",
+            action: #selector(openTunnelLog),
+            keyEquivalent: ""
+        )
+        openLog.target = self
+        submenu.addItem(openLog)
         submenu.addItem(.separator())
         if tunnelSupervisor != nil {
             let restart = NSMenuItem(
@@ -786,6 +800,10 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openTunnelAPIKeys() {
         NSWorkspace.shared.open(URL(string: "https://platform.openai.com/api-keys")!)
+    }
+
+    @objc private func openTunnelLog() {
+        NSWorkspace.shared.open(tunnelLogStore.fileURL)
     }
 
     @objc private func openRepository() {

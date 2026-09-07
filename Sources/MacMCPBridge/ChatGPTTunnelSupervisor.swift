@@ -50,9 +50,11 @@ final class ChatGPTTunnelSupervisor {
     private let proxyWrapperURL: URL
     private let credentialStore: any CredentialStore
     private let failureHistoryStore: TunnelFailureHistoryStore
+    private let tunnelLogStore: TunnelClientLogStore
     private let healthProbe: HealthProbe
     private let onStateChanged: StateHandler
     private var activeProcess: Process?
+    private var activeLogCapture: TunnelClientLogCapture?
     private var runtimeKey: String?
     private var generation = 0
     private var stopped = false
@@ -84,6 +86,7 @@ final class ChatGPTTunnelSupervisor {
         proxyWrapperURL: URL,
         credentialStore: any CredentialStore = MigratingCredentialStore.chatGPTTunnel(),
         failureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
+        tunnelLogStore: TunnelClientLogStore = TunnelClientLogStore(),
         healthProbe: @escaping HealthProbe = ChatGPTTunnelSupervisor.defaultHealthProbe,
         healthProbeTimeoutNanoseconds: UInt64 = 10_000_000_000,
         onStateChanged: @escaping StateHandler = { _ in }
@@ -94,6 +97,7 @@ final class ChatGPTTunnelSupervisor {
         self.proxyWrapperURL = proxyWrapperURL
         self.credentialStore = credentialStore
         self.failureHistoryStore = failureHistoryStore
+        self.tunnelLogStore = tunnelLogStore
         self.healthProbe = healthProbe
         self.healthProbeTimeoutNanoseconds = healthProbeTimeoutNanoseconds
         self.onStateChanged = onStateChanged
@@ -187,16 +191,23 @@ final class ChatGPTTunnelSupervisor {
         guard generation == self.generation, !stopped, let runtimeKey else { return }
 
         let process = Process()
+        let logCapture = TunnelClientLogCapture(store: tunnelLogStore)
         process.executableURL = URL(fileURLWithPath: configuration.clientPath)
         process.arguments = arguments
         process.environment = [
             "HOME": LocalUserPaths.homeDirectoryURL().path,
             "PATH": ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
-            "CONTROL_PLANE_API_KEY": runtimeKey
+            "CONTROL_PLANE_API_KEY": runtimeKey,
+            "LOG_FORMAT": "json",
+            "LOG_LEVEL": "info"
         ]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        process.standardOutput = logCapture.standardOutput
+        process.standardError = logCapture.standardError
         process.terminationHandler = { [weak self] completed in
+            logCapture.finish()
+            self?.tunnelLogStore.recordLifecycle(
+                "tunnel-client \(phase.diagnosticPhase.rawValue) exited with status \(completed.terminationStatus)"
+            )
             Task { @MainActor in
                 self?.didFinish(
                     phase: phase,
@@ -208,7 +219,10 @@ final class ChatGPTTunnelSupervisor {
 
         do {
             try process.run()
+            logCapture.closeParentWriteHandles()
             activeProcess = process
+            activeLogCapture = logCapture
+            tunnelLogStore.recordLifecycle("tunnel-client \(phase.diagnosticPhase.rawValue) started")
             if phase == .run {
                 tunnelClientIsRunning = true
                 tunnelRunStartedAt = Date()
@@ -217,6 +231,9 @@ final class ChatGPTTunnelSupervisor {
                 refreshHealth(force: true)
             }
         } catch {
+            logCapture.closeParentWriteHandles()
+            logCapture.finish()
+            tunnelLogStore.recordLifecycle("tunnel-client \(phase.diagnosticPhase.rawValue) failed to start")
             becomeUnavailable(phase: phase.diagnosticPhase, reason: .processLaunchFailed)
         }
     }

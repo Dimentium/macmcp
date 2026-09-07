@@ -87,6 +87,7 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertEqual(applicationMenu?.items[2].action?.description, "openRepository")
         XCTAssertEqual(applicationMenu?.items[3].title, "🟡 Updates: checking")
         XCTAssertNotNil(applicationMenu?.items[3].submenu)
+        XCTAssertFalse(applicationMenu?.items[3].submenu?.autoenablesItems ?? true)
         XCTAssertFalse(applicationMenu?.items[3].submenu?.items[1].isEnabled ?? true)
         XCTAssertEqual(applicationMenu?.items[4].title, "Restart MacMCP")
         XCTAssertEqual(applicationMenu?.items[4].action?.description, "restartMacMCP")

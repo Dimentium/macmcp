@@ -31,6 +31,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         let bridgeURL = directory.appendingPathComponent("macmcp-bridge")
         let proxyURL = directory.appendingPathComponent("chatgpt-tunnel-proxy")
         let readyURL = directory.appendingPathComponent("ready")
+        let tunnelLogStore = TunnelClientLogStore(fileURL: directory.appendingPathComponent("chatgpt-tunnel.log"))
 
         try Data().write(to: socketURL)
         try "#!/bin/bash\nexit 0\n".write(to: bridgeURL, atomically: true, encoding: .utf8)
@@ -41,6 +42,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         try """
         #!/bin/bash
         printf '%s\\n' "$1" >> '\(traceURL.path)'
+        printf '%s\\n' '{"level":"info","msg":"tunnel client ready","component":"test"}'
         if [[ "$1" == "run" ]]; then
           touch '\(readyURL.path)'
           while true; do sleep 1; done
@@ -62,6 +64,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
             ipcSocketURL: socketURL,
             proxyWrapperURL: proxyURL,
             credentialStore: FixedTunnelCredentialStore(),
+            tunnelLogStore: tunnelLogStore,
             healthProbe: { _ in true },
             onStateChanged: { state in
                 if state == .running {
@@ -80,6 +83,9 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         let proxy = try String(contentsOf: proxyURL, encoding: .utf8)
         XCTAssertTrue(proxy.contains("--stdio-proxy"))
         XCTAssertTrue(proxy.contains(socketURL.path))
+        let log = try String(contentsOf: tunnelLogStore.fileURL, encoding: .utf8)
+        XCTAssertTrue(log.contains("tunnel client ready"))
+        XCTAssertTrue(log.contains("\"source\":\"stdout\""))
     }
 
     func testHungHealthProbeTimesOutAndDoesNotOverwriteUnavailableState() async throws {

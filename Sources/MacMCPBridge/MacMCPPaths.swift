@@ -38,6 +38,22 @@ enum MacMCPPaths {
             .appendingPathComponent(applicationSupportDirectoryName, isDirectory: true)
     }
 
+    static func logsDirectory(
+        homeDirectory: URL = LocalUserPaths.homeDirectoryURL()
+    ) -> URL {
+        homeDirectory
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Logs", isDirectory: true)
+            .appendingPathComponent("MacMCP", isDirectory: true)
+    }
+
+    static func logFile(
+        _ name: String,
+        homeDirectory: URL = LocalUserPaths.homeDirectoryURL()
+    ) -> URL {
+        logsDirectory(homeDirectory: homeDirectory).appendingPathComponent(name)
+    }
+
     static func legacyApplicationSupportFile(
         _ name: String,
         homeDirectory: URL = LocalUserPaths.homeDirectoryURL()

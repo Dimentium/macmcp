@@ -14,6 +14,10 @@ final class MacMCPPathsTests: XCTestCase {
             MacMCPPaths.runtimeCacheDirectory(homeDirectory: home).path,
             "/Users/test/Library/Caches/macmcp"
         )
+        XCTAssertEqual(
+            MacMCPPaths.logFile("chatgpt-tunnel.log", homeDirectory: home).path,
+            "/Users/test/Library/Logs/MacMCP/chatgpt-tunnel.log"
+        )
     }
 
     func testLegacyPathIsKeptOnlyForMigration() {
