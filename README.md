@@ -151,6 +151,12 @@ valid structured tunnel events and its own lifecycle messages; it discards all
 unstructured tunnel output. The log never contains MCP payloads, mail data,
 headers, tunnel IDs, or credentials.
 
+`ChatGPT Tunnel > Open Tunnel Proxy Log` opens
+`~/Library/Logs/MacMCP/chatgpt-tunnel-proxy.log`. It records only each remote
+tool category (`mail`, `calendar`, `reminders`, or `bridge_status`) and whether
+the local proxy sent back an MCP result. It never records arguments, request
+IDs, or result content.
+
 ## Updates And Removal
 
 Update the source package and the installed runtime:

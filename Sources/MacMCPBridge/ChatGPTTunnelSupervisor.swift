@@ -420,7 +420,7 @@ final class ChatGPTTunnelSupervisor {
         let source = """
         #!/bin/bash
         set -euo pipefail
-        exec \(shellQuote(bridgeExecutableURL.path)) --stdio-proxy \(shellQuote(ipcSocketURL.path))
+        exec env MACMCP_TUNNEL_PROXY=1 \(shellQuote(bridgeExecutableURL.path)) --stdio-proxy \(shellQuote(ipcSocketURL.path))
         """
         try Data((source + "\n").utf8).write(to: proxyWrapperURL, options: .atomic)
         try FileManager.default.setAttributes(

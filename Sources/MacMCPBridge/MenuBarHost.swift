@@ -480,6 +480,13 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         openLog.target = self
         submenu.addItem(openLog)
+        let openProxyLog = NSMenuItem(
+            title: "Open Tunnel Proxy Log",
+            action: #selector(openTunnelProxyLog),
+            keyEquivalent: ""
+        )
+        openProxyLog.target = self
+        submenu.addItem(openProxyLog)
         submenu.addItem(.separator())
         if tunnelSupervisor != nil {
             let restart = NSMenuItem(
@@ -804,6 +811,10 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openTunnelLog() {
         NSWorkspace.shared.open(tunnelLogStore.fileURL)
+    }
+
+    @objc private func openTunnelProxyLog() {
+        NSWorkspace.shared.open(TunnelProxyDiagnostics.defaultFileURL())
     }
 
     @objc private func openRepository() {

@@ -83,6 +83,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         let proxy = try String(contentsOf: proxyURL, encoding: .utf8)
         XCTAssertTrue(proxy.contains("--stdio-proxy"))
         XCTAssertTrue(proxy.contains(socketURL.path))
+        XCTAssertTrue(proxy.contains("MACMCP_TUNNEL_PROXY=1"))
         let log = try String(contentsOf: tunnelLogStore.fileURL, encoding: .utf8)
         XCTAssertTrue(log.contains("tunnel client ready"))
         XCTAssertTrue(log.contains("[stdout]"))
