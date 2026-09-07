@@ -2,6 +2,45 @@ import Foundation
 import XCTest
 
 final class PackagingScriptTests: XCTestCase {
+    func testCaskCLIResolvesHomebrewSymlink() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let resources = root.appendingPathComponent("MacMCP.app/Contents/Resources", isDirectory: true)
+        let macOS = root.appendingPathComponent("MacMCP.app/Contents/MacOS", isDirectory: true)
+        let bin = root.appendingPathComponent("bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+
+        let project = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let cli = resources.appendingPathComponent("macmcp")
+        try FileManager.default.copyItem(
+            at: project.appendingPathComponent("Packaging/macmcp"),
+            to: cli
+        )
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+
+        let bridge = macOS.appendingPathComponent("macmcp-bridge")
+        try Data("#!/bin/bash\nprintf 'ready\\n'\n".utf8).write(to: bridge)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridge.path)
+
+        let link = bin.appendingPathComponent("macmcp")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: cli)
+
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = [link.path, "status"]
+        process.standardOutput = output
+        try process.run()
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationStatus, 0)
+        XCTAssertEqual(String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self), "ready\n")
+    }
+
     func testLocalAppBuildScriptChecksEmbeddedSidecar() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let script = try String(
@@ -192,9 +231,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.5\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.5</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.5</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.6\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.6</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.6</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

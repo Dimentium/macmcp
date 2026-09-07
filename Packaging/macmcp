@@ -1,7 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-resource_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+while [[ -L "$script_path" ]]; do
+  script_directory="$(cd -P "$(dirname "$script_path")" && pwd)"
+  script_path="$(readlink "$script_path")"
+  [[ "$script_path" == /* ]] || script_path="$script_directory/$script_path"
+done
+resource_dir="$(cd -P "$(dirname "$script_path")" && pwd)"
 contents_dir="$(cd "$resource_dir/.." && pwd)"
 app_path="$(cd "$contents_dir/.." && pwd)"
 bridge="$contents_dir/MacOS/macmcp-bridge"
