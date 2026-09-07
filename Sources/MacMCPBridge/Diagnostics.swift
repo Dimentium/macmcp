@@ -81,7 +81,7 @@ struct MacMCPDiagnosticReport: Codable, Equatable, Sendable {
 
 struct MacMCPDiagnosticCollector {
     typealias BridgeStatusRequest = () throws -> String
-    typealias TunnelHealthProbe = (_ clientPath: String) async -> Bool
+    typealias TunnelHealthProbe = (_ clientPath: String, _ runtimeKey: String) async -> Bool
 
     private let launchConfigurationStore: AppLaunchConfigurationStore
     private let clientApprovalStore: ClientApprovalStore
@@ -89,6 +89,7 @@ struct MacMCPDiagnosticCollector {
     private let loginItemStatus: () -> LoginItemStatus
     private let tunnelHealthProbe: TunnelHealthProbe
     private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
+    private let tunnelCredentialStore: any CredentialStore
 
     init(
         launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
@@ -96,7 +97,8 @@ struct MacMCPDiagnosticCollector {
         bridgeStatusRequest: @escaping BridgeStatusRequest = { try LocalBridgeIPC.requestBridgeStatus() },
         loginItemStatus: @escaping () -> LoginItemStatus = { SMAppLoginItemController().status },
         tunnelHealthProbe: @escaping TunnelHealthProbe = ChatGPTTunnelSupervisor.defaultHealthProbe,
-        tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore()
+        tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
+        tunnelCredentialStore: any CredentialStore = MigratingCredentialStore.chatGPTTunnel()
     ) {
         self.launchConfigurationStore = launchConfigurationStore
         self.clientApprovalStore = clientApprovalStore
@@ -104,6 +106,7 @@ struct MacMCPDiagnosticCollector {
         self.loginItemStatus = loginItemStatus
         self.tunnelHealthProbe = tunnelHealthProbe
         self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
+        self.tunnelCredentialStore = tunnelCredentialStore
     }
 
     func collect() async -> MacMCPDiagnosticReport {
@@ -182,7 +185,13 @@ struct MacMCPDiagnosticCollector {
         guard FileManager.default.isExecutableFile(atPath: tunnel.clientPath) else {
             return .clientUnavailable
         }
-        return await tunnelHealthProbe(tunnel.clientPath) ? .running : .unavailable
+        guard var key = try? tunnelCredentialStore.readSecret(
+            account: KeychainCredentialStore.chatGPTTunnelAccount
+        ), !key.isEmpty else {
+            return .unavailable
+        }
+        defer { key.resetBytes(in: 0..<key.count) }
+        return await tunnelHealthProbe(tunnel.clientPath, String(decoding: key, as: UTF8.self)) ? .running : .unavailable
     }
 
     private func collectTunnelFailures() -> MacMCPDiagnosticReport.TunnelFailures {

@@ -25,7 +25,7 @@ enum ChatGPTTunnelState: Equatable, Sendable {
 @MainActor
 final class ChatGPTTunnelSupervisor {
     typealias StateHandler = @MainActor @Sendable (ChatGPTTunnelState) -> Void
-    typealias HealthProbe = (_ clientPath: String) async -> Bool
+    typealias HealthProbe = (_ clientPath: String, _ runtimeKey: String) async -> Bool
 
     private enum Phase {
         case initialize
@@ -277,6 +277,10 @@ final class ChatGPTTunnelSupervisor {
             becomeUnavailable(phase: .run, reason: .processExited)
             return
         }
+        guard let runtimeKey else {
+            becomeUnavailable(phase: .credential, reason: .credentialMissing)
+            return
+        }
         guard healthProbeToken == nil else { return }
         if !force,
            let lastHealthProbeAt,
@@ -309,7 +313,7 @@ final class ChatGPTTunnelSupervisor {
             self.becomeUnavailable(phase: .health, reason: .healthTimedOut)
         }
         Task { [weak self] in
-            let isHealthy = await healthProbe(clientPath)
+            let isHealthy = await healthProbe(clientPath, runtimeKey)
             guard let self,
                   currentGeneration == self.generation,
                   !self.stopped,
@@ -342,7 +346,7 @@ final class ChatGPTTunnelSupervisor {
         state = .unavailable
     }
 
-    nonisolated static func defaultHealthProbe(clientPath: String) async -> Bool {
+    nonisolated static func defaultHealthProbe(clientPath: String, runtimeKey: String) async -> Bool {
         await withCheckedContinuation { continuation in
             let process = Process()
             let completion = HealthProcessCompletion()
@@ -355,7 +359,8 @@ final class ChatGPTTunnelSupervisor {
             ]
             process.environment = [
                 "HOME": LocalUserPaths.homeDirectoryURL().path,
-                "PATH": ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+                "PATH": ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
+                "CONTROL_PLANE_API_KEY": runtimeKey
             ]
             process.standardOutput = FileHandle.nullDevice
             process.standardError = FileHandle.nullDevice

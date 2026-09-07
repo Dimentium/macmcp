@@ -65,7 +65,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
             proxyWrapperURL: proxyURL,
             credentialStore: FixedTunnelCredentialStore(),
             tunnelLogStore: tunnelLogStore,
-            healthProbe: { _ in true },
+            healthProbe: { _, _ in true },
             onStateChanged: { state in
                 if state == .running {
                     running.fulfill()
@@ -129,7 +129,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
             proxyWrapperURL: proxyURL,
             credentialStore: FixedTunnelCredentialStore(),
             failureHistoryStore: failureHistoryStore,
-            healthProbe: { _ in
+            healthProbe: { _, _ in
                 try? await Task.sleep(nanoseconds: 100_000_000)
                 return true
             },

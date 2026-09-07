@@ -2,6 +2,12 @@ import Foundation
 import XCTest
 @testable import MacMCPBridge
 
+private struct DiagnosticsTunnelCredentialStore: CredentialStore {
+    func readSecret(account: String) throws -> Data { Data("test-runtime-key".utf8) }
+    func storeSecret(_ secret: Data, account: String) throws {}
+    func deleteSecret(account: String) throws {}
+}
+
 final class DiagnosticsTests: XCTestCase {
     func testReportSummarizesRuntimeWithoutSerializingPrivateConfiguration() async throws {
         let directory = try temporaryDirectory()
@@ -53,8 +59,9 @@ final class DiagnosticsTests: XCTestCase {
             clientApprovalStore: ClientApprovalStore(fileURL: directory.appendingPathComponent("clients.json")),
             bridgeStatusRequest: { try status.encodedJSON() },
             loginItemStatus: { .enabled },
-            tunnelHealthProbe: { _ in true },
-            tunnelFailureHistoryStore: failureHistoryStore
+            tunnelHealthProbe: { _, _ in true },
+            tunnelFailureHistoryStore: failureHistoryStore,
+            tunnelCredentialStore: DiagnosticsTunnelCredentialStore()
         )
 
         let report = await collector.collect()
@@ -87,7 +94,7 @@ final class DiagnosticsTests: XCTestCase {
             clientApprovalStore: ClientApprovalStore(fileURL: directory.appendingPathComponent("clients.json")),
             bridgeStatusRequest: { throw LocalBridgeIPCClientError.unavailable },
             loginItemStatus: { .notRegistered },
-            tunnelHealthProbe: { _ in false },
+            tunnelHealthProbe: { _, _ in false },
             tunnelFailureHistoryStore: TunnelFailureHistoryStore(
                 fileURL: directory.appendingPathComponent("tunnel-failures.json")
             )
