@@ -73,6 +73,8 @@ launch_config="$test_home/Library/Application Support/macmcp/launch.json"
 [[ -x "$app_dir/MacMCP.app/Contents/Resources/mail-mcp" ]]
 [[ -x "$app_dir/MacMCP.app/Contents/Resources/CheICalMCP" ]]
 [[ -x "$app_dir/MacMCP.app/Contents/Resources/macmcp" ]]
+[[ -f "$app_dir/MacMCP.app/Contents/Resources/ThirdPartyNotices/README.md" ]]
+[[ -f "$app_dir/MacMCP.app/Contents/Resources/ThirdPartyNotices/go/github.com/modelcontextprotocol/go-sdk/LICENSE" ]]
 "$app_dir/MacMCP.app/Contents/Resources/macmcp" help >/dev/null
 [[ -L "$bin_dir/macmcp-bridge" ]]
 [[ -f "$launch_config" ]]

@@ -12,12 +12,16 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
         XCTAssertTrue(script.contains("[[ \"$eventkit_binary\" != /* ]]"))
         XCTAssertTrue(script.contains("plutil -lint \"$info_plist\" \"$entitlements\""))
+        XCTAssertTrue(script.contains("swift build -c release --product macmcp-bridge >&2"))
         XCTAssertTrue(script.contains("Sources/MacMCPBridge/Entitlements.plist"))
         XCTAssertTrue(script.contains("--product macmcp-bridge"))
         XCTAssertTrue(script.contains("--signing-identity ID"))
+        XCTAssertTrue(script.contains("--signing-keychain PATH"))
         XCTAssertTrue(script.contains("--mail-sidecar PATH"))
         XCTAssertTrue(script.contains("--output PATH"))
         XCTAssertTrue(script.contains("MACMCP_SIGNING_IDENTITY"))
+        XCTAssertTrue(script.contains("MACMCP_SIGNING_KEYCHAIN"))
+        XCTAssertTrue(script.contains("arguments+=(--keychain \"$signing_keychain\")"))
         XCTAssertTrue(script.contains("arguments+=(--timestamp)"))
         XCTAssertTrue(script.contains("verify_secure_timestamp"))
         XCTAssertTrue(script.contains("Developer ID signature is missing a secure timestamp"))
@@ -26,6 +30,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("app_cli=\"$app/Contents/Resources/macmcp\""))
         XCTAssertTrue(script.contains("cask_cli=\"$project_dir/Packaging/macmcp\""))
         XCTAssertTrue(script.contains("cp \"$cask_cli\" \"$app_cli\""))
+        XCTAssertTrue(script.contains("notices_dir=\"$project_dir/Packaging/ThirdPartyNotices\""))
+        XCTAssertTrue(script.contains("cp -R \"$notices_dir\" \"$app_notices\""))
         XCTAssertTrue(script.contains("codesign --verify --strict --verbose=2 \"$app_mail\""))
         XCTAssertTrue(script.contains("codesign --verify --strict --verbose=2 \"$app_eventkit\""))
         XCTAssertTrue(script.contains("codesign --verify --deep --strict --verbose=2 \"$app\""))
@@ -139,6 +145,8 @@ final class PackagingScriptTests: XCTestCase {
 
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
         XCTAssertTrue(script.contains("Developer ID Application:"))
+        XCTAssertTrue(script.contains("--signing-keychain PATH"))
+        XCTAssertTrue(script.contains("build_arguments+=(--signing-keychain \"$signing_keychain\")"))
         XCTAssertTrue(script.contains("build-pinned-eventkit-sidecar.sh"))
         XCTAssertTrue(script.contains("build-pinned-mail-sidecar.sh"))
         XCTAssertTrue(script.contains("--keychain-profile \"$notary_profile\""))
@@ -183,9 +191,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.3\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.3</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.3</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.4\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.4</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.4</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {
@@ -253,6 +261,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("--skip-password"))
         XCTAssertTrue(script.contains("--reuse-existing-configuration"))
         XCTAssertTrue(script.contains("--diagnose-json"))
+        XCTAssertTrue(script.contains("ThirdPartyNotices/README.md"))
+        XCTAssertTrue(script.contains("go/github.com/modelcontextprotocol/go-sdk/LICENSE"))
         XCTAssertTrue(script.contains("MacMCP deployment acceptance failed during phase"))
         XCTAssertTrue(script.contains("GITHUB_ACTIONS"))
         XCTAssertTrue(script.contains("uninstall-local.sh"))

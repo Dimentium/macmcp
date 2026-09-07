@@ -12,6 +12,7 @@ notarytool Keychain profile. It never reads API-key files or stores secrets.
 
 Options:
   --signing-identity ID  required unless MACMCP_SIGNING_IDENTITY is set
+  --signing-keychain PATH optional Keychain containing the signing identity
   --notary-profile NAME  notarytool Keychain profile; default: macmcp-notarization
   --dist-dir PATH        absolute final artifact directory; default: dist
   --build-root PATH      absolute temporary build directory; default: .build/notarization
@@ -22,6 +23,7 @@ EOF
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
 signing_identity="${MACMCP_SIGNING_IDENTITY:-}"
+signing_keychain="${MACMCP_SIGNING_KEYCHAIN:-}"
 notary_profile="${MACMCP_NOTARY_PROFILE:-macmcp-notarization}"
 dist_dir="${MACMCP_DIST_DIR:-$project_dir/dist}"
 build_root="${MACMCP_NOTARIZATION_BUILD_ROOT:-$project_dir/.build/notarization}"
@@ -31,6 +33,11 @@ while [[ $# -gt 0 ]]; do
     --signing-identity)
       [[ $# -ge 2 ]] || { echo "missing value for --signing-identity" >&2; exit 2; }
       signing_identity="$2"
+      shift 2
+      ;;
+    --signing-keychain)
+      [[ $# -ge 2 ]] || { echo "missing value for --signing-keychain" >&2; exit 2; }
+      signing_keychain="$2"
       shift 2
       ;;
     --notary-profile)
@@ -69,6 +76,10 @@ if [[ "$signing_identity" != "Developer ID Application:"* ]]; then
   echo "signing identity must be a Developer ID Application certificate" >&2
   exit 2
 fi
+if [[ -n "$signing_keychain" && ( "$signing_keychain" != /* || ! -e "$signing_keychain" ) ]]; then
+  echo "signing Keychain must be an existing absolute path: $signing_keychain" >&2
+  exit 2
+fi
 for path in "$dist_dir" "$build_root"; do
   if [[ "$path" != /* ]]; then
     echo "path must be absolute: $path" >&2
@@ -85,7 +96,17 @@ done
 mkdir -p "$dist_dir" "$build_root"
 mail_binary="$("$script_dir/build-pinned-mail-sidecar.sh" --build-root "$build_root/mail")"
 eventkit_binary="$("$script_dir/build-pinned-eventkit-sidecar.sh" --build-root "$build_root/eventkit")"
-app="$("$script_dir/build-local-app.sh" "$eventkit_binary" --mail-sidecar "$mail_binary" --signing-identity "$signing_identity" --output "$build_root/app")"
+build_arguments=(
+  "$script_dir/build-local-app.sh"
+  "$eventkit_binary"
+  --mail-sidecar "$mail_binary"
+  --signing-identity "$signing_identity"
+  --output "$build_root/app"
+)
+if [[ -n "$signing_keychain" ]]; then
+  build_arguments+=(--signing-keychain "$signing_keychain")
+fi
+app="$("${build_arguments[@]}")"
 version="$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")"
 archive="$dist_dir/MacMCP-$version-macos.zip"
 checksum="$archive.sha256"
