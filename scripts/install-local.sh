@@ -5,9 +5,6 @@ MAIL_REPO="https://github.com/Dimentium/mail-mcp"
 MAIL_VERSION="v1.2.2"
 MAIL_ARM64_SHA256="617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4"
 MAIL_AMD64_SHA256="83ddb17c30da07e6be502cb1df230d6c9fb453cb52e5e79ea1980db666c6f4ac"
-CHE_REPO="https://github.com/PsychQuant/che-ical-mcp.git"
-CHE_COMMIT="a8598378b5e280b27005ab8cd21e9b5758312423"
-CHE_RESOLUTION_SHA256="1bbf18605e61eb13014d140fa86e5aa550327bdf005f5567de40db6e2df4b93d"
 
 usage() {
   cat <<'EOF'
@@ -277,7 +274,6 @@ share_dir="$install_root/share"
 cli_dir="$install_root/bin"
 mail_archive="$build_root/$mail_asset"
 mail_extract_dir="$build_root/mail-mcp"
-che_src="$build_root/che-ical-mcp"
 target_app="$app_dir/MacMCP.app"
 legacy_target_app="$app_dir/Mac Agent Bridge.app"
 cli_path="$cli_dir/macmcp-bridge"
@@ -578,23 +574,7 @@ fi
 cp "$mail_candidate" "$stage_libexec_dir/mail-mcp"
 chmod 755 "$stage_libexec_dir/mail-mcp"
 
-echo "Building pinned CheICalMCP from $CHE_COMMIT"
-if [[ ! -d "$che_src/.git" ]]; then
-  git clone "$CHE_REPO" "$che_src"
-fi
-git -C "$che_src" fetch --tags origin
-git -C "$che_src" checkout --detach "$CHE_COMMIT"
-che_resolution="$project_dir/Packaging/CheICalMCP.Package.resolved"
-[[ -f "$che_resolution" ]] || { echo "pinned CheICalMCP resolution is missing" >&2; exit 1; }
-actual_che_resolution_sha256="$(shasum -a 256 "$che_resolution" | awk '{print $1}')"
-if [[ "$actual_che_resolution_sha256" != "$CHE_RESOLUTION_SHA256" ]]; then
-  echo "CheICalMCP resolution checksum mismatch" >&2
-  exit 1
-fi
-cp "$che_resolution" "$che_src/Package.resolved"
-swift build --disable-automatic-resolution -c release --product CheICalMCP --package-path "$che_src"
-che_binary="$che_src/.build/release/CheICalMCP"
-[[ -x "$che_binary" ]] || { echo "CheICalMCP release binary was not produced" >&2; exit 1; }
+che_binary="$("$project_dir/scripts/build-pinned-eventkit-sidecar.sh" --build-root "$build_root/eventkit")"
 
 echo "Building local app bundle"
 "$project_dir/scripts/build-local-app.sh" "$che_binary" >/dev/null

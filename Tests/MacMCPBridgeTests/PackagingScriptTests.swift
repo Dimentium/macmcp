@@ -14,6 +14,12 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("plutil -lint \"$info_plist\" \"$entitlements\""))
         XCTAssertTrue(script.contains("Sources/MacMCPBridge/Entitlements.plist"))
         XCTAssertTrue(script.contains("--product macmcp-bridge"))
+        XCTAssertTrue(script.contains("--signing-identity ID"))
+        XCTAssertTrue(script.contains("--output PATH"))
+        XCTAssertTrue(script.contains("MACMCP_SIGNING_IDENTITY"))
+        XCTAssertTrue(script.contains("arguments+=(--timestamp)"))
+        XCTAssertTrue(script.contains("verify_secure_timestamp"))
+        XCTAssertTrue(script.contains("Developer ID signature is missing a secure timestamp"))
         XCTAssertTrue(script.contains("\"$app_eventkit\""))
         XCTAssertTrue(script.contains("codesign --verify --strict --verbose=2 \"$app_eventkit\""))
         XCTAssertTrue(script.contains("codesign --verify --deep --strict --verbose=2 \"$app\""))
@@ -30,8 +36,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("MAIL_REPO=\"https://github.com/Dimentium/mail-mcp\""))
         XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.2.2\""))
         XCTAssertTrue(script.contains("MAIL_ARM64_SHA256=\"617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4\""))
-        XCTAssertTrue(script.contains("CHE_COMMIT=\"a8598378b5e280b27005ab8cd21e9b5758312423\""))
-        XCTAssertTrue(script.contains("CHE_RESOLUTION_SHA256=\"1bbf18605e61eb13014d140fa86e5aa550327bdf005f5567de40db6e2df4b93d\""))
+        XCTAssertTrue(script.contains("build-pinned-eventkit-sidecar.sh"))
         XCTAssertTrue(script.contains("-name 'mail-mcp-darwin-*'"))
         XCTAssertTrue(script.contains("--gmail-address"))
         XCTAssertTrue(script.contains("--reuse-existing-configuration"))
@@ -52,8 +57,6 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("wait_for_existing_runtime_exit 3"))
         XCTAssertTrue(script.contains("wait_for_existing_runtime_exit 2 ||"))
         XCTAssertFalse(script.contains("terminate_matching_command \"$libexec_dir/CheICalMCP\" TERM"))
-        XCTAssertTrue(script.contains("cp \"$che_resolution\" \"$che_src/Package.resolved\""))
-        XCTAssertTrue(script.contains("swift build --disable-automatic-resolution -c release --product CheICalMCP --package-path \"$che_src\""))
         XCTAssertTrue(script.contains("\"$stage_cli_path\" --store-mail-password \"$account\""))
         XCTAssertTrue(script.contains("app_config=\"$config_dir/launch.json\""))
         XCTAssertTrue(script.contains("ipc_socket=\"$config_dir/mcp.sock\""))
@@ -80,6 +83,43 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertLessThan(download.lowerBound, activation.lowerBound)
         XCTAssertTrue(script.contains("\"mcpServers\""))
         XCTAssertFalse(script.contains("tccutil reset"))
+    }
+
+    func testPinnedEventKitBuildScriptVerifiesTheSourceAndDependencyGraph() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/build-pinned-eventkit-sidecar.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
+        XCTAssertTrue(script.contains("CHE_REPO=\"https://github.com/PsychQuant/che-ical-mcp.git\""))
+        XCTAssertTrue(script.contains("CHE_COMMIT=\"a8598378b5e280b27005ab8cd21e9b5758312423\""))
+        XCTAssertTrue(script.contains("CHE_RESOLUTION_SHA256=\"1bbf18605e61eb13014d140fa86e5aa550327bdf005f5567de40db6e2df4b93d\""))
+        XCTAssertTrue(script.contains("remote get-url origin"))
+        XCTAssertTrue(script.contains("cp \"$che_resolution\" \"$che_src/Package.resolved\""))
+        XCTAssertTrue(script.contains("swift build --disable-automatic-resolution -c release --product CheICalMCP --package-path \"$che_src\""))
+        XCTAssertTrue(script.contains("printf '%s\\n' \"$che_binary\""))
+    }
+
+    func testNotarizationScriptUsesAKeychainProfileAndValidatesTheResult() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/notarize-local-app.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
+        XCTAssertTrue(script.contains("Developer ID Application:"))
+        XCTAssertTrue(script.contains("build-pinned-eventkit-sidecar.sh"))
+        XCTAssertTrue(script.contains("--keychain-profile \"$notary_profile\""))
+        XCTAssertTrue(script.contains("xcrun notarytool submit \"$archive\""))
+        XCTAssertTrue(script.contains("xcrun stapler staple \"$app\""))
+        XCTAssertTrue(script.contains("xcrun stapler validate \"$app\""))
+        XCTAssertTrue(script.contains("spctl --assess --type execute --verbose=4 \"$app\""))
+        XCTAssertTrue(script.contains("ditto -c -k --sequesterRsrc --keepParent \"$app\" \"$archive\""))
+        XCTAssertTrue(script.contains("shasum -a 256 \"$archive\" > \"$checksum\""))
+        XCTAssertFalse(script.contains("AuthKey_"))
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

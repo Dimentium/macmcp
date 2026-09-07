@@ -114,8 +114,9 @@ macmcp uninstall
 brew uninstall macmcp
 ```
 
-The source formula is an interim package. It will be replaced by a signed and
-notarized MacMCP cask when the release pipeline is available.
+The source formula is an interim package. The Developer ID release pipeline is
+documented in [docs/RELEASING.md](docs/RELEASING.md); its first notarized
+artifact will become the source for the MacMCP Cask.
 
 ## Third-Party Components
 

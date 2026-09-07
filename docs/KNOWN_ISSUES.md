@@ -6,7 +6,7 @@ personal data.
 
 ## High Priority
 
-### 1. Stable signing and notarization are not available yet
+### 1. First stable signed release is pending
 
 The source formula builds locally and the installer stages artifacts before
 activation, but it uses ad-hoc signing. Replacing the app can therefore change
@@ -14,8 +14,12 @@ the identity seen by Keychain, TCC, and Login Item services.
 
 - Impact: an upgrade can require Keychain, Calendar, Reminders, Login Item, or
   client approvals to be granted again.
-- Resolution: establish Developer ID signing, notarization, and a Cask release
-  path. Run the live acceptance checklist on the first signed release.
+- Current state: the Developer ID signing and notarization script, local
+  Keychain notary profile, and certificate are in place. The first run is
+  waiting for the release Mac to regain access to Apple's signing timestamp
+  service; notarization correctly cannot proceed without that timestamp.
+- Resolution: produce and validate the first stapled app artifact, package the
+  complete runtime for a Cask, then run the live acceptance checklist.
 
 ## Verification Still Needed
 
