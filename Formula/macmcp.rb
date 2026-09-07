@@ -1,7 +1,7 @@
 class Macmcp < Formula
   desc "Local macOS MCP bridge for mail, Calendar, and Reminders"
   homepage "https://github.com/Dimentium/macmcp"
-  url "https://github.com/Dimentium/macmcp.git", tag: "v0.2.2", revision: "e9c1828f36b9140d2511f87e6e7e877769354a73"
+  url "https://github.com/Dimentium/macmcp.git", tag: "v0.2.3", revision: "bd9534b74b04755e46f324aa9eedac7cf9f7b07d"
   license "MIT"
 
   depends_on "go"
@@ -17,7 +17,8 @@ class Macmcp < Formula
   def caveats
     <<~EOS
       MacMCP is installed but not configured yet.
-      Run `macmcp setup` to install the app and complete first-run setup.
+      Run `macmcp setup --gmail-address you@gmail.com` to install the app and
+      complete first-run setup. Use `--icloud-address` for iCloud Mail.
     EOS
   end
 
