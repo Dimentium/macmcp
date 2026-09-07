@@ -265,8 +265,8 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(formula.contains("tag: \"v0.2.5\""))
-        XCTAssertTrue(formula.contains("revision: \"2fa3c0dd77e55fc529239fff04df1e82528fcf21\""))
+        XCTAssertTrue(formula.contains("tag: \"v0.2.6\""))
+        XCTAssertTrue(formula.contains("revision: \"5c6785a7741af20b558a9bc14e2278622933c842\""))
         XCTAssertTrue(formula.contains("depends_on \"go\""))
         XCTAssertTrue(formula.contains("depends_on \"python@3.14\""))
     }
