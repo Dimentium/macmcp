@@ -69,13 +69,13 @@ cask "macmcp" do
   version "$version"
   sha256 "$sha256"
 
-  url "https://github.com/Dimentium/macmcp/releases/download/v#{version}/MacMCP-#{version}-macos.zip",
-      verified: "github.com/Dimentium/macmcp/"
+  url "https://github.com/Dimentium/macmcp/releases/download/v#{version}/MacMCP-#{version}-macos.zip"
   name "MacMCP"
   desc "Local MCP bridge for mail, Calendar, and Reminders"
   homepage "https://github.com/Dimentium/macmcp"
 
-  depends_on macos: ">= :sonoma"
+  depends_on arch: :arm64
+  depends_on macos: :sonoma
 
   app "MacMCP.app"
   binary "#{appdir}/MacMCP.app/Contents/Resources/macmcp"

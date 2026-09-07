@@ -172,6 +172,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("# typed: strict"))
         XCTAssertTrue(script.contains("releases/download/v#{version}/MacMCP-#{version}-macos.zip"))
         XCTAssertTrue(script.contains("binary \"#{appdir}/MacMCP.app/Contents/Resources/macmcp\""))
+        XCTAssertTrue(script.contains("depends_on arch: :arm64"))
         XCTAssertTrue(script.contains("~/Library/Application Support/macmcp"))
         XCTAssertFalse(script.contains("AuthKey_"))
     }
@@ -225,8 +226,8 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(formula.contains("tag: \"v0.2.3\""))
-        XCTAssertTrue(formula.contains("revision: \"bd9534b74b04755e46f324aa9eedac7cf9f7b07d\""))
+        XCTAssertTrue(formula.contains("tag: \"v0.2.4\""))
+        XCTAssertTrue(formula.contains("revision: \"de267e82d8e0ef399d60fead7fac483350d5a8ed\""))
         XCTAssertTrue(formula.contains("depends_on \"go\""))
         XCTAssertTrue(formula.contains("depends_on \"python@3.14\""))
     }
@@ -246,6 +247,10 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(workflow.contains("cp Formula/macmcp.rb \"$tap_dir/Formula/macmcp.rb\""))
         XCTAssertTrue(workflow.contains("brew install --build-from-source macmcp-ci/local/macmcp"))
         XCTAssertTrue(workflow.contains("brew test macmcp-ci/local/macmcp"))
+        XCTAssertTrue(workflow.contains("Homebrew Cask release acceptance"))
+        XCTAssertTrue(workflow.contains("brew tap-new --no-git macmcp-ci/cask"))
+        XCTAssertTrue(workflow.contains("cp Casks/macmcp.rb \"$tap_dir/Casks/macmcp.rb\""))
+        XCTAssertTrue(workflow.contains("brew fetch --cask macmcp-ci/cask/macmcp"))
     }
 
     func testDeploymentAcceptanceScriptIsIsolated() throws {

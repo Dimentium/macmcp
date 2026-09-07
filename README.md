@@ -27,8 +27,8 @@ only` control is cleared. Drafts have no recipient fields and cannot be sent.
 
 ## Installation
 
-MacMCP has two installation paths. The source path is available now; the
-signed Cask will be published after the first Apple-notarized release.
+MacMCP has two installation paths: a signed Cask for normal use and a source
+installation for inspection and local builds.
 
 ### Source Install
 
@@ -69,13 +69,14 @@ only the permissions needed for the features you enable.
 
 ### Signed Cask
 
-The forthcoming Cask will download one prebuilt, Developer ID-signed and
-Apple-notarized `MacMCP.app` from GitHub Releases. It will contain the bridge,
-mail sidecar, and EventKit sidecar, so it will not need Swift, Go, or source
+The Cask downloads one prebuilt, Developer ID-signed and Apple-notarized
+`MacMCP.app` from GitHub Releases. It currently requires an
+Apple Silicon Mac running macOS 14 or later. It contains the bridge, mail
+sidecar, and EventKit sidecar, so it will not need Swift, Go, or source
 checkouts on the target Mac. The first launch will still need account setup and
 the macOS permissions required by the enabled features.
 
-After the first notarized release is published, the Cask path will be:
+Install it with:
 
 ```bash
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp

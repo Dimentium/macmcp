@@ -48,3 +48,11 @@ jobs:
           cp Formula/macmcp.rb "$tap_dir/Formula/macmcp.rb"
           brew install --build-from-source macmcp-ci/local/macmcp
           brew test macmcp-ci/local/macmcp
+      - name: Homebrew Cask release acceptance
+        shell: bash
+        run: |
+          brew tap-new --no-git macmcp-ci/cask
+          tap_dir="$(brew --repository macmcp-ci/cask)"
+          mkdir -p "$tap_dir/Casks"
+          cp Casks/macmcp.rb "$tap_dir/Casks/macmcp.rb"
+          brew fetch --cask macmcp-ci/cask/macmcp
