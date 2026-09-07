@@ -7,10 +7,10 @@
     <key>CFBundleName</key>
     <string>MacMCP</string>
     <key>CFBundleVersion</key>
-    <string>0.2.7</string>
+    <string>0.2.8</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
-    <string>MacMCP reads your calendars to identify items that may need your attention.</string>
+    <string>MacMCP reads your calendar events.</string>
     <key>NSRemindersFullAccessUsageDescription</key>
-    <string>MacMCP reads your reminders to identify items that may need your attention.</string>
+    <string>MacMCP reads your reminders.</string>
 </dict>
 </plist>

@@ -143,6 +143,17 @@ struct AppLaunchConfigurationStore: Sendable {
         }
     }
 
+    func setLaunchAtLogin(_ enabled: Bool) throws {
+        guard let configuration = try readConfiguration() else {
+            throw AppLaunchConfigurationError.unableToWriteConfiguration
+        }
+        try write(
+            arguments: configuration.args,
+            launchAtLogin: enabled,
+            chatGPTTunnel: configuration.chatGPTTunnel
+        )
+    }
+
     private func existingConfigurationURL() throws -> URL? {
         if FileManager.default.fileExists(atPath: fileURL.path) {
             return fileURL

@@ -66,28 +66,30 @@ final class MenuBarHostTests: XCTestCase {
         let statusItems = MenuBarHost.StatusMenuItems()
         let menu = host.makeMenu(statusItems: statusItems)
 
-        let quitItem = menu.items.last
+        let applicationMenu = menu.items[7].submenu
+        let quitItem = applicationMenu?.items.last
         XCTAssertTrue(menu.delegate === host)
         XCTAssertEqual(menu.items.prefix(4).map(\.isEnabled), [false, true, false, false])
         XCTAssertEqual(menu.items[0], statusItems.overall)
         XCTAssertEqual(menu.items[1], statusItems.mail)
         XCTAssertEqual(menu.items[2], statusItems.calendar)
         XCTAssertEqual(menu.items[3], statusItems.reminders)
-        XCTAssertEqual(menu.items[4], statusItems.loginItem)
-        XCTAssertEqual(menu.items[5], statusItems.tunnel)
-        XCTAssertEqual(menu.items[6], statusItems.clients)
-        XCTAssertFalse(menu.items[4].isEnabled)
+        XCTAssertEqual(menu.items[4], statusItems.tunnel)
+        XCTAssertEqual(menu.items[5], statusItems.clients)
+        XCTAssertTrue(menu.items[4].isEnabled)
+        XCTAssertNotNil(menu.items[4].submenu)
         XCTAssertTrue(menu.items[5].isEnabled)
-        XCTAssertNotNil(menu.items[5].submenu)
-        XCTAssertTrue(menu.items[6].isEnabled)
-        XCTAssertEqual(menu.items[8].title, "\(AppVersion.name) \(AppVersion.version)")
-        XCTAssertFalse(menu.items[8].isEnabled)
-        XCTAssertEqual(menu.items[9].title, "Open MacMCP Repository")
-        XCTAssertEqual(menu.items[9].action?.description, "openRepository")
-        XCTAssertEqual(menu.items[10].title, "🟡 Updates: checking")
-        XCTAssertNotNil(menu.items[10].submenu)
-        XCTAssertEqual(menu.items[11].title, "Restart MacMCP")
-        XCTAssertEqual(menu.items[11].action?.description, "restartMacMCP")
+        XCTAssertEqual(menu.items[7].title, "\(AppVersion.name) \(AppVersion.version)")
+        XCTAssertTrue(menu.items[7].isEnabled)
+        XCTAssertEqual(applicationMenu?.items[0].title, "Launch at Login")
+        XCTAssertEqual(applicationMenu?.items[0].action?.description, "toggleLaunchAtLogin:")
+        XCTAssertEqual(applicationMenu?.items[2].title, "Open MacMCP Repository")
+        XCTAssertEqual(applicationMenu?.items[2].action?.description, "openRepository")
+        XCTAssertEqual(applicationMenu?.items[3].title, "🟡 Updates: checking")
+        XCTAssertNotNil(applicationMenu?.items[3].submenu)
+        XCTAssertFalse(applicationMenu?.items[3].submenu?.items[1].isEnabled ?? true)
+        XCTAssertEqual(applicationMenu?.items[4].title, "Restart MacMCP")
+        XCTAssertEqual(applicationMenu?.items[4].action?.description, "restartMacMCP")
         XCTAssertEqual(quitItem?.title, "Quit")
         XCTAssertTrue(quitItem?.target === host)
         XCTAssertEqual(quitItem?.action, #selector(MenuBarHost.quit))
@@ -153,13 +155,6 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertEqual(item.submenu?.items[1].submenu?.items.first?.state, .off)
     }
 
-    func testLoginItemStatusTitlesUseCircles() {
-        XCTAssertEqual(MenuBarHost.loginItemTitle(status: .enabled), "🟢 Launch at Login: enabled")
-        XCTAssertEqual(MenuBarHost.loginItemTitle(status: .notRegistered), "⚪ Launch at Login: not registered")
-        XCTAssertEqual(MenuBarHost.loginItemTitle(status: .requiresApproval), "🟡 Launch at Login: needs approval")
-        XCTAssertEqual(MenuBarHost.loginItemTitle(status: .notFound), "🔴 Launch at Login: not found")
-    }
-
     func testChatGPTTunnelStatusTitlesUseCircles() {
         XCTAssertEqual(
             MenuBarHost.chatGPTTunnelTitle(state: nil),
@@ -213,10 +208,10 @@ final class MenuBarHostTests: XCTestCase {
         let menu = host.makeMenu(statusItems: .init())
 
         XCTAssertEqual(
-            menu.items[5].submenu?.items.first?.title,
+            menu.items[4].submenu?.items.first?.title,
             "Last failure: 2026-09-06T10:00:00Z Health: timed out"
         )
-        XCTAssertFalse(menu.items[5].submenu?.items.first?.isEnabled ?? true)
+        XCTAssertFalse(menu.items[4].submenu?.items.first?.isEnabled ?? true)
     }
 
     func testClientsMenuShowsPendingAndApprovedClients() {
@@ -308,7 +303,8 @@ final class MenuBarHostTests: XCTestCase {
         host.configureLaunchAtLogin(item)
 
         XCTAssertEqual(controller.registerCallCount, 1)
-        XCTAssertEqual(item.title, "🟢 Launch at Login: enabled")
+        XCTAssertEqual(item.title, "Launch at Login")
+        XCTAssertEqual(item.state, .on)
     }
 
     func testLaunchConfigReRegistersLoginItemAfterAppReplacement() throws {
@@ -336,7 +332,8 @@ final class MenuBarHostTests: XCTestCase {
         host.configureLaunchAtLogin(item)
 
         XCTAssertEqual(controller.registerCallCount, 1)
-        XCTAssertEqual(item.title, "🟢 Launch at Login: enabled")
+        XCTAssertEqual(item.title, "Launch at Login")
+        XCTAssertEqual(item.state, .on)
     }
 
     func testProbeTimeoutRunsCleanupAndReturnsNearDeadline() async throws {

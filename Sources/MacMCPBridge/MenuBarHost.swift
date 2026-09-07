@@ -16,7 +16,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let mail: NSMenuItem
         let calendar: NSMenuItem
         let reminders: NSMenuItem
-        let loginItem: NSMenuItem
         let tunnel: NSMenuItem
         let clients: NSMenuItem
 
@@ -25,7 +24,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             mail: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             calendar: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             reminders: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
-            loginItem: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             tunnel: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             clients: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         ) {
@@ -33,7 +31,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.mail = mail
             self.calendar = calendar
             self.reminders = reminders
-            self.loginItem = loginItem
             self.tunnel = tunnel
             self.clients = clients
         }
@@ -53,6 +50,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusMenuItems: StatusMenuItems?
     private var clientsMenuItem: NSMenuItem?
     private var tunnelMenuItem: NSMenuItem?
+    private var loginItemMenuItem: NSMenuItem?
     private var updatesMenuItem: NSMenuItem?
     private var tunnelSupervisor: ChatGPTTunnelSupervisor?
     private var tunnelState: ChatGPTTunnelState?
@@ -60,7 +58,12 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var refreshTask: Task<Void, Never>?
     private var stopTask: Task<Void, Never>?
     private var updateCheckTask: Task<Void, Never>?
+    private var periodicUpdateTask: Task<Void, Never>?
     private var updateState: UpdateMenuState = .checking
+    private var displayedWritableAccountIDs: Set<String>?
+    private var displayedClientApprovalSnapshot: ClientApprovalSnapshot?
+
+    private let updateCheckIntervalNanoseconds: UInt64 = 21_600_000_000_000
 
     init(
         configuration: BridgeLaunchConfiguration,
@@ -100,14 +103,14 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             )
         )
         updateMailAccountsMenu(statusItems.mail, writableAccountIDs: [])
-        configureLaunchAtLogin(statusItems.loginItem)
         configureChatGPTTunnel(statusItems.tunnel)
         statusMenuItems = statusItems
         clientsMenuItem = statusItems.clients
         Task { await refreshClientsMenu() }
         item.menu = makeMenu(statusItems: statusItems)
         statusItem = item
-        checkForUpdates(refreshTap: false)
+        checkForUpdates()
+        schedulePeriodicUpdateChecks()
 
         runtimeTask = Task {
             try await BridgeRuntime.start(configuration: configuration, startup: startup)
@@ -130,6 +133,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Foundation.Notification) {
         startTask?.cancel()
         refreshTask?.cancel()
+        periodicUpdateTask?.cancel()
         Task { await tunnelSupervisor?.stop() }
     }
 
@@ -142,8 +146,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         statusItems.mail.isEnabled = true
         menu.insertItem(statusItems.mail, at: 1)
-        statusItems.loginItem.isEnabled = false
-        menu.addItem(statusItems.loginItem)
         statusItems.tunnel.isEnabled = true
         statusItems.tunnel.submenu = makeTunnelActionsMenu()
         menu.addItem(statusItems.tunnel)
@@ -151,8 +153,24 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(statusItems.clients)
         menu.addItem(.separator())
         let version = NSMenuItem(title: "\(AppVersion.name) \(AppVersion.version)", action: nil, keyEquivalent: "")
-        version.isEnabled = false
+        version.isEnabled = true
+        version.submenu = makeApplicationActionsMenu()
         menu.addItem(version)
+        return menu
+    }
+
+    private func makeApplicationActionsMenu() -> NSMenu {
+        let menu = NSMenu()
+        let loginItem = NSMenuItem(
+            title: "Launch at Login",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        loginItem.target = self
+        loginItemMenuItem = loginItem
+        configureLaunchAtLogin(loginItem)
+        menu.addItem(loginItem)
+        menu.addItem(.separator())
         let repository = NSMenuItem(
             title: "Open MacMCP Repository",
             action: #selector(openRepository),
@@ -254,21 +272,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateLoginItemMenu(item, status: loginItemController?.status ?? .unavailable)
     }
 
-    static func loginItemTitle(status: LoginItemStatus) -> String {
-        switch status {
-        case .enabled:
-            return "🟢 Launch at Login: enabled"
-        case .notRegistered:
-            return "⚪ Launch at Login: not registered"
-        case .requiresApproval:
-            return "🟡 Launch at Login: needs approval"
-        case .notFound:
-            return "🔴 Launch at Login: not found"
-        case .unavailable:
-            return "🔴 Launch at Login: unavailable"
-        }
-    }
-
     static func chatGPTTunnelTitle(state: ChatGPTTunnelState?) -> String {
         switch state {
         case .none:
@@ -283,7 +286,16 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateLoginItemMenu(_ item: NSMenuItem, status: LoginItemStatus) {
-        item.title = Self.loginItemTitle(status: status)
+        item.title = "Launch at Login"
+        item.isEnabled = status != .unavailable
+        switch status {
+        case .enabled:
+            item.state = .on
+        case .requiresApproval:
+            item.state = .mixed
+        case .notRegistered, .notFound, .unavailable:
+            item.state = .off
+        }
     }
 
     private func configureChatGPTTunnel(_ item: NSMenuItem) {
@@ -379,13 +391,13 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return "Update MacMCP"
     }
 
-    private func checkForUpdates(refreshTap: Bool) {
+    private func checkForUpdates() {
         guard updateCheckTask == nil else { return }
         updateState = .checking
         updateUpdatesMenu()
         let updater = caskUpdater
         updateCheckTask = Task { [weak self] in
-            let availability = await updater.check(refreshTap: refreshTap)
+            let availability = await updater.check()
             guard let self, !Task.isCancelled else { return }
             self.updateState = switch availability {
             case .notCask: .sourceInstall
@@ -398,13 +410,30 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    private func schedulePeriodicUpdateChecks() {
+        periodicUpdateTask?.cancel()
+        periodicUpdateTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: self?.updateCheckIntervalNanoseconds ?? 0)
+                } catch {
+                    return
+                }
+                guard let self, !Task.isCancelled else { return }
+                self.checkForUpdates()
+            }
+        }
+    }
+
     private func refreshMailAccountsMenu() async {
         guard let statusMenuItems else { return }
         let writableAccountIDs = await runtime?.mailActionAccess.writableAccountIDs() ?? []
+        guard writableAccountIDs != displayedWritableAccountIDs else { return }
         updateMailAccountsMenu(statusMenuItems.mail, writableAccountIDs: writableAccountIDs)
     }
 
     func updateMailAccountsMenu(_ item: NSMenuItem, writableAccountIDs: Set<String>) {
+        displayedWritableAccountIDs = writableAccountIDs
         let submenu = NSMenu()
         guard !configuration.mailAccounts.isEmpty else {
             let empty = NSMenuItem(title: "Accounts: none", action: nil, keyEquivalent: "")
@@ -486,14 +515,18 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func refreshClientsMenu() async {
         guard let clientsMenuItem else { return }
         do {
-            updateClientsMenu(clientsMenuItem, snapshot: try await clientApprovalStore.snapshot())
+            let snapshot = try await clientApprovalStore.snapshot()
+            guard snapshot != displayedClientApprovalSnapshot else { return }
+            updateClientsMenu(clientsMenuItem, snapshot: snapshot)
         } catch {
+            displayedClientApprovalSnapshot = nil
             clientsMenuItem.title = "🔴 Clients: unavailable"
             clientsMenuItem.submenu = nil
         }
     }
 
     func updateClientsMenu(_ item: NSMenuItem, snapshot: ClientApprovalSnapshot) {
+        displayedClientApprovalSnapshot = snapshot
         if snapshot.pending != nil {
             item.title = "🟡 Clients: approval needed"
         } else if snapshot.approved.isEmpty {
@@ -658,7 +691,29 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func checkForUpdatesFromMenu() {
-        checkForUpdates(refreshTap: true)
+        checkForUpdates()
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
+        guard let loginItemController else { return }
+        let enable = sender.state != .on
+        do {
+            if enable {
+                try loginItemController.register()
+            } else {
+                try loginItemController.unregister()
+            }
+            try launchConfigurationStore.setLaunchAtLogin(enable)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Unable to change Launch at Login"
+            alert.informativeText = "Check macOS Login Items settings and try again."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+        if let loginItemMenuItem {
+            updateLoginItemMenu(loginItemMenuItem, status: loginItemController.status)
+        }
     }
 
     @objc private func installUpdate() {
@@ -782,6 +837,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             startTask?.cancel()
             refreshTask?.cancel()
             updateCheckTask?.cancel()
+            periodicUpdateTask?.cancel()
             runtimeTask?.cancel()
             await tunnelSupervisor?.stop()
             await startup.stop()

@@ -125,8 +125,9 @@ is sufficient.
 
 Use the menu-bar item to inspect component health, approve local MCP clients,
 manage account-level `Read only`, and manage the optional tunnel.
-For a Cask installation, `Updates` checks the Homebrew tap at launch and offers
-an explicit update command that refreshes Homebrew, upgrades the Cask, and
+For a Cask installation, `Updates` checks the latest GitHub Release at launch
+and every six hours. It enables `Update to <version>` only after a newer release
+is confirmed. That explicit command refreshes Homebrew, upgrades the Cask, and
 restarts MacMCP. Source installs continue to use their normal Homebrew upgrade.
 
 For a privacy-safe support snapshot, run:

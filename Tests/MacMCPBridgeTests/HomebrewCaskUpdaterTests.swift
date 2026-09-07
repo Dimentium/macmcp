@@ -22,86 +22,100 @@ private actor FakeHomebrewRunner {
 
 final class HomebrewCaskUpdaterTests: XCTestCase {
     func testCurrentCaskDoesNotOfferAnUpdate() async {
-        let runner = FakeHomebrewRunner(results: [
-            result(status: 0),
-            result(json: #"{"formulae":[],"casks":[]}"#)
-        ])
-        let updater = HomebrewCaskUpdater(
-            brewPath: "/opt/homebrew/bin/brew",
-            commandRunner: { arguments, captureOutput in
-                await runner.run(arguments: arguments, captureOutput: captureOutput)
-            }
-        )
+        let runner = FakeHomebrewRunner(results: [result(text: "macmcp 0.2.7\n")])
+        let updater = makeUpdater(runner: runner, latestRelease: "0.2.7")
 
-        let availability = await updater.check(refreshTap: false)
+        let availability = await updater.check()
 
         XCTAssertEqual(availability, .current)
         let commands = await runner.recordedCommands()
-        XCTAssertEqual(commands, [
-            ["list", "--cask", "macmcp"],
-            ["outdated", "--cask", "--json=v2", "macmcp"]
-        ])
+        XCTAssertEqual(commands, [["list", "--versions", "--cask", "macmcp"]])
     }
 
-    func testAvailableCaskReportsTargetVersion() async {
-        let runner = FakeHomebrewRunner(results: [
-            result(status: 0),
-            result(status: 0),
-            result(json: #"{"formulae":[],"casks":[{"current_version":"0.2.7"}]}"#)
-        ])
-        let updater = HomebrewCaskUpdater(
-            brewPath: "/opt/homebrew/bin/brew",
-            commandRunner: { arguments, captureOutput in
-                await runner.run(arguments: arguments, captureOutput: captureOutput)
-            }
-        )
+    func testAvailableCaskReportsGitHubReleaseVersionWithoutRefreshingHomebrew() async {
+        let runner = FakeHomebrewRunner(results: [result(text: "macmcp 0.2.7\n")])
+        let updater = makeUpdater(runner: runner, latestRelease: "0.2.8")
 
-        let availability = await updater.check(refreshTap: true)
+        let availability = await updater.check()
 
-        XCTAssertEqual(availability, .available(version: "0.2.7"))
+        XCTAssertEqual(availability, .available(version: "0.2.8"))
         let commands = await runner.recordedCommands()
-        XCTAssertEqual(commands, [
-            ["list", "--cask", "macmcp"],
-            ["update"],
-            ["outdated", "--cask", "--json=v2", "macmcp"]
-        ])
+        XCTAssertEqual(commands, [["list", "--versions", "--cask", "macmcp"]])
+    }
+
+    func testUnavailableReleaseInformationDisablesUpdates() async {
+        let runner = FakeHomebrewRunner(results: [result(text: "macmcp 0.2.7\n")])
+        let updater = makeUpdater(runner: runner, latestRelease: nil)
+
+        let availability = await updater.check()
+
+        XCTAssertEqual(availability, .unavailable)
     }
 
     func testSourceInstallIsNotTreatedAsUpdatableCask() async {
         let runner = FakeHomebrewRunner(results: [result(status: 1)])
-        let updater = HomebrewCaskUpdater(
-            brewPath: "/opt/homebrew/bin/brew",
-            commandRunner: { arguments, captureOutput in
-                await runner.run(arguments: arguments, captureOutput: captureOutput)
-            }
-        )
+        let updater = makeUpdater(runner: runner, latestRelease: "0.2.8")
 
-        let availability = await updater.check(refreshTap: false)
+        let availability = await updater.check()
+
         XCTAssertEqual(availability, .notCask)
     }
 
     func testInstallRefreshesThenUpgradesCask() async {
         let runner = FakeHomebrewRunner(results: [
+            result(text: "macmcp 0.2.7\n"),
             result(status: 0),
-            result(status: 0),
-            result(json: #"{"formulae":[],"casks":[{"current_version":"0.2.7"}]}"#),
+            result(json: #"{"formulae":[],"casks":[{"current_version":"0.2.8"}]}"#),
             result(status: 0)
         ])
-        let updater = HomebrewCaskUpdater(
-            brewPath: "/opt/homebrew/bin/brew",
-            commandRunner: { arguments, captureOutput in
-                await runner.run(arguments: arguments, captureOutput: captureOutput)
-            }
-        )
+        let updater = makeUpdater(runner: runner, latestRelease: "0.2.8")
 
         let updateResult = await updater.install()
         let commands = await runner.recordedCommands()
+
         XCTAssertEqual(updateResult, .updated)
-        XCTAssertEqual(commands.last, ["upgrade", "--cask", "macmcp"])
+        XCTAssertEqual(commands, [
+            ["list", "--versions", "--cask", "macmcp"],
+            ["update"],
+            ["outdated", "--cask", "--json=v2", "macmcp"],
+            ["upgrade", "--cask", "macmcp"]
+        ])
+    }
+
+    func testInstallDoesNotRestartForAReleaseBeforeItsCaskIsPublished() async {
+        let runner = FakeHomebrewRunner(results: [
+            result(text: "macmcp 0.2.7\n"),
+            result(status: 0),
+            result(json: #"{"formulae":[],"casks":[]}"#)
+        ])
+        let updater = makeUpdater(runner: runner, latestRelease: "0.2.8")
+
+        let updateResult = await updater.install()
+        let commands = await runner.recordedCommands()
+
+        XCTAssertEqual(updateResult, .current)
+        XCTAssertEqual(commands.last, ["outdated", "--cask", "--json=v2", "macmcp"])
+    }
+
+    private func makeUpdater(
+        runner: FakeHomebrewRunner,
+        latestRelease: String?
+    ) -> HomebrewCaskUpdater {
+        HomebrewCaskUpdater(
+            brewPath: "/opt/homebrew/bin/brew",
+            commandRunner: { arguments, captureOutput in
+                await runner.run(arguments: arguments, captureOutput: captureOutput)
+            },
+            releaseFetcher: { latestRelease }
+        )
     }
 
     private func result(status: Int32 = 0) -> HomebrewCommandResult {
         HomebrewCommandResult(status: status, standardOutput: Data())
+    }
+
+    private func result(text: String) -> HomebrewCommandResult {
+        HomebrewCommandResult(status: 0, standardOutput: Data(text.utf8))
     }
 
     private func result(json: String) -> HomebrewCommandResult {

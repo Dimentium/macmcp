@@ -62,9 +62,10 @@ configuration and Keychain secrets outside the app bundle. The signed Cask has
 a stable Developer ID identity; source-install replacements remain ad-hoc
 signed and may need macOS permissions again.
 
-The Cask menu-bar app also checks the installed Cask at launch. Its `Updates`
-submenu can refresh Homebrew, install an available Cask update, and restart the
-app from the new bundle.
+The Cask menu-bar app checks the latest GitHub Release at launch and every six
+hours. Its `Updates` submenu enables `Update to <version>` only after a newer
+release is confirmed; that action refreshes Homebrew, installs the Cask update,
+and restarts the app from the new bundle.
 
 ## Remove
 

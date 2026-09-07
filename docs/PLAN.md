@@ -29,8 +29,9 @@ inside a temporary HOME without touching a real user configuration.
 
 1. Keep signed Cask upgrades reliable.
    The Developer ID-signed, Apple-notarized Cask is published and contains the
-   complete runtime. It checks availability at launch, and its Updates menu can
-   refresh the Homebrew tap, upgrade the Cask, and restart from the new bundle.
+   complete runtime. It checks GitHub Releases at launch and every six hours;
+   its Updates menu can then refresh the Homebrew tap, upgrade the Cask, and
+   restart from the new bundle.
    Exercise a Cask upgrade against the live iCloud, Gmail, EventKit, local
    approval, and tunnel paths when a release changes those components. The
    source formula remains supported for self-builds and may still require macOS
