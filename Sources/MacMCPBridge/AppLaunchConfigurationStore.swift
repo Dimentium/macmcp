@@ -52,6 +52,13 @@ struct AppLaunchConfigurationStore: Sendable {
     let fileURL: URL
     private let legacyFileURL: URL?
 
+    private static let legacyStateFileNames = [
+        "mail-action-access.json",
+        "mail-monitor.json",
+        "mail-monitor-state.json",
+        "tunnel-failures.json"
+    ]
+
     init() {
         self.fileURL = Self.defaultFileURL()
         self.legacyFileURL = Self.legacyFileURL()
@@ -75,7 +82,7 @@ struct AppLaunchConfigurationStore: Sendable {
     }
 
     func readConfiguration() throws -> Configuration? {
-        guard let configurationURL = existingConfigurationURL() else {
+        guard let configurationURL = try existingConfigurationURL() else {
             return nil
         }
         let data = try Data(contentsOf: configurationURL)
@@ -138,7 +145,7 @@ struct AppLaunchConfigurationStore: Sendable {
         }
     }
 
-    private func existingConfigurationURL() -> URL? {
+    private func existingConfigurationURL() throws -> URL? {
         if FileManager.default.fileExists(atPath: fileURL.path) {
             return fileURL
         }
@@ -147,7 +154,60 @@ struct AppLaunchConfigurationStore: Sendable {
         else {
             return nil
         }
-        return legacyFileURL
+        try migrateLegacyConfiguration(from: legacyFileURL)
+        return fileURL
+    }
+
+    private func migrateLegacyConfiguration(from legacyFileURL: URL) throws {
+        let data = try Data(contentsOf: legacyFileURL)
+        let payload = try JSONDecoder().decode(Payload.self, from: data)
+        let arguments = Self.removingLegacySidecarPaths(from: payload.args)
+        let tunnel = try payload.chatGPTTunnel.map(validate)
+        try write(
+            arguments: arguments,
+            launchAtLogin: payload.launchAtLogin ?? false,
+            chatGPTTunnel: tunnel
+        )
+        try copyLegacyState(from: legacyFileURL.deletingLastPathComponent())
+    }
+
+    private func copyLegacyState(from legacyDirectory: URL) throws {
+        let fileManager = FileManager.default
+        let targetDirectory = fileURL.deletingLastPathComponent()
+        for name in Self.legacyStateFileNames {
+            let source = legacyDirectory.appendingPathComponent(name)
+            let target = targetDirectory.appendingPathComponent(name)
+            guard fileManager.fileExists(atPath: source.path),
+                  !fileManager.fileExists(atPath: target.path)
+            else {
+                continue
+            }
+            try fileManager.copyItem(at: source, to: target)
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
+        }
+    }
+
+    private static func removingLegacySidecarPaths(from arguments: [String]) -> [String] {
+        var normalized: [String] = []
+        var index = 0
+        while index < arguments.count {
+            let option = arguments[index]
+            guard ["--mail-sidecar", "--eventkit-sidecar"].contains(option),
+                  index + 1 < arguments.count,
+                  isLegacySidecarPath(arguments[index + 1])
+            else {
+                normalized.append(option)
+                index += 1
+                continue
+            }
+            index += 2
+        }
+        return normalized
+    }
+
+    private static func isLegacySidecarPath(_ path: String) -> Bool {
+        path.contains("/.local/opt/mac-agent-bridge/") ||
+        path.contains("/Mac Agent Bridge.app/")
     }
 
     private func validate(_ args: [String]) throws {

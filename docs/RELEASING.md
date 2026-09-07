@@ -9,7 +9,7 @@ This repository has two intentionally separate installation paths:
   ID-signed, Apple-notarized `MacMCP.app` with a stable macOS code identity.
 
 The release script embeds the pinned `mail-mcp` and EventKit sidecars in the
-app bundle, so it is the build basis for the future Homebrew Cask. Per-user
+app bundle, which is the artifact distributed by the Homebrew Cask. Per-user
 mail account configuration and Keychain secrets remain outside the bundle.
 
 ## One-Time Release-Machine Setup

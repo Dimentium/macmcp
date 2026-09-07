@@ -36,13 +36,58 @@ final class AppLaunchConfigurationStoreTests: XCTestCase {
         XCTAssertNil(try AppLaunchConfigurationStore(fileURL: fileURL).readArguments())
     }
 
-    func testFallsBackToLegacyLaunchConfig() throws {
+    func testMigratesLegacyLaunchConfigAndState() throws {
         let fileURL = try temporaryFileURL()
         let legacyFileURL = try temporaryFileURL()
         try """
         {
           "schemaVersion": 1,
-          "args": ["--gmail-address", "reader@gmail.com"]
+          "launchAtLogin": true,
+          "args": [
+            "--mail-sidecar",
+            "/Users/example/.local/opt/mac-agent-bridge/libexec/mail-mcp",
+            "--gmail-address",
+            "reader@gmail.com",
+            "--eventkit-sidecar",
+            "/Users/example/.local/opt/mac-agent-bridge/libexec/CheICalMCP"
+          ]
+        }
+        """.write(to: legacyFileURL, atomically: true, encoding: .utf8)
+        let legacyStateURL = legacyFileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("mail-action-access.json")
+        try "{\"schemaVersion\":1}".write(
+            to: legacyStateURL,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let store = AppLaunchConfigurationStore(
+            fileURL: fileURL,
+            legacyFileURL: legacyFileURL
+        )
+        let configuration = try store.readConfiguration()
+
+        XCTAssertEqual(configuration?.args, ["--gmail-address", "reader@gmail.com"])
+        XCTAssertEqual(configuration?.launchAtLogin, true)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("mail-action-access.json").path))
+    }
+
+    func testPreservesCustomSidecarPathWhenMigratingLegacyLaunchConfig() throws {
+        let fileURL = try temporaryFileURL()
+        let legacyFileURL = try temporaryFileURL()
+        try """
+        {
+          "schemaVersion": 1,
+          "args": [
+            "--mail-sidecar",
+            "/opt/custom/mail-mcp",
+            "--gmail-address",
+            "reader@gmail.com"
+          ]
         }
         """.write(to: legacyFileURL, atomically: true, encoding: .utf8)
 
@@ -51,7 +96,12 @@ final class AppLaunchConfigurationStoreTests: XCTestCase {
             legacyFileURL: legacyFileURL
         ).readConfiguration()
 
-        XCTAssertEqual(configuration?.args, ["--gmail-address", "reader@gmail.com"])
+        XCTAssertEqual(configuration?.args, [
+            "--mail-sidecar",
+            "/opt/custom/mail-mcp",
+            "--gmail-address",
+            "reader@gmail.com"
+        ])
     }
 
     func testRejectsPasswordCommandInLaunchConfig() throws {

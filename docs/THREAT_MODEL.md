@@ -23,8 +23,8 @@ prompt injections, crafted MIME messages, and accidental model behaviour.
 
 ### Trusted control plane
 
-- locally installed MacMCP code and configuration; Developer ID signing and
-  notarization are pending;
+- locally installed MacMCP code and configuration; Cask releases are Developer
+  ID-signed and Apple-notarized;
 - static reader policy shipped with the bridge;
 - local per-client approval grants for MCP reader-data access;
 - macOS Keychain and TCC decisions made by the user;

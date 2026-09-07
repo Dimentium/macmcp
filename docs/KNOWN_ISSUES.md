@@ -6,20 +6,18 @@ personal data.
 
 ## High Priority
 
-### 1. First stable signed release is pending
+### 1. Cask migration from the legacy product name
 
-The source formula builds locally and the installer stages artifacts before
-activation, but it uses ad-hoc signing. Replacing the app can therefore change
-the identity seen by Keychain, TCC, and Login Item services.
+The signed, notarized Cask is published. The next Cask release adds an
+in-app migration from the former `mac-agent-bridge` layout: it removes obsolete
+sidecar paths from the launch configuration, retains account settings and
+tunnel configuration, and copies durable non-secret state. It intentionally
+does not retain grants for the removed proxy executable, so the new local MCP
+proxy needs one approval.
 
-- Impact: an upgrade can require Keychain, Calendar, Reminders, Login Item, or
-  client approvals to be granted again.
-- Current state: the Developer ID signing and notarization script, local
-  Keychain notary profile, and certificate are in place. The first run is
-  waiting for the release Mac to regain access to Apple's signing timestamp
-  service; notarization correctly cannot proceed without that timestamp.
-- Resolution: produce and validate the first stapled app artifact, package the
-  complete runtime for a Cask, then run the live acceptance checklist.
+- Impact: a legacy source install must be checked once against the Cask path.
+- Resolution: verify live mail, EventKit, local approval, and tunnel reconnect
+  after replacing the legacy install with the signed Cask.
 
 ## Verification Still Needed
 

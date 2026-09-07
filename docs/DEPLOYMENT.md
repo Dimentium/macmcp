@@ -5,31 +5,47 @@ sidecars, Keychain access, EventKit permissions, and optional ChatGPT tunnel.
 MCP clients connect through a small local stdio proxy; they do not receive mail
 passwords or direct sidecar access.
 
-## Install
+## Signed Cask Install
 
-The public Homebrew formula installs the source package and exposes one command:
+The signed Cask is the normal installation path. It includes the bridge and
+both sidecars, so the target Mac does not need Swift, Go, or source checkouts:
 
 ```bash
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
-brew trust --tap Dimentium/macmcp
-brew install macmcp
-macmcp setup
+brew install --cask macmcp
+macmcp setup --gmail-address you@gmail.com
 ```
 
-`macmcp setup` asks for one or more mail accounts and their app-specific
-passwords. It supports repeated `--icloud-address`, repeated `--gmail-address`,
-and custom `--mail-account` values. It stores passwords in macOS Keychain and
-starts `~/Applications/MacMCP.app`.
+`macmcp setup` asks for the app-specific password for each configured account.
+It supports repeated `--icloud-address`, repeated `--gmail-address`, and
+custom `--mail-account` values. It stores passwords in macOS Keychain and
+starts `/Applications/MacMCP.app`.
+
+On its first launch, `0.2.5` or later imports a legacy `mac-agent-bridge`
+configuration when present. Mail accounts, Keychain-backed secrets, mail action
+settings, monitoring, and the ChatGPT tunnel configuration are retained. The
+legacy local MCP proxy is deliberately not trusted by the new app, so approve
+the new proxy once from `MacMCP > Clients`.
 
 macOS can ask for Keychain, Calendar, Reminders, and Login Item permissions.
 Grant only the capabilities you intend to use.
 
+## Source Install
+
+The source formula remains available for inspection and self-builds:
+
+```bash
+brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
+brew install macmcp
+macmcp setup --gmail-address you@gmail.com
+```
+
 ## Layout
 
-- App: `~/Applications/MacMCP.app`
-- Bridge command: `~/.local/bin/macmcp-bridge`
-- Mail sidecar: `~/Applications/MacMCP.app/Contents/Resources/mail-mcp`
-- EventKit sidecar: `~/Applications/MacMCP.app/Contents/Resources/CheICalMCP`
+- Cask app: `/Applications/MacMCP.app`
+- Cask bridge: `/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge`
+- Source app: `~/Applications/MacMCP.app`
+- Source bridge: `~/.local/bin/macmcp-bridge`
 - Runtime configuration and IPC: `~/Library/Application Support/macmcp/`
 
 There is only one EventKit sidecar copy: the one inside the app bundle.
@@ -38,44 +54,32 @@ There is only one EventKit sidecar copy: the one inside the app bundle.
 
 ```bash
 brew update
-brew upgrade macmcp
-macmcp upgrade
+brew upgrade --cask macmcp
 ```
 
-The upgrade is staged and rolls back if activation fails. It preserves the
-configured accounts, legacy Keychain records, client approvals, per-account
-mail action settings, monitor state, and tunnel failure history. It migrates
-the canonical layout to `macmcp` automatically.
-
-Because current builds are ad-hoc signed, a replacement can require macOS to
-ask for permissions again. Developer ID signing and notarization will remove
-this instability from normal upgrades.
+Use `brew upgrade macmcp` for the source formula. Cask upgrades retain the
+configuration and Keychain secrets outside the app bundle. The signed Cask has
+a stable Developer ID identity; source-install replacements remain ad-hoc
+signed and may need macOS permissions again.
 
 ## Remove
 
 ```bash
 macmcp uninstall
-brew uninstall macmcp
+brew uninstall --cask macmcp
 ```
 
-The uninstaller removes the app, local runtime, state, IPC socket, and cached
-tunnel wrapper. It preserves Keychain records by default. To remove a specific
-mail password or tunnel key as well, use the explicit options printed by
-`macmcp uninstall --help`.
+For a source install use `brew uninstall macmcp`. Cask removal preserves
+Keychain records and configuration; add `--zap` to remove configuration and
+caches as well.
 
 ## Local MCP Client
-
-The installer writes a ready-to-use example at:
-
-```text
-~/.local/opt/macmcp/share/mcp.local.json
-```
 
 For Codex:
 
 ```bash
 codex mcp add macmcp -- \
-  "$HOME/.local/bin/macmcp-bridge" \
+  "/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge" \
   --stdio-proxy "$HOME/Library/Application Support/macmcp/mcp.sock"
 ```
 

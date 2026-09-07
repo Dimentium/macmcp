@@ -6,7 +6,7 @@ documents are evidence records, not forward plans.
 ## Status
 
 MacMCP is a local MVP+ for MCP clients that can launch a local stdio server:
-the installer, Homebrew formula, menu-bar app, Keychain password storage,
+the signed Homebrew Cask, source formula, menu-bar app, Keychain password storage,
 iCloud/Gmail presets, multi-account config, account-gated mail actions, upgrade and
 uninstall exist. The target Mac has a real local install with iCloud and Gmail
 configured. Local MCP reader-data calls require per-client approval.
@@ -26,15 +26,13 @@ inside a temporary HOME without touching a real user configuration.
 
 ## Direction
 
-1. Ship a signed local package.
-   The Developer ID build and notarization path is implemented and uses a local
-   Keychain profile; its first run is blocked only by reachability of Apple's
-   signing timestamp service. The app bundle now contains the complete runtime,
-   including both sidecars. Produce the first stapled artifact, publish it as a
-   Cask, and run the live acceptance gate against iCloud, Gmail, EventKit,
-   approvals, and the tunnel. Until then the source formula is supported, but
-   replacing an ad-hoc-signed app can require macOS permissions to be granted
-   again.
+1. Validate the signed Cask migration and upgrades.
+   The Developer ID-signed, Apple-notarized Cask is published and contains the
+   complete runtime. Validate migration from the legacy source layout against
+   iCloud, Gmail, EventKit, a new local client approval, and tunnel reconnect;
+   then keep Cask upgrades as the normal installation path. The source formula
+   remains supported for self-builds and may still require macOS permissions
+   again after each ad-hoc-signed replacement.
 
 2. Validate the app-managed ChatGPT tunnel beyond the validated local Work path.
    ChatGPT Work on the desktop app is the primary client target and has now
