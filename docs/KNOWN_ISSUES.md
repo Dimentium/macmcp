@@ -13,7 +13,7 @@ personal data.
   reject a human recipient edit, update an unchanged draft, and confirm that
   toggling `Read only` blocks and re-allows the same tools through local MCP
   and the tunnel without a restart.
-- Recheck remote ChatGPT calls after the `0.2.14` response-size bound. A live
+- Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
   `reminders.list` response with the old default of 100 items occupied about
   125 KiB because the untrusted-data envelope is intentionally present in both
   `content` and `structuredContent`; the connector then disabled the tool.

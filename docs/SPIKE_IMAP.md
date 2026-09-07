@@ -8,7 +8,7 @@ checks remain open.
 ## Sidecar source
 
 - MacMCP fork: `https://github.com/Dimentium/mail-mcp`
-- Release: `v1.2.2` / `a62cf5f34f999193393b7591450de887a98224f1`
+- Release: `v1.2.3` / `33b95d571ae7b55c7caffa4f2a5fae1e2755b424`
 - Original upstream: `https://github.com/kacperkwapisz/mail-mcp`
 - License: MIT
 - Implementation: Go 1.25.4, `emersion/go-imap` v2
@@ -39,7 +39,7 @@ checks remain open.
   avoid SMTP entirely and the gateway must deny `verify_account`, because that
   tool verifies both IMAP and SMTP.
 - iCloud accepts plain `LIST "" "*"` but rejects `LIST "" "*" RETURN
-  (SPECIAL-USE)` with `BAD`. The pinned `mail-mcp v1.2.2` first requests
+  (SPECIAL-USE)` with `BAD`. The pinned `mail-mcp v1.2.3` first requests
   `ReturnSpecialUse` and retries plain `LIST` when that extension is rejected.
   This preserves Gmail role metadata and makes iCloud `list_folders` usable.
 

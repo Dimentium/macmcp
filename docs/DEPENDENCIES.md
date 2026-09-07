@@ -6,7 +6,7 @@ MacMCP uses two pinned sidecars behind a Swift policy gateway:
 
 | Component | Pin | License | Purpose |
 | --- | --- | --- | --- |
-| `Dimentium/mail-mcp` | `v1.2.2` / `a62cf5f…` | MIT | IMAP reads and authenticated managed drafts for iCloud Mail and Gmail |
+| `Dimentium/mail-mcp` | `v1.2.3` / `33b95d5…` | MIT | IMAP reads and authenticated managed drafts for iCloud Mail and Gmail |
 | `PsychQuant/che-ical-mcp` | `v1.16.1` / `a8598378…` | MIT | EventKit Calendar/Reminders reads |
 
 The machine-readable pins live in `UPSTREAMS.lock.json`. The source installer
