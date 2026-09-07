@@ -15,12 +15,15 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("Sources/MacMCPBridge/Entitlements.plist"))
         XCTAssertTrue(script.contains("--product macmcp-bridge"))
         XCTAssertTrue(script.contains("--signing-identity ID"))
+        XCTAssertTrue(script.contains("--mail-sidecar PATH"))
         XCTAssertTrue(script.contains("--output PATH"))
         XCTAssertTrue(script.contains("MACMCP_SIGNING_IDENTITY"))
         XCTAssertTrue(script.contains("arguments+=(--timestamp)"))
         XCTAssertTrue(script.contains("verify_secure_timestamp"))
         XCTAssertTrue(script.contains("Developer ID signature is missing a secure timestamp"))
         XCTAssertTrue(script.contains("\"$app_eventkit\""))
+        XCTAssertTrue(script.contains("\"$app_mail\""))
+        XCTAssertTrue(script.contains("codesign --verify --strict --verbose=2 \"$app_mail\""))
         XCTAssertTrue(script.contains("codesign --verify --strict --verbose=2 \"$app_eventkit\""))
         XCTAssertTrue(script.contains("codesign --verify --deep --strict --verbose=2 \"$app\""))
     }
@@ -33,11 +36,8 @@ final class PackagingScriptTests: XCTestCase {
         )
 
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
-        XCTAssertTrue(script.contains("MAIL_REPO=\"https://github.com/Dimentium/mail-mcp\""))
-        XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.2.2\""))
-        XCTAssertTrue(script.contains("MAIL_ARM64_SHA256=\"617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4\""))
+        XCTAssertTrue(script.contains("build-pinned-mail-sidecar.sh"))
         XCTAssertTrue(script.contains("build-pinned-eventkit-sidecar.sh"))
-        XCTAssertTrue(script.contains("-name 'mail-mcp-darwin-*'"))
         XCTAssertTrue(script.contains("--gmail-address"))
         XCTAssertTrue(script.contains("--reuse-existing-configuration"))
         XCTAssertTrue(script.contains("legacy_install_root"))
@@ -67,6 +67,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("legacy_bin_link_backup"))
         XCTAssertTrue(script.contains("copy_legacy_state()"))
         XCTAssertTrue(script.contains("$target_app/Contents/Resources/CheICalMCP"))
+        XCTAssertTrue(script.contains("$target_app/Contents/Resources/mail-mcp"))
+        XCTAssertFalse(script.contains("cp \"$mail_candidate\" \"$stage_libexec_dir/mail-mcp\""))
         XCTAssertFalse(script.contains("cp \"$che_binary\" \"$stage_libexec_dir/CheICalMCP\""))
         XCTAssertTrue(script.contains("\"--stdio-proxy\""))
         XCTAssertTrue(script.contains("\"schemaVersion\": 1"))
@@ -78,9 +80,9 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("echo \"Activating staged local install\""))
         XCTAssertTrue(script.contains("mv \"$stage_install_root\" \"$install_root\""))
         XCTAssertTrue(script.contains("mv \"$stage_app\" \"$target_app\""))
-        let download = try XCTUnwrap(script.range(of: "Downloading pinned mail-mcp"))
+        let mailBuild = try XCTUnwrap(script.range(of: "build-pinned-mail-sidecar.sh"))
         let activation = try XCTUnwrap(script.range(of: "Activating staged local install"))
-        XCTAssertLessThan(download.lowerBound, activation.lowerBound)
+        XCTAssertLessThan(mailBuild.lowerBound, activation.lowerBound)
         XCTAssertTrue(script.contains("\"mcpServers\""))
         XCTAssertFalse(script.contains("tccutil reset"))
     }
@@ -102,6 +104,24 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("printf '%s\\n' \"$che_binary\""))
     }
 
+    func testPinnedMailBuildScriptVerifiesTheArchitectureSpecificArchive() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/build-pinned-mail-sidecar.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
+        XCTAssertTrue(script.contains("MAIL_REPO=\"https://github.com/Dimentium/mail-mcp\""))
+        XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.2.2\""))
+        XCTAssertTrue(script.contains("MAIL_ARM64_SHA256=\"617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4\""))
+        XCTAssertTrue(script.contains("MAIL_AMD64_SHA256=\"83ddb17c30da07e6be502cb1df230d6c9fb453cb52e5e79ea1980db666c6f4ac\""))
+        XCTAssertTrue(script.contains("mail-mcp-darwin-arm64.tar.gz"))
+        XCTAssertTrue(script.contains("mail-mcp-darwin-amd64.tar.gz"))
+        XCTAssertTrue(script.contains("mail-mcp checksum mismatch"))
+        XCTAssertTrue(script.contains("printf '%s\\n' \"$mail_binary\""))
+    }
+
     func testNotarizationScriptUsesAKeychainProfileAndValidatesTheResult() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let script = try String(
@@ -112,6 +132,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
         XCTAssertTrue(script.contains("Developer ID Application:"))
         XCTAssertTrue(script.contains("build-pinned-eventkit-sidecar.sh"))
+        XCTAssertTrue(script.contains("build-pinned-mail-sidecar.sh"))
         XCTAssertTrue(script.contains("--keychain-profile \"$notary_profile\""))
         XCTAssertTrue(script.contains("xcrun notarytool submit \"$archive\""))
         XCTAssertTrue(script.contains("xcrun stapler staple \"$app\""))

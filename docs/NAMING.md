@@ -16,7 +16,8 @@ Components use the same namespace:
 
 The mail and EventKit sidecars retain their upstream executable names,
 `mail-mcp` and `CheICalMCP`. They are third-party artifacts rather than
-MacMCP-branded commands; the installer owns their locations and lifecycle.
+MacMCP-branded commands; the MacMCP app bundle owns their locations and
+lifecycle.
 
 The public source repository is `macmcp`. Its Homebrew tap will be
 `homebrew-macmcp`.

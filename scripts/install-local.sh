@@ -1,11 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-MAIL_REPO="https://github.com/Dimentium/mail-mcp"
-MAIL_VERSION="v1.2.2"
-MAIL_ARM64_SHA256="617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4"
-MAIL_AMD64_SHA256="83ddb17c30da07e6be502cb1df230d6c9fb453cb52e5e79ea1980db666c6f4ac"
-
 usage() {
   cat <<'EOF'
 usage: scripts/install-local.sh [--reuse-existing-configuration | account options] [options]
@@ -246,7 +241,7 @@ fi
   exit 2
 }
 
-for tool in curl git plutil shasum swift codesign tar python3 pgrep; do
+for tool in git plutil swift codesign python3 pgrep; do
   command -v "$tool" >/dev/null || {
     echo "missing required tool: $tool" >&2
     echo "Install Xcode Command Line Tools first: xcode-select --install" >&2
@@ -254,26 +249,9 @@ for tool in curl git plutil shasum swift codesign tar python3 pgrep; do
   }
 done
 
-case "$(uname -m)" in
-  arm64)
-    mail_asset="mail-mcp-darwin-arm64.tar.gz"
-    mail_sha256="$MAIL_ARM64_SHA256"
-    ;;
-  x86_64)
-    mail_asset="mail-mcp-darwin-amd64.tar.gz"
-    mail_sha256="$MAIL_AMD64_SHA256"
-    ;;
-  *)
-    echo "unsupported macOS architecture: $(uname -m)" >&2
-    exit 1
-    ;;
-esac
-
 libexec_dir="$install_root/libexec"
 share_dir="$install_root/share"
 cli_dir="$install_root/bin"
-mail_archive="$build_root/$mail_asset"
-mail_extract_dir="$build_root/mail-mcp"
 target_app="$app_dir/MacMCP.app"
 legacy_target_app="$app_dir/Mac Agent Bridge.app"
 cli_path="$cli_dir/macmcp-bridge"
@@ -288,7 +266,6 @@ legacy_tunnel_setup_link="$bin_dir/mac-agent-bridge-tunnel-setup"
 
 mkdir -p "$build_root" "$(dirname "$install_root")" "$bin_dir" "$app_dir" "$(dirname "$config_dir")"
 stage_install_root="$(mktemp -d "$install_root.staging.XXXXXX")"
-stage_libexec_dir="$stage_install_root/libexec"
 stage_share_dir="$stage_install_root/share"
 stage_cli_dir="$stage_install_root/bin"
 stage_cli_path="$stage_cli_dir/macmcp-bridge"
@@ -349,6 +326,7 @@ existing_runtime_is_running() {
   local pattern
   for pattern in \
     "$target_app/Contents/MacOS/macmcp-bridge" \
+    "$target_app/Contents/Resources/mail-mcp" \
     "$target_app/Contents/Resources/CheICalMCP" \
     "$legacy_target_app/Contents/MacOS/mac-agent-bridge" \
     "$libexec_dir/mail-mcp" \
@@ -377,6 +355,7 @@ stop_existing_runtime() {
   fi
 
   terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" TERM
+  terminate_matching_command "$target_app/Contents/Resources/mail-mcp" TERM
   terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" TERM
   terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" TERM
   terminate_matching_command "$libexec_dir/mail-mcp" TERM
@@ -390,6 +369,7 @@ stop_existing_runtime() {
   fi
 
   terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" KILL
+  terminate_matching_command "$target_app/Contents/Resources/mail-mcp" KILL
   terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" KILL
   terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" KILL
   terminate_matching_command "$libexec_dir/mail-mcp" KILL
@@ -549,35 +529,14 @@ if [[ -n "$chatgpt_tunnel_id" ]]; then
   ensure_chatgpt_tunnel_client
 fi
 
-mkdir -p "$stage_libexec_dir" "$stage_share_dir" "$stage_cli_dir"
+mkdir -p "$stage_share_dir" "$stage_cli_dir"
 
-echo "Downloading pinned mail-mcp $MAIL_VERSION for $(uname -m)"
-curl -fL \
-  "$MAIL_REPO/releases/download/$MAIL_VERSION/$mail_asset" \
-  -o "$mail_archive"
-actual_mail_sha256="$(shasum -a 256 "$mail_archive" | awk '{print $1}')"
-if [[ "$actual_mail_sha256" != "$mail_sha256" ]]; then
-  echo "mail-mcp checksum mismatch" >&2
-  echo "expected: $mail_sha256" >&2
-  echo "actual:   $actual_mail_sha256" >&2
-  exit 1
-fi
-
-rm -rf "$mail_extract_dir"
-mkdir -p "$mail_extract_dir"
-tar -xzf "$mail_archive" -C "$mail_extract_dir"
-mail_candidate="$(find "$mail_extract_dir" -type f \( -name 'mail-mcp' -o -name 'mail-mcp-darwin-*' \) | sort | head -n 1)"
-if [[ -z "$mail_candidate" ]]; then
-  echo "mail-mcp binary was not found in $mail_asset" >&2
-  exit 1
-fi
-cp "$mail_candidate" "$stage_libexec_dir/mail-mcp"
-chmod 755 "$stage_libexec_dir/mail-mcp"
+mail_binary="$("$project_dir/scripts/build-pinned-mail-sidecar.sh" --build-root "$build_root/mail")"
 
 che_binary="$("$project_dir/scripts/build-pinned-eventkit-sidecar.sh" --build-root "$build_root/eventkit")"
 
 echo "Building local app bundle"
-"$project_dir/scripts/build-local-app.sh" "$che_binary" >/dev/null
+"$project_dir/scripts/build-local-app.sh" "$che_binary" --mail-sidecar "$mail_binary" >/dev/null
 built_app="$project_dir/.build/local/MacMCP.app"
 [[ -d "$built_app" ]] || { echo "app bundle was not produced" >&2; exit 1; }
 
@@ -611,7 +570,6 @@ chmod 600 "$stage_mcp_config"
 
 python3 - \
   "$stage_app_config" \
-  "$libexec_dir/mail-mcp" \
   "$chatgpt_tunnel_id" \
   "$chatgpt_tunnel_client" \
   "$chatgpt_tunnel_profile" \
@@ -624,14 +582,13 @@ import sys
 import tempfile
 
 target = pathlib.Path(sys.argv[1])
-mail_sidecar = sys.argv[2]
-tunnel_id, tunnel_client, tunnel_profile, existing_tunnel = sys.argv[3:7]
-mail_args = sys.argv[7:]
+tunnel_id, tunnel_client, tunnel_profile, existing_tunnel = sys.argv[2:6]
+mail_args = sys.argv[6:]
 
 payload = {
     "schemaVersion": 1,
     "launchAtLogin": True,
-    "args": ["--mail-sidecar", mail_sidecar, *mail_args],
+    "args": mail_args,
 }
 if tunnel_id:
     payload["chatGPTTunnel"] = {
@@ -692,7 +649,7 @@ App:
   $target_app
 
 Sidecars:
-  $libexec_dir/mail-mcp
+  $target_app/Contents/Resources/mail-mcp
   $target_app/Contents/Resources/CheICalMCP
 
 MCP stdio config example:

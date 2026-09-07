@@ -8,9 +8,9 @@ This repository has two intentionally separate installation paths:
 - `scripts/notarize-local-app.sh` is the release path. It creates a Developer
   ID-signed, Apple-notarized `MacMCP.app` with a stable macOS code identity.
 
-The release script is a prerequisite for the future Homebrew Cask path; it is
-not itself a complete installer because the current source installer still
-fetches the pinned `mail-mcp` sidecar and creates per-user configuration.
+The release script embeds the pinned `mail-mcp` and EventKit sidecars in the
+app bundle, so it is the build basis for the future Homebrew Cask. Per-user
+mail account configuration and Keychain secrets remain outside the bundle.
 
 ## One-Time Release-Machine Setup
 

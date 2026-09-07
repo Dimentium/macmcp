@@ -29,11 +29,12 @@ inside a temporary HOME without touching a real user configuration.
 1. Ship a signed local package.
    The Developer ID build and notarization path is implemented and uses a local
    Keychain profile; its first run is blocked only by reachability of Apple's
-   signing timestamp service. Produce the first stapled artifact, package the
-   complete runtime as a Cask, and run the live acceptance gate against iCloud,
-   Gmail, EventKit, approvals, and the tunnel. Until then the source formula is
-   supported, but replacing an ad-hoc-signed app can require macOS permissions
-   to be granted again.
+   signing timestamp service. The app bundle now contains the complete runtime,
+   including both sidecars. Produce the first stapled artifact, publish it as a
+   Cask, and run the live acceptance gate against iCloud, Gmail, EventKit,
+   approvals, and the tunnel. Until then the source formula is supported, but
+   replacing an ad-hoc-signed app can require macOS permissions to be granted
+   again.
 
 2. Validate the app-managed ChatGPT tunnel beyond the validated local Work path.
    ChatGPT Work on the desktop app is the primary client target and has now

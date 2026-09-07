@@ -28,7 +28,7 @@ Grant only the capabilities you intend to use.
 
 - App: `~/Applications/MacMCP.app`
 - Bridge command: `~/.local/bin/macmcp-bridge`
-- Mail sidecar: `~/.local/opt/macmcp/libexec/mail-mcp`
+- Mail sidecar: `~/Applications/MacMCP.app/Contents/Resources/mail-mcp`
 - EventKit sidecar: `~/Applications/MacMCP.app/Contents/Resources/CheICalMCP`
 - Runtime configuration and IPC: `~/Library/Application Support/macmcp/`
 

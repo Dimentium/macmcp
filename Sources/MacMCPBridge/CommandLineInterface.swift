@@ -142,8 +142,13 @@ enum CommandLineInterface {
             index += 2
         }
 
-        if menuBar, eventKit == nil {
-            eventKit = resourceURL("CheICalMCP")
+        if menuBar {
+            if eventKit == nil {
+                eventKit = resourceURL("CheICalMCP")
+            }
+            if mail == nil, !mailAccounts.isEmpty {
+                mail = resourceURL("mail-mcp")
+            }
         }
 
         return BridgeLaunchConfiguration(

@@ -131,6 +131,7 @@ existing_runtime_is_running() {
   local pattern
   for pattern in \
     "$target_app/Contents/MacOS/macmcp-bridge" \
+    "$target_app/Contents/Resources/mail-mcp" \
     "$target_app/Contents/Resources/CheICalMCP" \
     "$legacy_target_app/Contents/MacOS/mac-agent-bridge" \
     "$libexec_dir/CheICalMCP" \
@@ -167,6 +168,7 @@ elif [[ -x "$legacy_target_app/Contents/MacOS/mac-agent-bridge" ]]; then
 fi
 
 terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" TERM
+terminate_matching_command "$target_app/Contents/Resources/mail-mcp" TERM
 terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" TERM
 terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" TERM
 terminate_matching_command "$libexec_dir/CheICalMCP" TERM
@@ -178,6 +180,7 @@ if [[ -n "$tunnel_profile" ]]; then
 fi
 if ! wait_for_existing_runtime_exit 3; then
   terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" KILL
+  terminate_matching_command "$target_app/Contents/Resources/mail-mcp" KILL
   terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" KILL
   terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" KILL
   terminate_matching_command "$libexec_dir/CheICalMCP" KILL

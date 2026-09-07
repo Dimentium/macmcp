@@ -61,9 +61,10 @@ phase="initial-contract"
 runtime_cli="$install_root/bin/macmcp-bridge"
 launch_config="$test_home/Library/Application Support/macmcp/launch.json"
 [[ -x "$runtime_cli" ]]
-[[ -x "$install_root/libexec/mail-mcp" ]]
+[[ ! -e "$install_root/libexec/mail-mcp" ]]
 [[ ! -e "$install_root/libexec/CheICalMCP" ]]
 [[ -x "$app_dir/MacMCP.app/Contents/MacOS/macmcp-bridge" ]]
+[[ -x "$app_dir/MacMCP.app/Contents/Resources/mail-mcp" ]]
 [[ -x "$app_dir/MacMCP.app/Contents/Resources/CheICalMCP" ]]
 [[ -L "$bin_dir/macmcp-bridge" ]]
 [[ -f "$launch_config" ]]
@@ -83,7 +84,7 @@ assert payload == {"schemaVersion": 1, "writableAccountIDs": ["gmail"]}
 PY
 [[ "$("$runtime_cli" --version)" == "MacMCP "* ]]
 if HOME="$test_home" "$runtime_cli" \
-  --mail-sidecar "$install_root/libexec/mail-mcp" \
+  --mail-sidecar "$app_dir/MacMCP.app/Contents/Resources/mail-mcp" \
   --gmail-address "$fixture_address" >/dev/null 2>&1; then
   echo "direct sidecar runtime was unexpectedly accepted" >&2
   exit 1

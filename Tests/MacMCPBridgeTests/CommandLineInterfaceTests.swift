@@ -108,7 +108,7 @@ final class CommandLineInterfaceTests: XCTestCase {
         XCTAssertEqual(configuration.mailAccounts.first?.imapSecurity, .plain)
     }
 
-    func testAppBundleDefaultsToMenuBarAndEmbeddedEventKitSidecar() throws {
+    func testAppBundleDefaultsToMenuBarAndEventKitWithoutMailAccounts() throws {
         let configuration = try CommandLineInterface.launchConfiguration(
             arguments: [],
             bundleURL: URL(fileURLWithPath: "/Applications/MacMCP.app"),
@@ -121,6 +121,22 @@ final class CommandLineInterfaceTests: XCTestCase {
         XCTAssertEqual(
             configuration.eventKitSidecarURL?.path,
             "/Applications/MacMCP.app/Contents/Resources/CheICalMCP"
+        )
+        XCTAssertNil(configuration.mailSidecarURL)
+    }
+
+    func testAppBundleDefaultsToEmbeddedMailSidecarForConfiguredAccount() throws {
+        let configuration = try CommandLineInterface.launchConfiguration(
+            arguments: ["--gmail-address", "reader@gmail.com"],
+            bundleURL: URL(fileURLWithPath: "/Applications/MacMCP.app"),
+            resourceURL: { name in
+                URL(fileURLWithPath: "/Applications/MacMCP.app/Contents/Resources/\(name)")
+            }
+        )
+
+        XCTAssertEqual(
+            configuration.mailSidecarURL?.path,
+            "/Applications/MacMCP.app/Contents/Resources/mail-mcp"
         )
     }
 

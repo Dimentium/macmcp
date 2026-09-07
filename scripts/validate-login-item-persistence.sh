@@ -53,7 +53,7 @@ done
 target_app="$app_dir/MacMCP.app"
 app_executable="$target_app/Contents/MacOS/macmcp-bridge"
 cli_path="$install_root/bin/macmcp-bridge"
-mail_sidecar="$install_root/libexec/mail-mcp"
+mail_sidecar="$target_app/Contents/Resources/mail-mcp"
 eventkit_sidecar="$target_app/Contents/Resources/CheICalMCP"
 launch_config="$config_dir/launch.json"
 ipc_socket="$config_dir/mcp.sock"

@@ -54,8 +54,8 @@ the identity seen by Keychain, TCC, and Login Item services.
   `CheICalMCP.Package.resolved` graph and `--disable-automatic-resolution`.
 - Custom plain IMAP requires an explicit `--allow-unsafe-plain-imap` override.
   Local IPC has bounded frames, clients, concurrent requests, and deadlines.
-- The EventKit sidecar is embedded only in the signed app bundle. The installer
-  no longer stages a second `libexec` copy.
+- The mail and EventKit sidecars are embedded only in the signed app bundle.
+  The installer no longer stages `libexec` copies.
 - Canonical product, package, executable, bundle, state-path, and Keychain
   names now use the `macmcp` namespace. The installer carries legacy aliases
   and state forward during an upgrade.

@@ -83,8 +83,9 @@ for tool in codesign ditto plutil shasum spctl xcrun; do
 done
 
 mkdir -p "$dist_dir" "$build_root"
+mail_binary="$("$script_dir/build-pinned-mail-sidecar.sh" --build-root "$build_root/mail")"
 eventkit_binary="$("$script_dir/build-pinned-eventkit-sidecar.sh" --build-root "$build_root/eventkit")"
-app="$("$script_dir/build-local-app.sh" "$eventkit_binary" --signing-identity "$signing_identity" --output "$build_root/app")"
+app="$("$script_dir/build-local-app.sh" "$eventkit_binary" --mail-sidecar "$mail_binary" --signing-identity "$signing_identity" --output "$build_root/app")"
 version="$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")"
 archive="$dist_dir/MacMCP-$version-macos.zip"
 checksum="$archive.sha256"
