@@ -31,6 +31,36 @@ final class TunnelClientLogTests: XCTestCase {
         XCTAssertNil(entry)
     }
 
+    func testDropsRawAndUnparseableTunnelOutput() {
+        XCTAssertNil(TunnelClientLogRedactor.entry(
+            source: .stderr,
+            data: Data("bridge failed for reader@example.com with Bearer sk-secret".utf8),
+            date: Date(timeIntervalSince1970: 0)
+        ))
+        XCTAssertNil(TunnelClientLogRedactor.entry(
+            source: .stdout,
+            data: Data("{not valid json}".utf8),
+            date: Date(timeIntervalSince1970: 0)
+        ))
+    }
+
+    func testKeepsOnlyAllowlistedFieldsFromStructuredTunnelOutput() throws {
+        let entry = try XCTUnwrap(TunnelClientLogRedactor.entry(
+            source: .stderr,
+            data: Data("""
+            {"level":"error","msg":"tunnel call failed","component":"dispatcher","error":"connection reset","client_instance_id":"private-client","stacktrace":{"path":"/private/path","token":"secret"}}
+            """.utf8),
+            date: Date(timeIntervalSince1970: 0)
+        ))
+        let text = String(decoding: entry, as: UTF8.self)
+
+        XCTAssertTrue(text.contains("ERROR [stderr] [dispatcher] tunnel call failed error=connection reset"))
+        XCTAssertFalse(text.contains("private-client"))
+        XCTAssertFalse(text.contains("stacktrace"))
+        XCTAssertFalse(text.contains("/private/path"))
+        XCTAssertFalse(text.contains("secret"))
+    }
+
     func testRotatesAtConfiguredLimitAndKeepsPrivateFiles() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -51,7 +81,7 @@ final class TunnelClientLogTests: XCTestCase {
         XCTAssertEqual(permissions.intValue & 0o777, 0o600)
     }
 
-    func testCaptureWritesBoundedRedactedStdoutAndStderr() throws {
+    func testCaptureWritesOnlyStructuredTunnelOutput() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let fileURL = directory.appendingPathComponent("chatgpt-tunnel.log")
@@ -66,7 +96,7 @@ final class TunnelClientLogTests: XCTestCase {
 
         let text = try String(contentsOf: fileURL, encoding: .utf8)
         XCTAssertTrue(text.contains("request delivered"))
-        XCTAssertTrue(text.contains("[stderr]"))
+        XCTAssertFalse(text.contains("[stderr]"))
         XCTAssertFalse(text.contains("reader@example.com"))
     }
 

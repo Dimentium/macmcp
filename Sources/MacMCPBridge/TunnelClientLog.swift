@@ -230,44 +230,75 @@ enum TunnelClientLogRedactor {
 
     static func entry(source: TunnelClientLogSource, data: Data, date: Date) -> Data? {
         let raw = String(decoding: data, as: UTF8.self)
-        let text = sanitizedText(raw)
-        guard !text.isEmpty else { return nil }
+        if source == .lifecycle {
+            let message = sanitizedText(raw)
+            guard !message.isEmpty else { return nil }
+            return renderedEntry(
+                source: source,
+                date: date,
+                level: "INFO",
+                component: nil,
+                message: message,
+                details: [:]
+            )
+        }
+
+        // Never reflect raw tunnel-client output. Unknown fields can include
+        // request metadata, paths, or nested diagnostic objects.
+        guard let fields = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
 
         var level = source == .stderr ? "WARN" : "INFO"
         var component: String?
-        var message = text
+        var message = "tunnel-client event"
         var details: [String: String] = [:]
-        if let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)),
-           let fields = object as? [String: Any] {
-            for (key, value) in fields {
-                let normalizedKey = key.lowercased()
-                if allowedTextKeys.contains(normalizedKey), let value = value as? String {
-                    let sanitizedValue = sanitizedText(value)
-                    switch normalizedKey {
-                    case "level":
-                        level = normalizedLevel(sanitizedValue)
-                    case "component":
-                        component = sanitizedValue
-                    case "msg", "message":
-                        if message == text || normalizedKey == "msg" {
-                            message = sanitizedValue
-                        }
-                    case "time":
-                        break
-                    default:
-                        details[normalizedKey] = sanitizedValue
+        for (key, value) in fields {
+            let normalizedKey = key.lowercased()
+            if allowedTextKeys.contains(normalizedKey), let value = value as? String {
+                let sanitizedValue = sanitizedText(value)
+                switch normalizedKey {
+                case "level":
+                    level = normalizedLevel(sanitizedValue)
+                case "component":
+                    component = sanitizedValue
+                case "msg", "message":
+                    if message == "tunnel-client event" || normalizedKey == "msg" {
+                        message = sanitizedValue
                     }
-                } else if allowedNumberKeys.contains(normalizedKey), value is NSNumber {
-                    details[normalizedKey] = String(describing: value)
-                } else if allowedBooleanKeys.contains(normalizedKey), let value = value as? Bool {
-                    details[normalizedKey] = value ? "true" : "false"
+                case "time":
+                    break
+                default:
+                    details[normalizedKey] = sanitizedValue
                 }
+            } else if allowedNumberKeys.contains(normalizedKey), value is NSNumber {
+                details[normalizedKey] = String(describing: value)
+            } else if allowedBooleanKeys.contains(normalizedKey), let value = value as? Bool {
+                details[normalizedKey] = value ? "true" : "false"
             }
         }
 
-        guard !isRoutineStartupNoise(message: message, component: component) else {
+        guard !isRoutineStartupNoise(message: message, component: component, level: level) else {
             return nil
         }
+        return renderedEntry(
+            source: source,
+            date: date,
+            level: level,
+            component: component,
+            message: message,
+            details: details
+        )
+    }
+
+    private static func renderedEntry(
+        source: TunnelClientLogSource,
+        date: Date,
+        level: String,
+        component: String?,
+        message: String,
+        details: [String: String]
+    ) -> Data {
         let componentPrefix = component.map { " [\($0)]" } ?? ""
         let renderedDetails = renderedDetailKeys.compactMap { key in
             details[key].map { "\(key)=\($0)" }
@@ -292,8 +323,20 @@ enum TunnelClientLogRedactor {
         }
     }
 
-    private static func isRoutineStartupNoise(message: String, component: String?) -> Bool {
-        if message == "OnStart hook executing" || message == "OnStart hook executed" {
+    private static func isRoutineStartupNoise(message: String, component: String?, level: String) -> Bool {
+        guard level == "INFO" else { return false }
+        if [
+            "OnStart hook executing",
+            "OnStart hook executed",
+            "run",
+            "provided",
+            "supplied",
+            "invoking",
+            "tls trust summary",
+            "admin ui enabled",
+            "tunnel-client startup summary",
+            "harpoon enabled"
+        ].contains(message) {
             return true
         }
         return component == "harpoon" && message == "harpoon startup catalog digest"
