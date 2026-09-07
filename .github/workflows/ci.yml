@@ -43,5 +43,8 @@ jobs:
       - name: Homebrew source formula acceptance
         shell: bash
         run: |
-          brew install --build-from-source ./Formula/macmcp.rb
-          brew test macmcp
+          brew tap-new --no-git macmcp-ci/local
+          tap_dir="$(brew --repository macmcp-ci/local)"
+          cp Formula/macmcp.rb "$tap_dir/Formula/macmcp.rb"
+          brew install --build-from-source macmcp-ci/local/macmcp
+          brew test macmcp-ci/local/macmcp

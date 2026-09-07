@@ -194,8 +194,10 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(workflow.contains("go-version: \"1.25.4\""))
         XCTAssertTrue(workflow.contains("scripts/verify-local-deployment.sh"))
         XCTAssertTrue(workflow.contains("Homebrew source formula acceptance"))
-        XCTAssertTrue(workflow.contains("brew install --build-from-source ./Formula/macmcp.rb"))
-        XCTAssertTrue(workflow.contains("brew test macmcp"))
+        XCTAssertTrue(workflow.contains("brew tap-new --no-git macmcp-ci/local"))
+        XCTAssertTrue(workflow.contains("cp Formula/macmcp.rb \"$tap_dir/Formula/macmcp.rb\""))
+        XCTAssertTrue(workflow.contains("brew install --build-from-source macmcp-ci/local/macmcp"))
+        XCTAssertTrue(workflow.contains("brew test macmcp-ci/local/macmcp"))
     }
 
     func testDeploymentAcceptanceScriptIsIsolated() throws {
