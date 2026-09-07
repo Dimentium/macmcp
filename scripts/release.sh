@@ -70,13 +70,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 log_step() {
+  if [[ "$step_number" -gt 0 ]]; then
+    printf 'Completed in %ss\n' "$((SECONDS - step_started))"
+  fi
   step_number="$1"
   step_title="$2"
-  printf '\n==> [%s/%s] %s\n' "$step_number" "$step_total" "$step_title"
+  step_started=$SECONDS
+  printf '\n==> [%s] [%s/%s] %s\n' "$(date '+%H:%M:%S')" "$step_number" "$step_total" "$step_title"
 }
 
 fail_release() {
   local status="$?"
+  [[ "$status" -ne 0 ]] || return 0
   printf '\nRelease failed at step %s/%s (%s), exit %s. No later publication step was run.\n' \
     "$step_number" "$step_total" "$step_title" "$status" >&2
   exit "$status"
@@ -102,7 +107,7 @@ version_from_source() {
   local bundle_info_version
 
   source_version="$(awk -F'"' '/static let version = / { print $2; exit }' Sources/MacMCPBridge/AppVersion.swift)"
-  runtime_info_version="$(plutil -extract CFBundleShortVersionString raw Sources/MacMCPBridge/Info.plist)"
+  runtime_info_version="$(plutil -extract CFBundleVersion raw Sources/MacMCPBridge/Info.plist)"
   bundle_info_version="$(plutil -extract CFBundleShortVersionString raw Packaging/Info.plist)"
   [[ "$source_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
     echo "source version is invalid: $source_version" >&2
@@ -153,8 +158,13 @@ restart_local_app() {
   }
 }
 
-trap fail_release ERR
+trap fail_release EXIT
 cd "$project_dir"
+umask 077
+mkdir -p "$project_dir/dist"
+release_log="$project_dir/dist/release-$(date '+%Y%m%d-%H%M%S')-$$.log"
+exec > >(tee -a "$release_log") 2>&1
+printf 'Release log: %s\n' "$release_log"
 
 log_step 1 "Validate release inputs"
 [[ -n "$signing_identity" ]] || {
@@ -225,6 +235,11 @@ actual_checksum="$(shasum -a 256 "$archive" | awk '{ print $1 }')"
 printf 'Notarized archive: %s\nSHA-256: %s\n' "$archive" "$actual_checksum"
 
 log_step 4 "Tag and publish the signed source commit"
+require_clean_worktree
+[[ "$(git rev-parse HEAD)" == "$source_revision" ]] || {
+  echo "source commit changed during the build" >&2
+  exit 1
+}
 git ls-remote --exit-code --tags "$remote" "refs/tags/$tag" >/dev/null 2>&1 && {
   echo "release tag appeared on $remote while notarization was running: $tag" >&2
   exit 1
@@ -284,4 +299,4 @@ if [[ "$install_local" -eq 1 ]]; then
   macmcp diagnose --json
 fi
 
-printf '\nRelease MacMCP %s completed successfully.\n' "$version"
+printf '\nRelease MacMCP %s completed successfully in %ss. Log: %s\n' "$version" "$SECONDS" "$release_log"

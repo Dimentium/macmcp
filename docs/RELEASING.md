@@ -54,6 +54,8 @@ validates Gatekeeper, tags and pushes the source commit, creates the GitHub
 Release, regenerates and commits the Cask and source formula, and pushes that
 metadata commit. Every stage is printed as a numbered step; on failure it
 reports the last completed boundary and does not run later publication steps.
+Steps include timestamps and elapsed time. The full output is saved in a
+private `dist/release-*.log` file, including the failing stage on early exit.
 
 Run this only on the release Mac:
 
