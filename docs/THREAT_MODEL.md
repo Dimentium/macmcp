@@ -28,7 +28,7 @@ prompt injections, crafted MIME messages, and accidental model behaviour.
 - static reader policy shipped with the bridge;
 - local per-client approval grants for MCP reader-data access;
 - macOS Keychain and TCC decisions made by the user;
-- pinned `mail-mcp` release archive with a verified checksum, and CheICalMCP
+- pinned `mail-mcp` source and verified Go dependency graph, and CheICalMCP
   source pinned to a reviewed commit.
 
 ### Constrained services
@@ -128,5 +128,6 @@ Forbidden:
 - Calendar and Reminders fixtures are byte-for-byte/logically unchanged after
   reader integration tests.
 - Logs are scanned for credentials and fixture body fragments.
-- A mail sidecar checksum mismatch prevents startup. CheICalMCP is pinned by
-  source commit but does not yet have a release-artifact checksum gate.
+- A mail source or Go dependency-graph checksum mismatch prevents startup.
+  CheICalMCP is pinned by source commit but does not yet have a release-artifact
+  checksum gate.

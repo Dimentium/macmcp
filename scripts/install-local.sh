@@ -241,10 +241,14 @@ fi
   exit 2
 }
 
-for tool in git plutil swift codesign python3 pgrep; do
+for tool in git go plutil swift codesign python3 pgrep; do
   command -v "$tool" >/dev/null || {
     echo "missing required tool: $tool" >&2
-    echo "Install Xcode Command Line Tools first: xcode-select --install" >&2
+    if [[ "$tool" == "go" ]]; then
+      echo "Install Go with Homebrew: brew install go" >&2
+    else
+      echo "Install Xcode Command Line Tools first: xcode-select --install" >&2
+    fi
     exit 1
   }
 done

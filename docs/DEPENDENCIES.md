@@ -9,10 +9,12 @@ MacMCP uses two pinned sidecars behind a Swift policy gateway:
 | `Dimentium/mail-mcp` | `v1.2.2` / `a62cf5f…` | MIT | IMAP reads and authenticated managed drafts for iCloud Mail and Gmail |
 | `PsychQuant/che-ical-mcp` | `v1.16.1` / `a8598378…` | MIT | EventKit Calendar/Reminders reads |
 
-The machine-readable pins live in `UPSTREAMS.lock.json`. The installer verifies
-the pinned `mail-mcp` release archive checksum and builds CheICalMCP from the
-pinned source commit because the published CheICalMCP binary failed strict
-signature validation on the target Mac. Current artifact hashes are recorded in
+The machine-readable pins live in `UPSTREAMS.lock.json`. The source installer
+builds both sidecars locally: `mail-mcp` is checked out at its pinned commit
+with verified `go.mod` and `go.sum` hashes and built with `-mod=readonly`;
+CheICalMCP is built from its pinned source commit and reviewed Swift package
+resolution because the published CheICalMCP binary failed strict signature
+validation on the target Mac. Current artifact hashes are recorded in
 `docs/MAC_VALIDATION.md` and `docs/DEPLOYMENT.md`.
 
 ## Mail MCP Fork

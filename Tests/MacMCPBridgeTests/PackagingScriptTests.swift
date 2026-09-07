@@ -104,7 +104,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("printf '%s\\n' \"$che_binary\""))
     }
 
-    func testPinnedMailBuildScriptVerifiesTheArchitectureSpecificArchive() throws {
+    func testPinnedMailBuildScriptVerifiesTheSourceAndGoDependencyGraph() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let script = try String(
             contentsOf: root.appendingPathComponent("scripts/build-pinned-mail-sidecar.sh"),
@@ -112,13 +112,18 @@ final class PackagingScriptTests: XCTestCase {
         )
 
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
-        XCTAssertTrue(script.contains("MAIL_REPO=\"https://github.com/Dimentium/mail-mcp\""))
+        XCTAssertTrue(script.contains("MAIL_REPO=\"https://github.com/Dimentium/mail-mcp.git\""))
         XCTAssertTrue(script.contains("MAIL_VERSION=\"v1.2.2\""))
-        XCTAssertTrue(script.contains("MAIL_ARM64_SHA256=\"617e3322c2d240957767242d36dfd27f78d75f0dffff7c97c1538c597825b8e4\""))
-        XCTAssertTrue(script.contains("MAIL_AMD64_SHA256=\"83ddb17c30da07e6be502cb1df230d6c9fb453cb52e5e79ea1980db666c6f4ac\""))
-        XCTAssertTrue(script.contains("mail-mcp-darwin-arm64.tar.gz"))
-        XCTAssertTrue(script.contains("mail-mcp-darwin-amd64.tar.gz"))
-        XCTAssertTrue(script.contains("mail-mcp checksum mismatch"))
+        XCTAssertTrue(script.contains("MAIL_COMMIT=\"a62cf5f34f999193393b7591450de887a98224f1\""))
+        XCTAssertTrue(script.contains("MAIL_GO_MOD_SHA256=\"41c501de585b0948adc7aadf0c80f493d79a29779f1648b99124a20388d643b4\""))
+        XCTAssertTrue(script.contains("MAIL_GO_SUM_SHA256=\"65acf0c5d1563f6749f1fb495f8b1a03edf7882a0e2febb73ed659604062d5e6\""))
+        XCTAssertTrue(script.contains("MAIL_MINIMUM_GO_VERSION=\"1.25.4\""))
+        XCTAssertTrue(script.contains("mail-mcp requires Go $MAIL_MINIMUM_GO_VERSION or later"))
+        XCTAssertTrue(script.contains("remote get-url origin"))
+        XCTAssertTrue(script.contains("GOWORK=off GOFLAGS= go -C \"$mail_src\" build -trimpath -mod=readonly -buildvcs=false"))
+        XCTAssertTrue(script.contains("\"go.mod:$MAIL_GO_MOD_SHA256\""))
+        XCTAssertTrue(script.contains("\"go.sum:$MAIL_GO_SUM_SHA256\""))
+        XCTAssertTrue(script.contains("mail-mcp $filename checksum mismatch"))
         XCTAssertTrue(script.contains("printf '%s\\n' \"$mail_binary\""))
     }
 
@@ -165,6 +170,17 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("scripts/install-local.sh --gmail-address you@gmail.com"))
     }
 
+    func testSourceFormulaDeclaresRuntimeBuildDependencies() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let formula = try String(
+            contentsOf: root.appendingPathComponent("Formula/macmcp.rb"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(formula.contains("depends_on \"go\""))
+        XCTAssertTrue(formula.contains("depends_on \"python@3.14\""))
+    }
+
     func testDeploymentAcceptanceScriptIsIsolated() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let script = try String(
@@ -181,6 +197,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("MacMCP deployment acceptance failed during phase"))
         XCTAssertTrue(script.contains("GITHUB_ACTIONS"))
         XCTAssertTrue(script.contains("uninstall-local.sh"))
+        XCTAssertTrue(script.contains("remove_test_root()"))
+        XCTAssertTrue(script.contains("HOME=\"$test_home\" go clean -modcache"))
     }
 
     func testLocalUninstallScriptPreservesKeychainByDefault() throws {

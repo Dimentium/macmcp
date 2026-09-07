@@ -27,7 +27,26 @@ only` control is cleared. Drafts have no recipient fields and cannot be sent.
 
 ## Installation
 
-Install the source package through Homebrew:
+MacMCP has two installation paths. The source path is available now; the
+signed Cask will be published after the first Apple-notarized release.
+
+### Source Install
+
+Choose this path to inspect and build the runtime locally. It requires:
+
+- macOS 14 or later;
+- Xcode Command Line Tools with Swift 6.1 or later (`xcode-select --install`);
+- Homebrew;
+- outbound access to GitHub, the Go module proxy, and the pinned Swift package
+  repositories during setup.
+
+The formula pulls Go and Python 3 as dependencies; `mail-mcp` requires Go
+1.25.4 or later. The setup then downloads this source package, checks out the
+pinned `mail-mcp` and `CheICalMCP` source commits, verifies their Go and Swift
+dependency graphs, and builds all three MacMCP executables locally. It does
+not download a prebuilt `mail-mcp` or EventKit runtime binary.
+
+Install and configure it with:
 
 ```bash
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
@@ -45,6 +64,14 @@ actions. The control applies immediately and persists across app restarts.
 
 macOS may ask for Keychain, Calendar, or Reminders access on first use. Grant
 only the permissions needed for the features you enable.
+
+### Signed Cask
+
+The forthcoming Cask will download one prebuilt, Developer ID-signed and
+Apple-notarized `MacMCP.app` from GitHub Releases. It will contain the bridge,
+mail sidecar, and EventKit sidecar, so it will not need Swift, Go, or source
+checkouts on the target Mac. The first launch will still need account setup and
+the macOS permissions required by the enabled features.
 
 ## Connect ChatGPT
 
@@ -114,9 +141,8 @@ macmcp uninstall
 brew uninstall macmcp
 ```
 
-The source formula is an interim package. The Developer ID release pipeline is
-documented in [docs/RELEASING.md](docs/RELEASING.md); its first notarized
-artifact will become the source for the MacMCP Cask.
+The source formula remains supported after the Cask is published. The Developer
+ID release pipeline is documented in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Third-Party Components
 

@@ -14,12 +14,18 @@ legacy_install_root="$test_home/.local/opt/mac-agent-bridge"
 legacy_config_dir="$test_home/Library/Application Support/mac-agent-bridge"
 legacy_bin_link="$bin_dir/mac-agent-bridge"
 
+remove_test_root() {
+  # Go owns the read-only permissions in its module cache.
+  HOME="$test_home" go clean -modcache >/dev/null 2>&1 || true
+  rm -rf "$test_root"
+}
+
 cleanup() {
   HOME="$test_home" "$script_dir/uninstall-local.sh" \
     --install-root "$install_root" \
     --bin-dir "$bin_dir" \
     --app-dir "$app_dir" >/dev/null 2>&1 || true
-  rm -rf "$test_root"
+  remove_test_root
 }
 trap cleanup EXIT
 
@@ -145,5 +151,5 @@ HOME="$test_home" "$script_dir/uninstall-local.sh" \
 
 phase="complete"
 trap - EXIT
-rm -rf "$test_root"
+remove_test_root
 printf 'MacMCP local deployment acceptance passed\n'

@@ -4,6 +4,9 @@ class Macmcp < Formula
   url "https://github.com/Dimentium/macmcp.git", tag: "v0.2.1", revision: "709d82f08aa16a32db10fb5bfb14af6458d5a202"
   license "MIT"
 
+  depends_on "go"
+  depends_on "python@3.14"
+
   def install
     odie "MacMCP requires macOS" unless OS.mac?
 

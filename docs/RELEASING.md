@@ -18,6 +18,12 @@ Import a `Developer ID Application` certificate into the login keychain. Store
 an App Store Connect team API key as a `notarytool` Keychain profile. Do not put
 the `.p8` file, API key ID, issuer ID, or passwords in this repository.
 
+The release build compiles the bridge, `mail-mcp`, and `CheICalMCP` from their
+pinned source revisions. Install Xcode Command Line Tools with Swift 6.1 or
+later, Go 1.25.4 or later, Git, and Python 3. The release Mac also needs
+outbound access to GitHub, the Go module proxy, and the pinned Swift package
+repositories while building.
+
 The release Mac also needs outbound access to Apple's code-signing timestamp
 service while `codesign` runs. Notarization requires this secure timestamp; a
 Developer ID signature without it is intentionally rejected by the release
