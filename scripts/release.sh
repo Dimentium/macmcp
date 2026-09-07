@@ -151,11 +151,36 @@ restart_local_app() {
     }
   fi
   open -na /Applications/MacMCP.app
-  sleep 5
-  pgrep -x macmcp-bridge >/dev/null || {
-    echo "MacMCP did not start after the Cask upgrade" >&2
-    exit 1
-  }
+  wait_for_local_runtime
+}
+
+local_runtime_ready() {
+  local report
+  report="$(macmcp diagnose --json 2>/dev/null)" || return 1
+  REPORT="$report" ruby -rjson -e '
+    report = JSON.parse(ENV.fetch("REPORT"))
+    bridge_ready = report.dig("bridge", "availability") == "available"
+    tunnel_ready = ["running", "not_configured"].include?(report["tunnel"])
+    exit(bridge_ready && tunnel_ready ? 0 : 1)
+  '
+}
+
+wait_for_local_runtime() {
+  local max_attempts=30
+  echo "Waiting for MacMCP bridge and configured tunnel to become ready (up to 60s)"
+  for attempt in $(seq 1 "$max_attempts"); do
+    if pgrep -x macmcp-bridge >/dev/null && local_runtime_ready; then
+      echo "MacMCP runtime is ready after $(((attempt - 1) * 2))s"
+      return 0
+    fi
+    if [[ "$attempt" -eq 1 || $((attempt % 5)) -eq 0 ]]; then
+      echo "MacMCP is still starting (${attempt}/${max_attempts})"
+    fi
+    sleep 2
+  done
+  echo "MacMCP did not become ready after the Cask upgrade" >&2
+  macmcp diagnose --json || true
+  return 1
 }
 
 trap fail_release EXIT

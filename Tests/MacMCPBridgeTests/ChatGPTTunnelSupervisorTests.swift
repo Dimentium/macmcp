@@ -32,6 +32,9 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         let proxyURL = directory.appendingPathComponent("chatgpt-tunnel-proxy")
         let readyURL = directory.appendingPathComponent("ready")
         let tunnelLogStore = TunnelClientLogStore(fileURL: directory.appendingPathComponent("chatgpt-tunnel.log"))
+        let failureHistoryStore = TunnelFailureHistoryStore(
+            fileURL: directory.appendingPathComponent("tunnel-failures.json")
+        )
 
         try Data().write(to: socketURL)
         try "#!/bin/bash\nexit 0\n".write(to: bridgeURL, atomically: true, encoding: .utf8)
@@ -64,6 +67,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
             ipcSocketURL: socketURL,
             proxyWrapperURL: proxyURL,
             credentialStore: FixedTunnelCredentialStore(),
+            failureHistoryStore: failureHistoryStore,
             tunnelLogStore: tunnelLogStore,
             healthProbe: { _, _ in true },
             onStateChanged: { state in
@@ -79,6 +83,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         await supervisor.stop()
 
         XCTAssertEqual(try String(contentsOf: traceURL, encoding: .utf8).split(separator: "\n"), ["init", "doctor", "run"])
+        XCTAssertTrue(try failureHistoryStore.read().isEmpty)
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: proxyURL.path))
         let proxy = try String(contentsOf: proxyURL, encoding: .utf8)
         XCTAssertTrue(proxy.contains("--stdio-proxy"))

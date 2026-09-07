@@ -234,6 +234,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("write-cask-formula.sh"))
         XCTAssertTrue(script.contains("git push \"$remote\" \"$branch:main\""))
         XCTAssertTrue(script.contains("brew upgrade --cask macmcp"))
+        XCTAssertTrue(script.contains("wait_for_local_runtime"))
+        XCTAssertTrue(script.contains("MacMCP runtime is ready"))
         XCTAssertTrue(script.contains("Release failed at step"))
         XCTAssertFalse(script.contains("AuthKey_"))
     }
@@ -253,9 +255,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.18\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.18</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.18</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.19\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.19</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.19</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

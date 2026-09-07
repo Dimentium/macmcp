@@ -239,6 +239,8 @@ final class ChatGPTTunnelSupervisor {
     }
 
     private func didFinish(phase: Phase, status: Int32, generation: Int) {
+        // stop() and restart() invalidate the generation before terminating
+        // the process, so expected exits never enter failure history.
         guard generation == self.generation, !stopped else { return }
         activeProcess = nil
         if phase == .run {
