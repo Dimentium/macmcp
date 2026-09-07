@@ -40,3 +40,8 @@ jobs:
           fi
       - name: Local deployment acceptance
         run: scripts/verify-local-deployment.sh
+      - name: Homebrew source formula acceptance
+        shell: bash
+        run: |
+          brew install --build-from-source ./Formula/macmcp.rb
+          brew test macmcp
