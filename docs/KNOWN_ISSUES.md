@@ -9,7 +9,6 @@ personal data.
 - Live acceptance after a normal in-app Cask update: iCloud and Gmail reads and
   folder listing, Calendar, Reminders, approvals, tunnel reconnect, and app
   restart from the replaced bundle.
-- A real remote ChatGPT tunnel call after login/reconnect.
 - Per-account mail actions on iCloud and Gmail: create a recipient-free draft,
   reject a human recipient edit, update an unchanged draft, and confirm that
   toggling `Read only` blocks and re-allows the same tools through local MCP
@@ -20,9 +19,11 @@ personal data.
   no subsequent `mail` request reached MacMCP before ChatGPT disabled the
   connector. A direct `mail.list_accounts` through the same proxy succeeded.
   This localizes the observed drop to the remote ChatGPT session or tunnel
-  dispatcher rather than IMAP or a MacMCP sidecar. Branching the conversation
-  is a confirmed workaround: it starts a fresh chat while retaining the
-  history copy.
+  dispatcher rather than IMAP or a MacMCP sidecar. A fully new ChatGPT chat
+  successfully completed consecutive `mail.list_accounts` and Drafts-folder
+  calls through the same live tunnel. Start a new chat when an older chat has
+  disabled its connector; a branch may help because it creates a new chat, but
+  is not a reliable repair for an already disabled tool session.
 
 ## Resolved Since The 2026-09-05 Audit
 
@@ -47,3 +48,6 @@ personal data.
 - The menu-bar runtime holds a per-user exclusive lock. A repeated app launch
   now leaves the existing runtime active, and the restart helper waits for the
   current process to exit instead of starting a second sidecar and tunnel tree.
+- A live remote ChatGPT tunnel session completed consecutive Mail calls after
+  tunnel reconnect. The app, tunnel client, local proxy, and both mail
+  sidecars remained healthy throughout.

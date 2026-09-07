@@ -46,9 +46,11 @@ each ad-hoc-signed replacement.
    client. For web Chat and hosted Work, use the prepared Secure MCP Tunnel
    profile over the existing private STDIO proxy. The installer now provisions
    the Homebrew client when requested, stores the runtime key in Keychain, and
-   the menu-bar app owns its lifecycle. Validate the developer-mode app,
-   workspace visibility, tunnel reconnect after login, account-gated remote
-   mail actions, and reader calls. Claude Desktop support is opportunistic only.
+   the menu-bar app owns its lifecycle. A live new ChatGPT chat has completed
+   consecutive remote mail calls after reconnect. Continue validating
+   account-gated remote mail actions and treat a connector disabled in one
+   existing ChatGPT chat as remote per-chat state: a new chat is the reliable
+   workaround. Claude Desktop support is opportunistic only.
 
 3. Keep diagnostics actionable.
    `macmcp diagnose` reports a sanitized state snapshot. Extend it only with
