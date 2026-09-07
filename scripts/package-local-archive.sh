@@ -5,13 +5,13 @@ usage() {
   cat <<'EOF'
 usage: scripts/package-local-archive.sh [--name NAME] [--dist-dir PATH]
 
-Creates a clean source archive for local mac-agent-bridge installation on
+Creates a clean source archive for local MacMCP installation on
 another Mac. The archive includes the installer and project sources, but
 excludes git metadata, build output, dist output, runtime state, and local
 workspace artifacts.
 
 Options:
-  --name NAME       archive base name; default: mac-agent-bridge-local
+  --name NAME       archive base name; default: macmcp-local
   --dist-dir PATH   output directory; default: dist
   -h, --help        show this help
 EOF
@@ -19,9 +19,9 @@ EOF
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
-name="${MAC_AGENT_BRIDGE_ARCHIVE_NAME:-mac-agent-bridge-local}"
+name="${MACMCP_ARCHIVE_NAME:-${MAC_AGENT_BRIDGE_ARCHIVE_NAME:-macmcp-local}}"
 dist_dir="${MAC_AGENT_BRIDGE_DIST_DIR:-$project_dir/dist}"
-build_root="${MAC_AGENT_BRIDGE_PACKAGE_BUILD_ROOT:-$project_dir/.build/package-local}"
+build_root="${MACMCP_PACKAGE_BUILD_ROOT:-${MAC_AGENT_BRIDGE_PACKAGE_BUILD_ROOT:-$project_dir/.build/package-local}}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

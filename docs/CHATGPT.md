@@ -28,21 +28,21 @@ a reader query to the configured mailboxes.
 In the tested ChatGPT desktop client, ordinary `Chat` did not expose local MCP
 tools. Use `Work` for the local MacMCP workflow.
 
-1. Start `~/Applications/Mac Agent Bridge.app`.
+1. Start `~/Applications/MacMCP.app`.
 2. In ChatGPT desktop, open Settings, then MCP servers.
 3. Add a server named `macmcp`.
 4. Choose STDIO.
 5. Command:
 
    ```sh
-   ~/.local/bin/mac-agent-bridge
+   ~/.local/bin/macmcp-bridge
    ```
 
 6. Arguments:
 
    ```text
    --stdio-proxy
-   ~/Library/Application Support/mac-agent-bridge/mcp.sock
+   ~/Library/Application Support/macmcp/mcp.sock
    ```
 
 The server process does not own sidecars. It connects to the running menu-bar
@@ -54,7 +54,7 @@ MacMCP menu under `Clients`.
 The equivalent generated config lives at:
 
 ```sh
-~/.local/opt/mac-agent-bridge/share/mcp.local.json
+~/.local/opt/macmcp/share/mcp.local.json
 ```
 
 ## Private Remote ChatGPT Path

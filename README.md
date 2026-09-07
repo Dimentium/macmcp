@@ -31,7 +31,7 @@ Install the source package through Homebrew:
 
 ```bash
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
-brew trust Dimentium/macmcp
+brew trust --tap Dimentium/macmcp
 brew install macmcp
 macmcp setup
 ```

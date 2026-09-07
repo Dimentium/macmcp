@@ -22,8 +22,8 @@ EOF
 }
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-install_root="${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/mac-agent-bridge}"
-runtime_cli="$install_root/bin/mac-agent-bridge"
+install_root="${MACMCP_INSTALL_ROOT:-${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/macmcp}}"
+runtime_cli="$install_root/bin/macmcp-bridge"
 phase="manual"
 require_tunnel=0
 skip_mail_validation=0

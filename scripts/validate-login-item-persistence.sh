@@ -20,10 +20,10 @@ EOF
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
-install_root="${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/mac-agent-bridge}"
-bin_dir="${MAC_AGENT_BRIDGE_BIN_DIR:-$HOME/.local/bin}"
-app_dir="${MAC_AGENT_BRIDGE_APP_DIR:-$HOME/Applications}"
-config_dir="$HOME/Library/Application Support/mac-agent-bridge"
+install_root="${MACMCP_INSTALL_ROOT:-${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/macmcp}}"
+bin_dir="${MACMCP_BIN_DIR:-${MAC_AGENT_BRIDGE_BIN_DIR:-$HOME/.local/bin}}"
+app_dir="${MACMCP_APP_DIR:-${MAC_AGENT_BRIDGE_APP_DIR:-$HOME/Applications}}"
+config_dir="$HOME/Library/Application Support/macmcp"
 phase="manual"
 run_mail_validation=1
 
@@ -50,11 +50,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-target_app="$app_dir/Mac Agent Bridge.app"
-app_executable="$target_app/Contents/MacOS/mac-agent-bridge"
-cli_path="$install_root/bin/mac-agent-bridge"
+target_app="$app_dir/MacMCP.app"
+app_executable="$target_app/Contents/MacOS/macmcp-bridge"
+cli_path="$install_root/bin/macmcp-bridge"
 mail_sidecar="$install_root/libexec/mail-mcp"
-eventkit_sidecar="$install_root/libexec/CheICalMCP"
+eventkit_sidecar="$target_app/Contents/Resources/CheICalMCP"
 launch_config="$config_dir/launch.json"
 ipc_socket="$config_dir/mcp.sock"
 

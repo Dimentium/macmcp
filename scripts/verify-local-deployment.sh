@@ -5,11 +5,14 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/macmcp-deployment.XXXXXX")"
 test_home="$test_root/home"
-install_root="$test_home/.local/opt/mac-agent-bridge"
+install_root="$test_home/.local/opt/macmcp"
 bin_dir="$test_home/.local/bin"
 app_dir="$test_home/Applications"
 build_root="$test_root/build"
 fixture_address="deployment-check@example.invalid"
+legacy_install_root="$test_home/.local/opt/mac-agent-bridge"
+legacy_config_dir="$test_home/Library/Application Support/mac-agent-bridge"
+legacy_bin_link="$bin_dir/mac-agent-bridge"
 
 cleanup() {
   HOME="$test_home" "$script_dir/uninstall-local.sh" \
@@ -33,7 +36,7 @@ trap report_failure_phase ERR
 
 run_installer() {
   HOME="$test_home" \
-  MAC_AGENT_BRIDGE_BUILD_ROOT="$build_root" \
+  MACMCP_BUILD_ROOT="$build_root" \
   "$script_dir/install-local.sh" \
     --no-open \
     --skip-password \
@@ -44,18 +47,40 @@ run_installer() {
 }
 
 mkdir -p "$test_home"
+mkdir -p "$legacy_install_root/bin" "$legacy_config_dir" "$bin_dir"
+printf '#!/bin/bash\nexit 0\n' > "$legacy_install_root/bin/mac-agent-bridge"
+chmod 700 "$legacy_install_root/bin/mac-agent-bridge"
+ln -s "$legacy_install_root/bin/mac-agent-bridge" "$legacy_bin_link"
+printf '%s\n' '{"schemaVersion":1,"writableAccountIDs":["gmail"]}' \
+  > "$legacy_config_dir/mail-action-access.json"
+printf 'legacy socket' > "$legacy_config_dir/mcp.sock"
 phase="initial-install"
 run_installer --gmail-address "$fixture_address"
 
 phase="initial-contract"
-runtime_cli="$install_root/bin/mac-agent-bridge"
-launch_config="$test_home/Library/Application Support/mac-agent-bridge/launch.json"
+runtime_cli="$install_root/bin/macmcp-bridge"
+launch_config="$test_home/Library/Application Support/macmcp/launch.json"
 [[ -x "$runtime_cli" ]]
 [[ -x "$install_root/libexec/mail-mcp" ]]
-[[ -x "$install_root/libexec/CheICalMCP" ]]
-[[ -x "$app_dir/Mac Agent Bridge.app/Contents/MacOS/mac-agent-bridge" ]]
-[[ -L "$bin_dir/mac-agent-bridge" ]]
+[[ ! -e "$install_root/libexec/CheICalMCP" ]]
+[[ -x "$app_dir/MacMCP.app/Contents/MacOS/macmcp-bridge" ]]
+[[ -x "$app_dir/MacMCP.app/Contents/Resources/CheICalMCP" ]]
+[[ -L "$bin_dir/macmcp-bridge" ]]
 [[ -f "$launch_config" ]]
+[[ -L "$legacy_install_root" ]]
+[[ "$(readlink "$legacy_install_root")" == "$install_root" ]]
+[[ -L "$legacy_bin_link" ]]
+[[ "$(readlink "$legacy_bin_link")" == "$runtime_cli" ]]
+[[ -L "$legacy_config_dir/mcp.sock" ]]
+[[ "$(readlink "$legacy_config_dir/mcp.sock")" == "$test_home/Library/Application Support/macmcp/mcp.sock" ]]
+python3 - "$test_home/Library/Application Support/macmcp/mail-action-access.json" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert payload == {"schemaVersion": 1, "writableAccountIDs": ["gmail"]}
+PY
 [[ "$("$runtime_cli" --version)" == "MacMCP "* ]]
 if HOME="$test_home" "$runtime_cli" \
   --mail-sidecar "$install_root/libexec/mail-mcp" \
@@ -100,6 +125,7 @@ payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert payload["args"].count("--gmail-address") == 1
 index = payload["args"].index("--gmail-address")
 assert payload["args"][index + 1] == sys.argv[2]
+assert "--eventkit-sidecar" not in payload["args"]
 PY
 
 phase="uninstall"
@@ -109,9 +135,12 @@ HOME="$test_home" "$script_dir/uninstall-local.sh" \
   --app-dir "$app_dir" >/dev/null
 
 [[ ! -e "$install_root" ]]
-[[ ! -e "$app_dir/Mac Agent Bridge.app" ]]
+[[ ! -e "$app_dir/MacMCP.app" ]]
 [[ ! -e "$launch_config" ]]
-[[ ! -e "$bin_dir/mac-agent-bridge" ]]
+[[ ! -e "$bin_dir/macmcp-bridge" ]]
+[[ ! -e "$legacy_install_root" ]]
+[[ ! -e "$legacy_config_dir" ]]
+[[ ! -e "$legacy_bin_link" ]]
 
 phase="complete"
 trap - EXIT

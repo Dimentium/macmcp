@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.dimentium.macmcp</string>
+    <key>CFBundleName</key>
+    <string>MacMCP</string>
+    <key>CFBundleVersion</key>
+    <string>0.2.1</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>MacMCP reads your calendars to identify items that may need your attention.</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>MacMCP reads your reminders to identify items that may need your attention.</string>
+</dict>
+</plist>

@@ -9,11 +9,11 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
 eventkit_binary="$1"
-app="$project_dir/.build/local/Mac Agent Bridge.app"
+app="$project_dir/.build/local/MacMCP.app"
 info_plist="$project_dir/Packaging/Info.plist"
-entitlements="$project_dir/Sources/MacAgentBridge/Entitlements.plist"
-bridge_binary="$project_dir/.build/release/mac-agent-bridge"
-app_bridge="$app/Contents/MacOS/mac-agent-bridge"
+entitlements="$project_dir/Sources/MacMCPBridge/Entitlements.plist"
+bridge_binary="$project_dir/.build/release/macmcp-bridge"
+app_bridge="$app/Contents/MacOS/macmcp-bridge"
 app_eventkit="$app/Contents/Resources/CheICalMCP"
 
 if [[ "$eventkit_binary" != /* ]]; then
@@ -33,7 +33,7 @@ fi
 
 cd "$project_dir"
 plutil -lint "$info_plist" "$entitlements" >/dev/null
-swift build -c release --product mac-agent-bridge
+swift build -c release --product macmcp-bridge
 if [[ ! -x "$bridge_binary" ]]; then
   echo "Release bridge binary was not produced" >&2
   exit 1

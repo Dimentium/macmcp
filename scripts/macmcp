@@ -50,7 +50,7 @@ case "$command_name" in
     exec "$source_root/scripts/uninstall-local.sh" "$@"
     ;;
   diagnose)
-    runtime_cli="${MACMCP_RUNTIME_CLI:-$HOME/.local/bin/mac-agent-bridge}"
+    runtime_cli="${MACMCP_RUNTIME_CLI:-$HOME/.local/bin/macmcp-bridge}"
     [[ -x "$runtime_cli" ]] || {
       echo "MacMCP runtime is not installed at $runtime_cli" >&2
       exit 1

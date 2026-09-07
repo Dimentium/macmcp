@@ -3,24 +3,24 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>mac-agent-bridge</string>
+  <string>macmcp-bridge</string>
   <key>CFBundleIdentifier</key>
-  <string>io.macagent.bridge</string>
+  <string>com.dimentium.macmcp</string>
   <key>CFBundleName</key>
-  <string>Mac Agent Bridge</string>
+  <string>MacMCP</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>0.2.1</string>
   <key>CFBundleVersion</key>
-  <string>0.1.0</string>
+  <string>0.2.1</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>LSUIElement</key>
   <true/>
   <key>NSCalendarsFullAccessUsageDescription</key>
-  <string>Mac Agent Bridge reads calendars to identify items that may need attention.</string>
+  <string>MacMCP reads calendars to identify items that may need attention.</string>
   <key>NSRemindersFullAccessUsageDescription</key>
-  <string>Mac Agent Bridge reads reminders to identify items that may need attention.</string>
+  <string>MacMCP reads reminders to identify items that may need attention.</string>
 </dict>
 </plist>

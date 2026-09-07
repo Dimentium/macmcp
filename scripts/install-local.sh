@@ -13,10 +13,10 @@ usage() {
   cat <<'EOF'
 usage: scripts/install-local.sh [--reuse-existing-configuration | account options] [options]
 
-Installs mac-agent-bridge for the current macOS user:
+Installs MacMCP for the current macOS user:
   - downloads pinned mail-mcp and verifies its SHA-256
   - builds pinned CheICalMCP from source and ad-hoc signs it
-  - builds and installs Mac Agent Bridge.app
+  - builds and installs MacMCP.app
   - installs a CLI wrapper target and writes an MCP stdio config example
   - optionally stores mail passwords in Keychain
   - optionally installs and manages an OpenAI Secure MCP Tunnel
@@ -39,7 +39,7 @@ Options:
   --chatgpt-tunnel-client PATH
                             tunnel-client path; default: Homebrew-installed binary
   --no-open                  do not launch the installed menu-bar app
-  --install-root PATH        default: ~/.local/opt/mac-agent-bridge
+  --install-root PATH        default: ~/.local/opt/macmcp
   --bin-dir PATH             default: ~/.local/bin
   --app-dir PATH             default: ~/Applications
   -h, --help                 show this help
@@ -48,11 +48,14 @@ EOF
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
-install_root="${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/mac-agent-bridge}"
-bin_dir="${MAC_AGENT_BRIDGE_BIN_DIR:-$HOME/.local/bin}"
-app_dir="${MAC_AGENT_BRIDGE_APP_DIR:-$HOME/Applications}"
-config_dir="$HOME/Library/Application Support/mac-agent-bridge"
-build_root="${MAC_AGENT_BRIDGE_BUILD_ROOT:-$project_dir/.build/local-install}"
+install_root="${MACMCP_INSTALL_ROOT:-${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/macmcp}}"
+bin_dir="${MACMCP_BIN_DIR:-${MAC_AGENT_BRIDGE_BIN_DIR:-$HOME/.local/bin}}"
+app_dir="${MACMCP_APP_DIR:-${MAC_AGENT_BRIDGE_APP_DIR:-$HOME/Applications}}"
+config_dir="$HOME/Library/Application Support/macmcp"
+legacy_install_root="$HOME/.local/opt/mac-agent-bridge"
+legacy_config_dir="$HOME/Library/Application Support/mac-agent-bridge"
+legacy_tunnel_proxy_dir="$HOME/Library/MacMCP"
+build_root="${MACMCP_BUILD_ROOT:-${MAC_AGENT_BRIDGE_BUILD_ROOT:-$project_dir/.build/local-install}}"
 mail_args=()
 password_accounts=()
 skip_password=0
@@ -149,6 +152,9 @@ fi
 
 if [[ "$reuse_existing_configuration" -eq 1 ]]; then
   existing_config="$config_dir/launch.json"
+  if [[ ! -f "$existing_config" && -f "$legacy_config_dir/launch.json" ]]; then
+    existing_config="$legacy_config_dir/launch.json"
+  fi
   [[ -f "$existing_config" ]] || {
     echo "existing launch configuration was not found: $existing_config" >&2
     exit 2
@@ -272,12 +278,16 @@ cli_dir="$install_root/bin"
 mail_archive="$build_root/$mail_asset"
 mail_extract_dir="$build_root/mail-mcp"
 che_src="$build_root/che-ical-mcp"
-target_app="$app_dir/Mac Agent Bridge.app"
-cli_path="$cli_dir/mac-agent-bridge"
+target_app="$app_dir/MacMCP.app"
+legacy_target_app="$app_dir/Mac Agent Bridge.app"
+cli_path="$cli_dir/macmcp-bridge"
+legacy_cli_path="$legacy_install_root/bin/mac-agent-bridge"
 mcp_config="$share_dir/mcp.local.json"
 app_config="$config_dir/launch.json"
 ipc_socket="$config_dir/mcp.sock"
-bin_link="$bin_dir/mac-agent-bridge"
+legacy_ipc_socket="$legacy_config_dir/mcp.sock"
+bin_link="$bin_dir/macmcp-bridge"
+legacy_bin_link="$bin_dir/mac-agent-bridge"
 legacy_tunnel_setup_link="$bin_dir/mac-agent-bridge-tunnel-setup"
 
 mkdir -p "$build_root" "$(dirname "$install_root")" "$bin_dir" "$app_dir" "$(dirname "$config_dir")"
@@ -285,10 +295,10 @@ stage_install_root="$(mktemp -d "$install_root.staging.XXXXXX")"
 stage_libexec_dir="$stage_install_root/libexec"
 stage_share_dir="$stage_install_root/share"
 stage_cli_dir="$stage_install_root/bin"
-stage_cli_path="$stage_cli_dir/mac-agent-bridge"
+stage_cli_path="$stage_cli_dir/macmcp-bridge"
 stage_mcp_config="$stage_share_dir/mcp.local.json"
 stage_app_parent="$(mktemp -d "$app_dir/.macmcp-app.staging.XXXXXX")"
-stage_app="$stage_app_parent/Mac Agent Bridge.app"
+stage_app="$stage_app_parent/MacMCP.app"
 stage_config_parent="$(mktemp -d "$(dirname "$config_dir")/.macmcp-config.staging.XXXXXX")"
 stage_app_config="$stage_config_parent/launch.json"
 
@@ -342,9 +352,12 @@ terminate_matching_command() {
 existing_runtime_is_running() {
   local pattern
   for pattern in \
-    "$target_app/Contents/MacOS/mac-agent-bridge" \
-    "$libexec_dir/CheICalMCP" \
-    "$libexec_dir/mail-mcp"; do
+    "$target_app/Contents/MacOS/macmcp-bridge" \
+    "$target_app/Contents/Resources/CheICalMCP" \
+    "$legacy_target_app/Contents/MacOS/mac-agent-bridge" \
+    "$libexec_dir/mail-mcp" \
+    "$legacy_install_root/libexec/CheICalMCP" \
+    "$legacy_install_root/libexec/mail-mcp"; do
     pgrep -f "$pattern" >/dev/null 2>&1 && return 0
   done
   if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
@@ -367,9 +380,12 @@ stop_existing_runtime() {
     echo "Stopping existing menu-bar app if it is running"
   fi
 
-  terminate_matching_command "$target_app/Contents/MacOS/mac-agent-bridge" TERM
-  terminate_matching_command "$libexec_dir/CheICalMCP" TERM
+  terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" TERM
+  terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" TERM
+  terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" TERM
   terminate_matching_command "$libexec_dir/mail-mcp" TERM
+  terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" TERM
+  terminate_matching_command "$legacy_install_root/libexec/mail-mcp" TERM
   if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
     terminate_matching_command "tunnel-client run --profile $chatgpt_tunnel_profile" TERM
   fi
@@ -377,9 +393,12 @@ stop_existing_runtime() {
     return 0
   fi
 
-  terminate_matching_command "$target_app/Contents/MacOS/mac-agent-bridge" KILL
-  terminate_matching_command "$libexec_dir/CheICalMCP" KILL
+  terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" KILL
+  terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" KILL
+  terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" KILL
   terminate_matching_command "$libexec_dir/mail-mcp" KILL
+  terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" KILL
+  terminate_matching_command "$legacy_install_root/libexec/mail-mcp" KILL
   if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
     terminate_matching_command "tunnel-client run --profile $chatgpt_tunnel_profile" KILL
   fi
@@ -389,37 +408,71 @@ stop_existing_runtime() {
   }
 }
 
+copy_legacy_state() {
+  [[ -d "$legacy_config_dir" && ! -L "$legacy_config_dir" ]] || return 0
+  local name
+  for name in \
+    approved-clients.json \
+    mail-action-access.json \
+    mail-monitor.json \
+    mail-monitor-state.json \
+    tunnel-failures.json; do
+    [[ -e "$config_dir/$name" || ! -f "$legacy_config_dir/$name" ]] || \
+      cp -p "$legacy_config_dir/$name" "$config_dir/$name"
+  done
+}
+
 activate_staged_install() {
   local install_backup_parent=""
   local app_backup_parent=""
   local config_backup_parent=""
   local bin_link_backup_parent=""
+  local legacy_bin_link_backup_parent=""
   local tunnel_link_backup_parent=""
+  local legacy_install_backup_parent=""
+  local legacy_app_backup_parent=""
   local install_backup=""
   local app_backup=""
   local config_backup=""
   local bin_link_backup=""
+  local legacy_bin_link_backup=""
   local tunnel_link_backup=""
+  local legacy_install_backup=""
+  local legacy_app_backup=""
   local installed_new_root=0
   local installed_new_app=0
   local installed_new_config=0
   local installed_new_bin_link=0
+  local installed_legacy_root_alias=0
+  local installed_legacy_bin_alias=0
+  local installed_legacy_socket_alias=0
 
   rollback_activation() {
+    [[ "$installed_legacy_socket_alias" -eq 0 ]] || rm -f "$legacy_ipc_socket"
+    [[ "$installed_legacy_bin_alias" -eq 0 ]] || rm -f "$legacy_bin_link"
+    [[ "$installed_legacy_root_alias" -eq 0 ]] || rm -f "$legacy_install_root"
     [[ "$installed_new_bin_link" -eq 0 ]] || rm -f "$bin_link"
     [[ "$installed_new_config" -eq 0 ]] || rm -f "$app_config"
     [[ "$installed_new_app" -eq 0 ]] || rm -rf "$target_app"
     [[ "$installed_new_root" -eq 0 ]] || rm -rf "$install_root"
 
     [[ -z "$tunnel_link_backup" ]] || mv "$tunnel_link_backup" "$legacy_tunnel_setup_link"
+    [[ -z "$legacy_bin_link_backup" ]] || mv "$legacy_bin_link_backup" "$legacy_bin_link"
     [[ -z "$bin_link_backup" ]] || mv "$bin_link_backup" "$bin_link"
     [[ -z "$config_backup" ]] || mv "$config_backup" "$app_config"
     [[ -z "$app_backup" ]] || mv "$app_backup" "$target_app"
     [[ -z "$install_backup" ]] || mv "$install_backup" "$install_root"
+    [[ -z "$legacy_app_backup" ]] || mv "$legacy_app_backup" "$legacy_target_app"
+    [[ -z "$legacy_install_backup" ]] || mv "$legacy_install_backup" "$legacy_install_root"
 
     rm -rf "$install_backup_parent" "$app_backup_parent" "$config_backup_parent" \
-      "$bin_link_backup_parent" "$tunnel_link_backup_parent"
-    [[ ! -d "$target_app" ]] || open "$target_app" >/dev/null 2>&1 || true
+      "$bin_link_backup_parent" "$legacy_bin_link_backup_parent" "$tunnel_link_backup_parent" \
+      "$legacy_install_backup_parent" "$legacy_app_backup_parent"
+    if [[ -d "$target_app" ]]; then
+      open "$target_app" >/dev/null 2>&1 || true
+    elif [[ -d "$legacy_target_app" ]]; then
+      open "$legacy_target_app" >/dev/null 2>&1 || true
+    fi
   }
 
   if [[ -e "$install_root" ]]; then
@@ -432,7 +485,18 @@ activate_staged_install() {
     app_backup="$app_backup_parent/previous"
     mv "$target_app" "$app_backup" || { rollback_activation; return 1; }
   fi
+  if [[ "$legacy_install_root" != "$install_root" && -e "$legacy_install_root" && ! -L "$legacy_install_root" ]]; then
+    legacy_install_backup_parent="$(mktemp -d "$legacy_install_root.backup.XXXXXX")"
+    legacy_install_backup="$legacy_install_backup_parent/previous"
+    mv "$legacy_install_root" "$legacy_install_backup" || { rollback_activation; return 1; }
+  fi
+  if [[ "$legacy_target_app" != "$target_app" && -e "$legacy_target_app" ]]; then
+    legacy_app_backup_parent="$(mktemp -d "$app_dir/.macmcp-legacy-app.backup.XXXXXX")"
+    legacy_app_backup="$legacy_app_backup_parent/previous"
+    mv "$legacy_target_app" "$legacy_app_backup" || { rollback_activation; return 1; }
+  fi
   mkdir -p "$config_dir" && chmod 700 "$config_dir" || { rollback_activation; return 1; }
+  copy_legacy_state || { rollback_activation; return 1; }
   if [[ -e "$app_config" ]]; then
     config_backup_parent="$(mktemp -d "$(dirname "$config_dir")/.macmcp-config.backup.XXXXXX")"
     config_backup="$config_backup_parent/previous"
@@ -442,6 +506,11 @@ activate_staged_install() {
     bin_link_backup_parent="$(mktemp -d "$bin_dir/.macmcp-bin-link.backup.XXXXXX")"
     bin_link_backup="$bin_link_backup_parent/previous"
     mv "$bin_link" "$bin_link_backup" || { rollback_activation; return 1; }
+  fi
+  if [[ -e "$legacy_bin_link" || -L "$legacy_bin_link" ]]; then
+    legacy_bin_link_backup_parent="$(mktemp -d "$bin_dir/.macmcp-legacy-bin-link.backup.XXXXXX")"
+    legacy_bin_link_backup="$legacy_bin_link_backup_parent/previous"
+    mv "$legacy_bin_link" "$legacy_bin_link_backup" || { rollback_activation; return 1; }
   fi
   if [[ -e "$legacy_tunnel_setup_link" || -L "$legacy_tunnel_setup_link" ]]; then
     tunnel_link_backup_parent="$(mktemp -d "$bin_dir/.macmcp-tunnel-link.backup.XXXXXX")"
@@ -456,13 +525,28 @@ activate_staged_install() {
   mv "$stage_app_config" "$app_config" || { rollback_activation; return 1; }
   installed_new_config=1
 
-  local new_bin_link="$bin_dir/.mac-agent-bridge.new.$$"
+  local new_bin_link="$bin_dir/.macmcp-bridge.new.$$"
   ln -s "$cli_path" "$new_bin_link" || { rollback_activation; return 1; }
   mv "$new_bin_link" "$bin_link" || { rollback_activation; return 1; }
   installed_new_bin_link=1
 
+  if [[ -n "$legacy_install_backup" ]]; then
+    ln -s "$install_root" "$legacy_install_root" || { rollback_activation; return 1; }
+    installed_legacy_root_alias=1
+  fi
+  if [[ -n "$legacy_bin_link_backup" ]]; then
+    ln -s "$cli_path" "$legacy_bin_link" || { rollback_activation; return 1; }
+    installed_legacy_bin_alias=1
+  fi
+  if [[ -d "$legacy_config_dir" && ! -L "$legacy_config_dir" ]]; then
+    rm -f "$legacy_ipc_socket"
+    ln -s "$ipc_socket" "$legacy_ipc_socket" || { rollback_activation; return 1; }
+    installed_legacy_socket_alias=1
+  fi
+
   rm -rf "$install_backup_parent" "$app_backup_parent" "$config_backup_parent" \
-    "$bin_link_backup_parent" "$tunnel_link_backup_parent"
+    "$bin_link_backup_parent" "$legacy_bin_link_backup_parent" "$tunnel_link_backup_parent" \
+    "$legacy_install_backup_parent" "$legacy_app_backup_parent"
 }
 
 if [[ -n "$chatgpt_tunnel_id" ]]; then
@@ -512,25 +596,18 @@ swift build --disable-automatic-resolution -c release --product CheICalMCP --pac
 che_binary="$che_src/.build/release/CheICalMCP"
 [[ -x "$che_binary" ]] || { echo "CheICalMCP release binary was not produced" >&2; exit 1; }
 
-cp "$che_binary" "$stage_libexec_dir/CheICalMCP"
-chmod 755 "$stage_libexec_dir/CheICalMCP"
-codesign --force --sign - --options runtime \
-  --entitlements "$project_dir/Sources/MacAgentBridge/Entitlements.plist" \
-  "$stage_libexec_dir/CheICalMCP"
-codesign --verify --strict --verbose=2 "$stage_libexec_dir/CheICalMCP"
-
 echo "Building local app bundle"
-"$project_dir/scripts/build-local-app.sh" "$stage_libexec_dir/CheICalMCP" >/dev/null
-built_app="$project_dir/.build/local/Mac Agent Bridge.app"
+"$project_dir/scripts/build-local-app.sh" "$che_binary" >/dev/null
+built_app="$project_dir/.build/local/MacMCP.app"
 [[ -d "$built_app" ]] || { echo "app bundle was not produced" >&2; exit 1; }
 
 cp -R "$built_app" "$stage_app"
 codesign --verify --deep --strict --verbose=2 "$stage_app"
 
-cp "$project_dir/.build/release/mac-agent-bridge" "$stage_cli_path"
+cp "$project_dir/.build/release/macmcp-bridge" "$stage_cli_path"
 chmod 755 "$stage_cli_path"
 codesign --force --sign - --options runtime \
-  --entitlements "$project_dir/Sources/MacAgentBridge/Entitlements.plist" \
+  --entitlements "$project_dir/Sources/MacMCPBridge/Entitlements.plist" \
   "$stage_cli_path"
 codesign --verify --strict --verbose=2 "$stage_cli_path"
 
@@ -555,7 +632,6 @@ chmod 600 "$stage_mcp_config"
 python3 - \
   "$stage_app_config" \
   "$libexec_dir/mail-mcp" \
-  "$libexec_dir/CheICalMCP" \
   "$chatgpt_tunnel_id" \
   "$chatgpt_tunnel_client" \
   "$chatgpt_tunnel_profile" \
@@ -568,14 +644,14 @@ import sys
 import tempfile
 
 target = pathlib.Path(sys.argv[1])
-mail_sidecar, eventkit_sidecar = sys.argv[2:4]
-tunnel_id, tunnel_client, tunnel_profile, existing_tunnel = sys.argv[4:8]
-mail_args = sys.argv[8:]
+mail_sidecar = sys.argv[2]
+tunnel_id, tunnel_client, tunnel_profile, existing_tunnel = sys.argv[3:7]
+mail_args = sys.argv[7:]
 
 payload = {
     "schemaVersion": 1,
     "launchAtLogin": True,
-    "args": ["--mail-sidecar", mail_sidecar, *mail_args, "--eventkit-sidecar", eventkit_sidecar],
+    "args": ["--mail-sidecar", mail_sidecar, *mail_args],
 }
 if tunnel_id:
     payload["chatGPTTunnel"] = {
@@ -617,6 +693,9 @@ echo "Activating staged local install"
 stop_existing_runtime
 activate_staged_install
 
+rm -f "$legacy_tunnel_proxy_dir/chatgpt-tunnel-proxy"
+rmdir "$legacy_tunnel_proxy_dir" 2>/dev/null || true
+
 if [[ "$open_app" -eq 1 ]]; then
   echo "Launching menu-bar app. Approve Calendar and Reminders when macOS asks."
   open "$target_app"
@@ -624,17 +703,17 @@ fi
 
 cat <<EOF
 
-Installed mac-agent-bridge locally.
+Installed MacMCP locally.
 
 CLI:
-  $bin_dir/mac-agent-bridge
+  $bin_dir/macmcp-bridge
 
 App:
   $target_app
 
 Sidecars:
   $libexec_dir/mail-mcp
-  $libexec_dir/CheICalMCP
+  $target_app/Contents/Resources/CheICalMCP
 
 MCP stdio config example:
   $mcp_config
@@ -652,6 +731,6 @@ App launch config:
   $app_config
 
 Verify:
-  $bin_dir/mac-agent-bridge --status-json
+  $bin_dir/macmcp-bridge --status-json
 
 EOF

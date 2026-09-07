@@ -11,10 +11,12 @@ commands, configuration directories, release artifacts, and Homebrew tap.
 Components use the same namespace:
 
 - `macmcp-bridge`: the local MCP bridge runtime.
-- `macmcp-mail`: the mail sidecar.
-- `macmcp-eventkit`: the Calendar and Reminders sidecar.
 - `tunnel-client`: the external OpenAI executable used for the optional
   ChatGPT tunnel; it is not renamed as a MacMCP component.
+
+The mail and EventKit sidecars retain their upstream executable names,
+`mail-mcp` and `CheICalMCP`. They are third-party artifacts rather than
+MacMCP-branded commands; the installer owns their locations and lifecycle.
 
 The public source repository is `macmcp`. Its Homebrew tap will be
 `homebrew-macmcp`.
@@ -29,7 +31,24 @@ They remain only where required to migrate existing installations safely.
 configuration and diagnostic status where it describes the read-only capability
 set.
 
-Changes to bundle identifiers, Keychain service names, IPC paths, or executable
-names require an explicit migration and compatibility test. They must not be
-silently changed as part of cosmetic renaming because macOS permissions and
-existing MCP-client configuration depend on those identities.
+## Current Installation Layout
+
+- App: `~/Applications/MacMCP.app`
+- Bridge executable: `macmcp-bridge`
+- Support state and IPC: `~/Library/Application Support/macmcp/`
+- Runtime cache: `~/Library/Caches/macmcp/`
+- Keychain services: `com.dimentium.macmcp.*`
+- App bundle identifier: `com.dimentium.macmcp`
+
+## Upgrade Migration
+
+The local installer migrates prior state from the legacy layout during its
+staged activation. It copies client approvals, mail-action settings, monitor
+state, and redacted tunnel failures; reads old launch configuration and
+Keychain items when needed; and keeps legacy command and socket aliases while
+an installation is upgraded. The old EventKit copy in `libexec` is removed:
+the only authoritative executable is the copy embedded in `MacMCP.app`.
+
+Changing the bundle identifier intentionally creates a new macOS code identity.
+Until Developer ID signing is available, the next explicit upgrade can prompt
+again for Keychain, Calendar, Reminders, Login Item, and client approval.

@@ -5,11 +5,11 @@ usage() {
   cat <<'EOF'
 usage: scripts/uninstall-local.sh [options]
 
-Removes the current user's local mac-agent-bridge install:
+Removes the current user's local MacMCP install:
   - stops the installed menu-bar app and installed sidecar processes
-  - removes Mac Agent Bridge.app
-  - removes ~/.local/opt/mac-agent-bridge by default
-  - removes the ~/.local/bin/mac-agent-bridge symlink when it points there
+  - removes MacMCP.app
+  - removes ~/.local/opt/macmcp by default
+  - removes the ~/.local/bin/macmcp-bridge symlink when it points there
 
 Keychain mail passwords and the ChatGPT tunnel runtime API key are preserved by
 default.
@@ -17,17 +17,21 @@ default.
 Options:
   --delete-mail-password ADDRESS   also delete this account password from Keychain; repeatable
   --delete-chatgpt-tunnel-key      also delete the ChatGPT tunnel runtime API key
-  --install-root PATH              default: ~/.local/opt/mac-agent-bridge
+  --install-root PATH              default: ~/.local/opt/macmcp
   --bin-dir PATH                   default: ~/.local/bin
   --app-dir PATH                   default: ~/Applications
   -h, --help                       show this help
 EOF
 }
 
-install_root="${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/mac-agent-bridge}"
-bin_dir="${MAC_AGENT_BRIDGE_BIN_DIR:-$HOME/.local/bin}"
-app_dir="${MAC_AGENT_BRIDGE_APP_DIR:-$HOME/Applications}"
-config_dir="$HOME/Library/Application Support/mac-agent-bridge"
+install_root="${MACMCP_INSTALL_ROOT:-${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/macmcp}}"
+bin_dir="${MACMCP_BIN_DIR:-${MAC_AGENT_BRIDGE_BIN_DIR:-$HOME/.local/bin}}"
+app_dir="${MACMCP_APP_DIR:-${MAC_AGENT_BRIDGE_APP_DIR:-$HOME/Applications}}"
+config_dir="$HOME/Library/Application Support/macmcp"
+legacy_install_root="$HOME/.local/opt/mac-agent-bridge"
+legacy_config_dir="$HOME/Library/Application Support/mac-agent-bridge"
+runtime_cache_dir="$HOME/Library/Caches/macmcp"
+legacy_tunnel_proxy_dir="$HOME/Library/MacMCP"
 delete_password_accounts=()
 delete_chatgpt_tunnel_key=0
 
@@ -74,9 +78,12 @@ command -v pgrep >/dev/null || { echo "missing required tool: pgrep" >&2; exit 1
 
 libexec_dir="$install_root/libexec"
 cli_dir="$install_root/bin"
-target_app="$app_dir/Mac Agent Bridge.app"
-cli_path="$cli_dir/mac-agent-bridge"
-bin_link="$bin_dir/mac-agent-bridge"
+target_app="$app_dir/MacMCP.app"
+legacy_target_app="$app_dir/Mac Agent Bridge.app"
+cli_path="$cli_dir/macmcp-bridge"
+legacy_cli_path="$legacy_install_root/bin/mac-agent-bridge"
+bin_link="$bin_dir/macmcp-bridge"
+legacy_bin_link="$bin_dir/mac-agent-bridge"
 legacy_tunnel_setup_link="$bin_dir/mac-agent-bridge-tunnel-setup"
 app_config="$config_dir/launch.json"
 
@@ -123,9 +130,13 @@ terminate_matching_command() {
 existing_runtime_is_running() {
   local pattern
   for pattern in \
-    "$target_app/Contents/MacOS/mac-agent-bridge" \
+    "$target_app/Contents/MacOS/macmcp-bridge" \
+    "$target_app/Contents/Resources/CheICalMCP" \
+    "$legacy_target_app/Contents/MacOS/mac-agent-bridge" \
     "$libexec_dir/CheICalMCP" \
-    "$libexec_dir/mail-mcp"; do
+    "$libexec_dir/mail-mcp" \
+    "$legacy_install_root/libexec/CheICalMCP" \
+    "$legacy_install_root/libexec/mail-mcp"; do
     pgrep -f "$pattern" >/dev/null 2>&1 && return 0
   done
   if [[ -n "$tunnel_profile" ]]; then
@@ -143,25 +154,36 @@ wait_for_existing_runtime_exit() {
   done
 }
 
-if [[ -d "$target_app" ]]; then
+if [[ -d "$target_app" || -d "$legacy_target_app" ]]; then
   echo "Stopping menu-bar app if it is running"
 fi
 
-if [[ -x "$target_app/Contents/MacOS/mac-agent-bridge" ]]; then
+if [[ -x "$target_app/Contents/MacOS/macmcp-bridge" ]]; then
   echo "Unregistering Login Item if it is registered"
-  "$target_app/Contents/MacOS/mac-agent-bridge" --unregister-login-item >/dev/null 2>&1 || true
+  "$target_app/Contents/MacOS/macmcp-bridge" --unregister-login-item >/dev/null 2>&1 || true
+elif [[ -x "$legacy_target_app/Contents/MacOS/mac-agent-bridge" ]]; then
+  echo "Unregistering Login Item if it is registered"
+  "$legacy_target_app/Contents/MacOS/mac-agent-bridge" --unregister-login-item >/dev/null 2>&1 || true
 fi
 
-terminate_matching_command "$target_app/Contents/MacOS/mac-agent-bridge" TERM
+terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" TERM
+terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" TERM
+terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" TERM
 terminate_matching_command "$libexec_dir/CheICalMCP" TERM
 terminate_matching_command "$libexec_dir/mail-mcp" TERM
+terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" TERM
+terminate_matching_command "$legacy_install_root/libexec/mail-mcp" TERM
 if [[ -n "$tunnel_profile" ]]; then
   terminate_matching_command "tunnel-client run --profile $tunnel_profile" TERM
 fi
 if ! wait_for_existing_runtime_exit 3; then
-  terminate_matching_command "$target_app/Contents/MacOS/mac-agent-bridge" KILL
+  terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" KILL
+  terminate_matching_command "$target_app/Contents/Resources/CheICalMCP" KILL
+  terminate_matching_command "$legacy_target_app/Contents/MacOS/mac-agent-bridge" KILL
   terminate_matching_command "$libexec_dir/CheICalMCP" KILL
   terminate_matching_command "$libexec_dir/mail-mcp" KILL
+  terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" KILL
+  terminate_matching_command "$legacy_install_root/libexec/mail-mcp" KILL
   if [[ -n "$tunnel_profile" ]]; then
     terminate_matching_command "tunnel-client run --profile $tunnel_profile" KILL
   fi
@@ -197,6 +219,13 @@ if [[ -L "$bin_link" ]]; then
   fi
 fi
 
+if [[ -L "$legacy_bin_link" ]]; then
+  link_target="$(readlink "$legacy_bin_link")"
+  if [[ "$link_target" == "$cli_path" || "$link_target" == "$legacy_cli_path" ]]; then
+    rm -f "$legacy_bin_link"
+  fi
+fi
+
 if [[ -L "$legacy_tunnel_setup_link" ]]; then
   link_target="$(readlink "$legacy_tunnel_setup_link")"
   if [[ "$link_target" == "$cli_dir/setup-chatgpt-tunnel" ]]; then
@@ -205,11 +234,19 @@ if [[ -L "$legacy_tunnel_setup_link" ]]; then
 fi
 
 rm -rf "$target_app"
+rm -rf "$legacy_target_app"
 rm -rf "$install_root"
+if [[ "$legacy_install_root" != "$install_root" ]]; then
+  rm -rf "$legacy_install_root"
+fi
 rm -rf "$config_dir"
+rm -rf "$runtime_cache_dir"
+rm -f "$legacy_tunnel_proxy_dir/chatgpt-tunnel-proxy"
+rmdir "$legacy_tunnel_proxy_dir" 2>/dev/null || true
+rm -rf "$legacy_config_dir"
 
 cat <<EOF
-Removed local mac-agent-bridge install.
+Removed local MacMCP install.
 
 Removed:
   $target_app

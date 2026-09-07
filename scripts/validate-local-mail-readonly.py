@@ -25,9 +25,9 @@ from pathlib import Path
 from typing import Any
 
 
-SERVICE = "com.openai.mac-agent-bridge.icloud-imap"
-DEFAULT_CONFIG = Path.home() / ".local/opt/mac-agent-bridge/share/mcp.local.json"
-DEFAULT_APP_CONFIG = Path.home() / "Library/Application Support/mac-agent-bridge/launch.json"
+SERVICE = "com.dimentium.macmcp.mail"
+DEFAULT_CONFIG = Path.home() / ".local/opt/macmcp/share/mcp.local.json"
+DEFAULT_APP_CONFIG = Path.home() / "Library/Application Support/macmcp/launch.json"
 MAX_MESSAGES_FOR_FLAGS = 50
 MCP_REQUEST_TIMEOUT_SECONDS = float(os.environ.get("MACMCP_VALIDATION_MCP_TIMEOUT", "120"))
 
@@ -207,7 +207,8 @@ def main() -> int:
 def load_mcp_config(path: Path) -> tuple[str, list[str]]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        server = data["mcpServers"]["mac-agent-bridge"]
+        servers = data["mcpServers"]
+        server = servers.get("macmcp") or servers["mac-agent-bridge"]
         command = str(server["command"])
         args = [str(arg) for arg in server.get("args", [])]
     except Exception as exc:

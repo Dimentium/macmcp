@@ -17,27 +17,6 @@ the identity seen by Keychain, TCC, and Login Item services.
 - Resolution: establish Developer ID signing, notarization, and a Cask release
   path. Run the live acceptance checklist on the first signed release.
 
-## Medium Priority
-
-### 2. EventKit sidecar has two installed copies
-
-The app bundle embeds CheICalMCP while launch configuration points to the copy
-in `libexec`.
-
-- Impact: duplicated artifacts complicate signing and release ownership.
-- Resolution: choose one signed, authoritative sidecar location as part of the
-  Cask packaging work.
-
-## Naming Consistency
-
-### 3. Technical and product names remain intentionally split
-
-The visible product is MacMCP, while existing bundle and protocol identifiers
-retain `mac-agent-bridge` for migration compatibility.
-
-- Resolution: complete the Developer ID migration before changing bundle and
-  TCC-facing identifiers. [docs/NAMING.md](NAMING.md) is the canonical mapping.
-
 ## Verification Still Needed
 
 - Live acceptance of the first signed build: iCloud and Gmail reads and folder
@@ -50,6 +29,9 @@ retain `mac-agent-bridge` for migration compatibility.
   reject a human recipient edit, update an unchanged draft, and confirm that
   toggling `Read only` blocks and re-allows the same tools through local MCP
   and the tunnel without a restart.
+- Migration from a pre-`macmcp` local install: retain the mail accounts and
+  Keychain secrets, re-approve the new local proxy identity, and confirm the
+  prior tunnel reconnects.
 
 ## Resolved Since The 2026-09-05 Audit
 
@@ -68,3 +50,8 @@ retain `mac-agent-bridge` for migration compatibility.
   `CheICalMCP.Package.resolved` graph and `--disable-automatic-resolution`.
 - Custom plain IMAP requires an explicit `--allow-unsafe-plain-imap` override.
   Local IPC has bounded frames, clients, concurrent requests, and deadlines.
+- The EventKit sidecar is embedded only in the signed app bundle. The installer
+  no longer stages a second `libexec` copy.
+- Canonical product, package, executable, bundle, state-path, and Keychain
+  names now use the `macmcp` namespace. The installer carries legacy aliases
+  and state forward during an upgrade.

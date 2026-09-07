@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "MacAgentBridge",
+    name: "MacMCP",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "mac-agent-bridge", targets: ["MacAgentBridge"])
+        .executable(name: "macmcp-bridge", targets: ["MacMCPBridge"])
     ],
     dependencies: [
         .package(
@@ -21,12 +21,12 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "MacAgentBridge",
+            name: "MacMCPBridge",
             dependencies: [
                 .product(name: "MCP", package: "swift-sdk"),
                 .product(name: "SystemPackage", package: "swift-system")
             ],
-            path: "Sources/MacAgentBridge",
+            path: "Sources/MacMCPBridge",
             exclude: ["Info.plist", "Entitlements.plist"],
             linkerSettings: [
                 .linkedFramework("AppKit"),
@@ -37,14 +37,14 @@ let package = Package(
                     "-Xlinker", "-sectcreate",
                     "-Xlinker", "__TEXT",
                     "-Xlinker", "__info_plist",
-                    "-Xlinker", "Sources/MacAgentBridge/Info.plist"
+                    "-Xlinker", "Sources/MacMCPBridge/Info.plist"
                 ])
             ]
         ),
         .testTarget(
-            name: "MacAgentBridgeTests",
-            dependencies: ["MacAgentBridge"],
-            path: "Tests/MacAgentBridgeTests"
+            name: "MacMCPBridgeTests",
+            dependencies: ["MacMCPBridge"],
+            path: "Tests/MacMCPBridgeTests"
         )
     ],
     swiftLanguageModes: [.v5]

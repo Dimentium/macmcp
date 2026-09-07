@@ -1,4 +1,4 @@
-# mac-agent-bridge: scope
+# MacMCP Scope
 
 ## Product goal
 
@@ -33,8 +33,7 @@ Version 1 includes:
 
 ## Explicitly out of scope for version 1
 
-- sending, replying to, moving, archiving, flagging, or deleting mail;
-- marking messages read;
+- sending, replying to, moving, archiving, or deleting mail;
 - persistent downloading or saving of attachments;
 - attachment formats other than PDF and UTF-8 text, CSV, JSON, or XML;
 - OCR, image analysis, or document conversion;
@@ -53,7 +52,8 @@ Version 1 includes:
 - Credentials remain inside the local bridge/sidecar process boundary.
 - Local MCP clients must connect through the app-owned IPC proxy and receive a
   per-client grant before reader-data tools are served.
-- The action profile is a distinct process/configuration and is off by default.
+- Mail actions remain disabled per account until `Read only` is cleared in the
+  local menu.
 
 ## Version 1 acceptance criteria
 
