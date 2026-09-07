@@ -7,9 +7,10 @@ documents are evidence records, not forward plans.
 
 MacMCP is a local MVP+ for MCP clients that can launch a local stdio server:
 the signed Homebrew Cask, source formula, menu-bar app, Keychain password storage,
-iCloud/Gmail presets, multi-account config, account-gated mail actions, upgrade and
-uninstall exist. The target Mac has a real local install with iCloud and Gmail
-configured. Local MCP reader-data calls require per-client approval.
+iCloud/Gmail presets, multi-account config, account-gated mail actions, upgrade,
+uninstall, and in-app Cask update control exist. The target Mac has a real local
+install with iCloud and Gmail configured. Local MCP reader-data calls require
+per-client approval.
 
 Local stdio MCP validation has passed with iCloud and Gmail in one runtime:
 tool surface, account auth, `mail.search`, `mail.read`, and independent IMAP
@@ -26,13 +27,14 @@ inside a temporary HOME without touching a real user configuration.
 
 ## Direction
 
-1. Validate the signed Cask migration and upgrades.
+1. Keep signed Cask upgrades reliable.
    The Developer ID-signed, Apple-notarized Cask is published and contains the
-   complete runtime. Validate migration from the legacy source layout against
-   iCloud, Gmail, EventKit, a new local client approval, and tunnel reconnect;
-   then keep Cask upgrades as the normal installation path. The source formula
-   remains supported for self-builds and may still require macOS permissions
-   again after each ad-hoc-signed replacement.
+   complete runtime. It checks availability at launch, and its Updates menu can
+   refresh the Homebrew tap, upgrade the Cask, and restart from the new bundle.
+   Exercise a Cask upgrade against the live iCloud, Gmail, EventKit, local
+   approval, and tunnel paths when a release changes those components. The
+   source formula remains supported for self-builds and may still require macOS
+   permissions again after each ad-hoc-signed replacement.
 
 2. Validate the app-managed ChatGPT tunnel beyond the validated local Work path.
    ChatGPT Work on the desktop app is the primary client target and has now
@@ -45,13 +47,7 @@ inside a temporary HOME without touching a real user configuration.
    workspace visibility, tunnel reconnect after login, account-gated remote
    mail actions, and reader calls. Claude Desktop support is opportunistic only.
 
-3. Accept the reader notification workflow on a real account.
-   The menu now provides an opt-in monitor. It establishes a baseline and then
-   scans every configured INBOX using the existing reader policy; notifications
-   use fixed copy only. Validate a new-mail classification, notification,
-   restart recovery, and no mutation of Mail, Calendar, or Reminders.
-
-4. Keep diagnostics actionable.
+3. Keep diagnostics actionable.
    `macmcp diagnose` reports a sanitized state snapshot. Extend it only with
    non-personal operational evidence when a real failure reveals a gap. Tunnel
    failures persist as a bounded history of timestamps, fixed phases, and fixed

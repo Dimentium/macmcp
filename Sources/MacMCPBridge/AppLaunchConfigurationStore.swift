@@ -54,8 +54,6 @@ struct AppLaunchConfigurationStore: Sendable {
 
     private static let legacyStateFileNames = [
         "mail-action-access.json",
-        "mail-monitor.json",
-        "mail-monitor-state.json",
         "tunnel-failures.json"
     ]
 

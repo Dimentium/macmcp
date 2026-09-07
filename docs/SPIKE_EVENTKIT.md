@@ -34,20 +34,19 @@ must use the canonical location.
 
 ## Architectural consequence
 
-This is a local-only project. A valid ad-hoc signature is acceptable provided
-the final runtime has a foreground GUI responsible process capable of showing
-TCC prompts. Re-granting Calendar and Reminders access after replacing either
-binary is an accepted maintenance step; TCC permission persistence across
-binary updates is not an acceptance requirement.
+This is a local-only project. The final runtime is a Developer ID-signed,
+Apple-notarized foreground GUI app that can show TCC prompts. Its stable signing
+identity is intended to retain Calendar and Reminders access across Cask
+updates. A source install remains ad-hoc signed and can require permissions
+again after a replacement.
 
 A raw LaunchAgent whose process is a direct child of launchd is not sufficient
 with the tested ad-hoc build. In that context EventKit reports `notDetermined`,
 while the identical binary reports `fullAccess` under an interactive host, and
 upstream intentionally suppresses permission requests when `ppid == 1`.
 
-For the first prototype we will build the pinned CheICalMCP source locally and
-launch the resulting ad-hoc-signed binary as a sidecar of a local GUI/menu-bar
-host. The scheduled runtime may be started as a Login Item or through
+The deployed runtime launches the pinned CheICalMCP sidecar from the signed
+GUI/menu-bar app. The app may be started as a Login Item or through
 LaunchServices, but not as a headless raw CLI LaunchAgent.
 
 ## Reader allowlist
@@ -95,9 +94,9 @@ place during the test.
 4. Restart that host through its intended Login Item/LaunchServices path and
    repeat without another permission prompt.
 5. Reboot once and repeat without replacing either binary.
-6. After any future binary replacement, repeat the foreground permission flow
-   before restarting the scheduled host. A fresh TCC grant is expected and
-   acceptable.
+6. After a Cask update, verify the foreground permission flow only if macOS
+   asks again or the sidecar reports a denied state. Source-install replacements
+   can require a fresh grant.
 
 ## Pass conditions
 

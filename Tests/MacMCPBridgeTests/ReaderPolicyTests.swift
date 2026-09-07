@@ -91,6 +91,59 @@ final class ReaderPolicyTests: XCTestCase {
         }
     }
 
+    func testUpcomingCalendarRangeUsesBoundedShortcutsAndNormalizesCommonAliases() throws {
+        let policy = ReaderPolicy()
+
+        let normalized = try policy.prepareArguments(
+            for: "calendar.upcoming",
+            supplied: ["range": .string("7d")]
+        )
+        XCTAssertEqual(normalized["range"], .string("next_7_days"))
+
+        let thirtyDays = try policy.prepareArguments(
+            for: "calendar.upcoming",
+            supplied: ["range": .string("30d")]
+        )
+        XCTAssertEqual(thirtyDays["range"], .string("next_30_days"))
+
+        XCTAssertThrowsError(
+            try policy.prepareArguments(
+                for: "calendar.upcoming",
+                supplied: ["range": .string("6d")]
+            )
+        ) { error in
+            XCTAssertEqual(error as? ReaderPolicyError, .invalidArgument("range"))
+        }
+    }
+
+    func testUpcomingCalendarSchemaPublishesSupportedRangeShortcuts() throws {
+        let upstream = Tool(
+            name: "list_events_quick",
+            description: "Quick calendar ranges",
+            inputSchema: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "range": .object(["type": .string("string")]),
+                    "week_starts_on": .object(["type": .string("string")]),
+                    "limit": .object(["type": .string("integer")]),
+                    "detail_level": .object(["type": .string("string")])
+                ])
+            ])
+        )
+
+        let policy = ReaderPolicy()
+        let projected = try policy.project(upstream: upstream, using: policy.rule(for: "calendar.upcoming"))
+        let range = projected.inputSchema.objectValue?["properties"]?.objectValue?["range"]?.objectValue
+
+        XCTAssertEqual(
+            range?["enum"],
+            .array([
+                .string("next_30_days"), .string("next_7_days"), .string("next_week"),
+                .string("this_month"), .string("this_week"), .string("today"), .string("tomorrow")
+            ])
+        )
+    }
+
     func testUnknownToolsAndArgumentsFailClosed() {
         XCTAssertThrowsError(
             try ReaderPolicy().prepareArguments(for: "mail.delete", supplied: nil)

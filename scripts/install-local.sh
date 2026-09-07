@@ -394,8 +394,6 @@ copy_legacy_state() {
   for name in \
     approved-clients.json \
     mail-action-access.json \
-    mail-monitor.json \
-    mail-monitor-state.json \
     tunnel-failures.json; do
     [[ -e "$config_dir/$name" || ! -f "$legacy_config_dir/$name" ]] || \
       cp -p "$legacy_config_dir/$name" "$config_dir/$name"

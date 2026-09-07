@@ -23,7 +23,7 @@ starts `/Applications/MacMCP.app`.
 
 On its first launch, `0.2.5` or later imports a legacy `mac-agent-bridge`
 configuration when present. Mail accounts, Keychain-backed secrets, mail action
-settings, monitoring, and the ChatGPT tunnel configuration are retained. The
+settings, and the ChatGPT tunnel configuration are retained. The
 legacy local MCP proxy is deliberately not trusted by the new app, so approve
 the new proxy once from `MacMCP > Clients`.
 
@@ -61,6 +61,10 @@ Use `brew upgrade macmcp` for the source formula. Cask upgrades retain the
 configuration and Keychain secrets outside the app bundle. The signed Cask has
 a stable Developer ID identity; source-install replacements remain ad-hoc
 signed and may need macOS permissions again.
+
+The Cask menu-bar app also checks the installed Cask at launch. Its `Updates`
+submenu can refresh Homebrew, install an available Cask update, and restart the
+app from the new bundle.
 
 ## Remove
 

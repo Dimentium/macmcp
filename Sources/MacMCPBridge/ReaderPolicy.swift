@@ -145,7 +145,14 @@ struct ReaderPolicy: Sendable {
             ],
             defaultArguments: ["limit": .int(100)],
             forcedArguments: ["detail_level": .string("summary")],
-            maximumIntegers: ["limit": 100]
+            maximumIntegers: ["limit": 100],
+            allowedStrings: [
+                "range": [
+                    "today", "tomorrow", "this_week", "next_week", "this_month",
+                    "next_7_days", "next_30_days"
+                ],
+                "week_starts_on": ["system", "monday", "sunday", "saturday"]
+            ]
         ),
         ReaderToolRule(
             publicName: "calendar.search",
@@ -255,18 +262,24 @@ struct ReaderPolicy: Sendable {
             }
             try validate(value: value, argument: name, depth: 0)
 
+            let normalizedValue = normalize(
+                value: value,
+                argument: name,
+                for: publicName
+            )
+
             if let maximum = rule.maximumIntegers[name] {
-                guard let integer = value.intValue, integer >= 0 else {
+                guard let integer = normalizedValue.intValue, integer >= 0 else {
                     throw ReaderPolicyError.invalidArgument(name)
                 }
                 result[name] = .int(min(integer, maximum))
             } else {
                 if let allowed = rule.allowedStrings[name] {
-                    guard let string = value.stringValue, allowed.contains(string) else {
+                    guard let string = normalizedValue.stringValue, allowed.contains(string) else {
                         throw ReaderPolicyError.invalidArgument(name)
                     }
                 }
-                result[name] = value
+                result[name] = normalizedValue
             }
         }
 
@@ -274,6 +287,26 @@ struct ReaderPolicy: Sendable {
             result[name] = value
         }
         return result
+    }
+
+    private func normalize(value: Value, argument: String, for publicName: String) -> Value {
+        guard publicName == "calendar.upcoming", argument == "range",
+              let range = value.stringValue
+        else {
+            return value
+        }
+
+        // CheICalMCP defaults unknown ranges to `today`. Accept the compact
+        // form agents commonly produce, but always send the sidecar's exact,
+        // bounded shortcut name so a requested multi-day window is not lost.
+        switch range {
+        case "7d":
+            return .string("next_7_days")
+        case "30d":
+            return .string("next_30_days")
+        default:
+            return value
+        }
     }
 
     func project(upstream: Tool, using rule: ReaderToolRule) throws -> Tool {

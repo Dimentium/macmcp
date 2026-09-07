@@ -290,28 +290,6 @@ final class BridgeRuntime {
         await eventKitHealthTask?.value
     }
 
-    func makeMailMonitor(
-        accountIDs: [String],
-        notifications: any AttentionNotificationPosting,
-        stateStore: MonitorStateStore? = nil
-    ) throws -> MailMonitor {
-        let resolvedStateStore: MonitorStateStore
-        if let stateStore {
-            resolvedStateStore = stateStore
-        } else {
-            resolvedStateStore = try MonitorStateStore(
-                fileURL: MonitorStateStore.defaultFileURL()
-            )
-        }
-        let scanner = MailScanner(
-            router: router,
-            policy: policy,
-            state: resolvedStateStore,
-            notifications: notifications
-        )
-        return MailMonitor(scanner: scanner, accountIDs: accountIDs)
-    }
-
     func stop() async {
         let healthTasks = [mailHealthTask, eventKitHealthTask, recurringHealthTask]
         mailHealthTask = nil

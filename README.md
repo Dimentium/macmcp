@@ -60,9 +60,9 @@ starts first-run configuration. Use `--icloud-address` for iCloud Mail or
 `--mail-account` for a custom IMAP account; account options may be repeated.
 The implementation scripts remain internal. After installation, the MacMCP
 menu-bar item shows bridge, mail, Calendar, Reminders, client approvals,
-notifications, and the optional tunnel. Open `Mail > account` to keep an
-account read-only or allow its limited mail actions. The control applies
-immediately and persists across app restarts.
+and the optional tunnel. Open `Mail > account` to keep an account read-only or
+allow its limited mail actions. The control applies immediately and persists
+across app restarts.
 
 macOS may ask for Keychain, Calendar, or Reminders access on first use. Grant
 only the permissions needed for the features you enable.
@@ -124,10 +124,10 @@ is sufficient.
 ## Daily Use
 
 Use the menu-bar item to inspect component health, approve local MCP clients,
-manage account-level `Read only`, manage the optional tunnel, and enable mail
-notifications. Notifications are off by default. When enabled, MacMCP
-establishes a baseline, then watches the INBOX of every configured account
-without modifying messages. Notification text does not include email content.
+manage account-level `Read only`, and manage the optional tunnel.
+For a Cask installation, `Updates` checks the Homebrew tap at launch and offers
+an explicit update command that refreshes Homebrew, upgrades the Cask, and
+restarts MacMCP. Source installs continue to use their normal Homebrew upgrade.
 
 For a privacy-safe support snapshot, run:
 

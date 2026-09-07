@@ -2,11 +2,12 @@ import AppKit
 
 @MainActor
 final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    enum MailNotificationState: Equatable {
-        case off
-        case starting
-        case monitoring
-        case needsPermission
+    enum UpdateMenuState: Equatable {
+        case checking
+        case sourceInstall
+        case current
+        case available(version: String)
+        case installing
         case unavailable
     }
 
@@ -15,7 +16,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let mail: NSMenuItem
         let calendar: NSMenuItem
         let reminders: NSMenuItem
-        let notifications: NSMenuItem
         let loginItem: NSMenuItem
         let tunnel: NSMenuItem
         let clients: NSMenuItem
@@ -25,7 +25,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             mail: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             calendar: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             reminders: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
-            notifications: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             loginItem: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             tunnel: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""),
             clients: NSMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -34,7 +33,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.mail = mail
             self.calendar = calendar
             self.reminders = reminders
-            self.notifications = notifications
             self.loginItem = loginItem
             self.tunnel = tunnel
             self.clients = clients
@@ -45,9 +43,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let launchConfigurationStore: AppLaunchConfigurationStore
     private let loginItemController: (any LoginItemControlling)?
     private let clientApprovalStore: ClientApprovalStore
-    private let mailMonitorSettingsStore: MailMonitorSettingsStore
-    private let mailNotificationPoster: MacOSAttentionNotificationPoster
     private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
+    private let caskUpdater: HomebrewCaskUpdater
     private let startup = BridgeRuntimeStartup()
     private var runtime: BridgeRuntime?
     private var ipcServer: LocalBridgeIPCServer?
@@ -56,31 +53,29 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusMenuItems: StatusMenuItems?
     private var clientsMenuItem: NSMenuItem?
     private var tunnelMenuItem: NSMenuItem?
-    private var mailNotificationsMenuItem: NSMenuItem?
+    private var updatesMenuItem: NSMenuItem?
     private var tunnelSupervisor: ChatGPTTunnelSupervisor?
     private var tunnelState: ChatGPTTunnelState?
-    private var mailMonitor: MailMonitor?
-    private var mailNotificationState: MailNotificationState = .off
     private var startTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var stopTask: Task<Void, Never>?
+    private var updateCheckTask: Task<Void, Never>?
+    private var updateState: UpdateMenuState = .checking
 
     init(
         configuration: BridgeLaunchConfiguration,
         launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
         loginItemController: (any LoginItemControlling)? = SMAppLoginItemController(),
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
-        mailMonitorSettingsStore: MailMonitorSettingsStore = MailMonitorSettingsStore(),
-        mailNotificationPoster: MacOSAttentionNotificationPoster = MacOSAttentionNotificationPoster(),
-        tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore()
+        tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
+        caskUpdater: HomebrewCaskUpdater = HomebrewCaskUpdater()
     ) {
         self.configuration = configuration
         self.launchConfigurationStore = launchConfigurationStore
         self.loginItemController = loginItemController
         self.clientApprovalStore = clientApprovalStore
-        self.mailMonitorSettingsStore = mailMonitorSettingsStore
-        self.mailNotificationPoster = mailNotificationPoster
         self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
+        self.caskUpdater = caskUpdater
     }
 
     static func run(configuration: BridgeLaunchConfiguration) async {
@@ -104,7 +99,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 eventKit: configuration.eventKitSidecarURL != nil
             )
         )
-        configureMailNotifications(statusItems.notifications)
         updateMailAccountsMenu(statusItems.mail, writableAccountIDs: [])
         configureLaunchAtLogin(statusItems.loginItem)
         configureChatGPTTunnel(statusItems.tunnel)
@@ -113,6 +107,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Task { await refreshClientsMenu() }
         item.menu = makeMenu(statusItems: statusItems)
         statusItem = item
+        checkForUpdates(refreshTap: false)
 
         runtimeTask = Task {
             try await BridgeRuntime.start(configuration: configuration, startup: startup)
@@ -135,7 +130,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Foundation.Notification) {
         startTask?.cancel()
         refreshTask?.cancel()
-        Task { await mailMonitor?.stop() }
         Task { await tunnelSupervisor?.stop() }
     }
 
@@ -148,8 +142,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         statusItems.mail.isEnabled = true
         menu.insertItem(statusItems.mail, at: 1)
-        statusItems.notifications.isEnabled = true
-        menu.addItem(statusItems.notifications)
         statusItems.loginItem.isEnabled = false
         menu.addItem(statusItems.loginItem)
         statusItems.tunnel.isEnabled = true
@@ -157,6 +149,29 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(statusItems.tunnel)
         statusItems.clients.isEnabled = true
         menu.addItem(statusItems.clients)
+        menu.addItem(.separator())
+        let version = NSMenuItem(title: "\(AppVersion.name) \(AppVersion.version)", action: nil, keyEquivalent: "")
+        version.isEnabled = false
+        menu.addItem(version)
+        let repository = NSMenuItem(
+            title: "Open MacMCP Repository",
+            action: #selector(openRepository),
+            keyEquivalent: ""
+        )
+        repository.target = self
+        menu.addItem(repository)
+        let updates = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        updates.isEnabled = true
+        updatesMenuItem = updates
+        updateUpdatesMenu()
+        menu.addItem(updates)
+        let restart = NSMenuItem(
+            title: "Restart MacMCP",
+            action: #selector(restartMacMCP),
+            keyEquivalent: ""
+        )
+        restart.target = self
+        menu.addItem(restart)
         menu.addItem(.separator())
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
@@ -195,7 +210,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             await runtime.waitForInitialHealthChecks()
             let snapshot = await runtime.statusSource.snapshot()
             updateStatusMenu(statusItems, snapshot: snapshot)
-            await startConfiguredMailNotifications()
         } catch {
             updateStatusMenu(statusItems, snapshot: failedSnapshot())
         }
@@ -217,9 +231,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tunnelSupervisor?.refreshHealth()
         if let tunnelMenuItem {
             updateTunnelMenu(tunnelMenuItem, state: tunnelState)
-        }
-        if let mailNotificationsMenuItem {
-            updateMailNotificationsMenu(mailNotificationsMenuItem)
         }
     }
 
@@ -315,14 +326,76 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.submenu = makeTunnelActionsMenu()
     }
 
-    private func configureMailNotifications(_ item: NSMenuItem) {
-        mailNotificationsMenuItem = item
-        do {
-            mailNotificationState = try mailMonitorSettingsStore.read().enabled ? .starting : .off
-        } catch {
-            mailNotificationState = .unavailable
+    private func updateUpdatesMenu() {
+        guard let updatesMenuItem else { return }
+        updatesMenuItem.title = Self.updateTitle(state: updateState)
+
+        let submenu = NSMenu()
+        let check = NSMenuItem(
+            title: "Check for Updates",
+            action: #selector(checkForUpdatesFromMenu),
+            keyEquivalent: ""
+        )
+        check.target = self
+        check.isEnabled = updateState != .checking && updateState != .installing
+        submenu.addItem(check)
+
+        let install = NSMenuItem(
+            title: Self.installUpdateTitle(state: updateState),
+            action: #selector(installUpdate),
+            keyEquivalent: ""
+        )
+        install.target = self
+        if case .available = updateState {
+            install.isEnabled = true
+        } else {
+            install.isEnabled = false
         }
-        updateMailNotificationsMenu(item)
+        submenu.addItem(install)
+        updatesMenuItem.submenu = submenu
+    }
+
+    static func updateTitle(state: UpdateMenuState) -> String {
+        switch state {
+        case .checking:
+            return "🟡 Updates: checking"
+        case .sourceInstall:
+            return "⚪ Updates: source install"
+        case .current:
+            return "🟢 Updates: current"
+        case .available(let version):
+            return "🟡 Updates: \(version) available"
+        case .installing:
+            return "🟡 Updates: installing"
+        case .unavailable:
+            return "🔴 Updates: unavailable"
+        }
+    }
+
+    static func installUpdateTitle(state: UpdateMenuState) -> String {
+        if case .available(let version) = state {
+            return "Update to \(version)"
+        }
+        return "Update MacMCP"
+    }
+
+    private func checkForUpdates(refreshTap: Bool) {
+        guard updateCheckTask == nil else { return }
+        updateState = .checking
+        updateUpdatesMenu()
+        let updater = caskUpdater
+        updateCheckTask = Task { [weak self] in
+            let availability = await updater.check(refreshTap: refreshTap)
+            guard let self, !Task.isCancelled else { return }
+            self.updateState = switch availability {
+            case .notCask: .sourceInstall
+            case .current: .current
+            case .available(let version): .available(version: version)
+            case .unavailable: .unavailable
+            }
+            self.updateCheckTask = nil
+            self.updateUpdatesMenu()
+        }
     }
 
     private func refreshMailAccountsMenu() async {
@@ -357,118 +430,6 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             submenu.addItem(accountItem)
         }
         item.submenu = submenu
-    }
-
-    static func mailNotificationTitle(state: MailNotificationState) -> String {
-        switch state {
-        case .off:
-            return "⚪ Mail Notifications: off"
-        case .starting:
-            return "🟡 Mail Notifications: starting"
-        case .monitoring:
-            return "🟢 Mail Notifications: on"
-        case .needsPermission:
-            return "🟡 Mail Notifications: needs permission"
-        case .unavailable:
-            return "🔴 Mail Notifications: unavailable"
-        }
-    }
-
-    private func updateMailNotificationsMenu(_ item: NSMenuItem) {
-        item.title = Self.mailNotificationTitle(state: mailNotificationState)
-        let submenu = NSMenu()
-        let enable = NSMenuItem(
-            title: "Enable Notifications",
-            action: #selector(enableMailNotifications),
-            keyEquivalent: ""
-        )
-        enable.target = self
-        enable.isEnabled = mailNotificationState != .monitoring
-        submenu.addItem(enable)
-
-        let checkNow = NSMenuItem(
-            title: "Check Mail Now",
-            action: #selector(checkMailNotificationsNow),
-            keyEquivalent: ""
-        )
-        checkNow.target = self
-        checkNow.isEnabled = mailMonitor != nil
-        submenu.addItem(checkNow)
-
-        let disable = NSMenuItem(
-            title: "Disable Notifications",
-            action: #selector(disableMailNotifications),
-            keyEquivalent: ""
-        )
-        disable.target = self
-        disable.isEnabled = mailMonitor != nil || mailNotificationState == .starting || mailNotificationState == .needsPermission
-        submenu.addItem(disable)
-        item.submenu = submenu
-    }
-
-    private func startConfiguredMailNotifications() async {
-        guard mailNotificationState == .starting else { return }
-        await startMailNotifications(allowPrompt: false, persist: false)
-    }
-
-    private func startMailNotifications(allowPrompt: Bool, persist: Bool) async {
-        guard let runtime, !configuration.mailAccounts.isEmpty else {
-            mailNotificationState = .unavailable
-            refreshMailNotificationsMenu()
-            return
-        }
-        guard (await runtime.statusSource.snapshot()).mail == .ready else {
-            mailNotificationState = .unavailable
-            refreshMailNotificationsMenu()
-            return
-        }
-
-        switch await mailNotificationPoster.authorize(allowPrompt: allowPrompt) {
-        case .granted:
-            break
-        case .notDetermined:
-            mailNotificationState = .needsPermission
-            refreshMailNotificationsMenu()
-            return
-        case .denied:
-            mailNotificationState = .unavailable
-            refreshMailNotificationsMenu()
-            return
-        }
-
-        do {
-            let monitor = try runtime.makeMailMonitor(
-                accountIDs: configuration.mailAccounts.map(\.id),
-                notifications: mailNotificationPoster
-            )
-            mailMonitor = monitor
-            await monitor.start()
-            if persist {
-                try mailMonitorSettingsStore.save(MailMonitorSettings(enabled: true))
-            }
-            mailNotificationState = .monitoring
-        } catch {
-            mailNotificationState = .unavailable
-        }
-        refreshMailNotificationsMenu()
-    }
-
-    private func stopMailNotifications() async {
-        await mailMonitor?.stop()
-        mailMonitor = nil
-        do {
-            try mailMonitorSettingsStore.save(MailMonitorSettings(enabled: false))
-            mailNotificationState = .off
-        } catch {
-            mailNotificationState = .unavailable
-        }
-        refreshMailNotificationsMenu()
-    }
-
-    private func refreshMailNotificationsMenu() {
-        if let mailNotificationsMenuItem {
-            updateMailNotificationsMenu(mailNotificationsMenuItem)
-        }
     }
 
     private func makeTunnelActionsMenu() -> NSMenu {
@@ -692,25 +653,46 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func enableMailNotifications() {
-        Task { await startMailNotifications(allowPrompt: true, persist: true) }
+    @objc private func restartChatGPTTunnel() {
+        Task { await tunnelSupervisor?.restart() }
     }
 
-    @objc private func disableMailNotifications() {
-        Task { await stopMailNotifications() }
+    @objc private func checkForUpdatesFromMenu() {
+        checkForUpdates(refreshTap: true)
     }
 
-    @objc private func checkMailNotificationsNow() {
-        Task {
-            guard let mailMonitor else { return }
-            let summary = await mailMonitor.scanNow()
-            mailNotificationState = summary.completedAccounts == 0 ? .unavailable : .monitoring
-            refreshMailNotificationsMenu()
+    @objc private func installUpdate() {
+        guard case .available = updateState, updateCheckTask == nil else { return }
+        updateState = .installing
+        updateUpdatesMenu()
+        let updater = caskUpdater
+        updateCheckTask = Task { [weak self] in
+            let result = await updater.install()
+            guard let self, !Task.isCancelled else { return }
+            self.updateCheckTask = nil
+            switch result {
+            case .updated:
+                self.restartMacMCP()
+            case .current:
+                self.updateState = .current
+                self.updateUpdatesMenu()
+            case .notCask:
+                self.updateState = .sourceInstall
+                self.updateUpdatesMenu()
+            case .unavailable:
+                self.updateState = .unavailable
+                self.updateUpdatesMenu()
+                self.presentUpdateFailure()
+            }
         }
     }
 
-    @objc private func restartChatGPTTunnel() {
-        Task { await tunnelSupervisor?.restart() }
+    private func presentUpdateFailure() {
+        let alert = NSAlert()
+        alert.messageText = "Unable to update MacMCP"
+        alert.informativeText = "Run brew update and brew upgrade --cask macmcp in Terminal, then try again."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func replaceChatGPTTunnelKey() {
@@ -751,6 +733,34 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.open(URL(string: "https://platform.openai.com/api-keys")!)
     }
 
+    @objc private func openRepository() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/Dimentium/macmcp")!)
+    }
+
+    @objc private func restartMacMCP() {
+        guard let bundleURL = Bundle.main.bundleURL as URL? else { return }
+
+        let helper = Process()
+        helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+        helper.arguments = [
+            "-c",
+            "/bin/sleep 1; exec /usr/bin/open -n \"$1\"",
+            "macmcp-restart",
+            bundleURL.path
+        ]
+
+        do {
+            try helper.run()
+            NSApplication.shared.terminate(self)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Unable to restart MacMCP"
+            alert.informativeText = "Quit MacMCP and open it again from Applications."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+    }
+
     private func refreshLoop() async {
         while !Task.isCancelled {
             await refreshMenuState()
@@ -771,9 +781,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let task = Task { @MainActor in
             startTask?.cancel()
             refreshTask?.cancel()
+            updateCheckTask?.cancel()
             runtimeTask?.cancel()
-            await mailMonitor?.stop()
-            mailMonitor = nil
             await tunnelSupervisor?.stop()
             await startup.stop()
             await ipcServer?.stop()

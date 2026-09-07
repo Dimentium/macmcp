@@ -51,7 +51,8 @@ upstream call.
   that fixes a private directory, validates the resulting file, and removes it
   after text extraction.
 - `verify_account` checks SMTP as well as IMAP.
-- It does not expose UIDNEXT or IDLE; version 1 uses polling and deduplication.
+- It does not expose UIDNEXT or IDLE; a future incremental mail feature would
+  need polling or a sidecar extension.
 - Its YAML config requires a plaintext password value at load time; the bridge
   will generate a private temporary config from Keychain and remove it after
   startup.
@@ -91,7 +92,7 @@ If a fork is required, the preferred patches are narrow:
 
 - Direct Apple Mail SQLite readers: private schema, stale-cache risk, and Full
   Disk Access are unnecessary for an iCloud-only monitor.
-- AppleScript/JXA mail reads: too slow and fragile for unattended scanning.
+- AppleScript/JXA mail reads: too slow and fragile for the MCP runtime.
 - `apple-pim`: useful security/evaluation reference, but combines reads and
   writes in action-valued tools and prefers the local Mail database.
 - Rewriting IMAP in Swift now: large protocol/MIME surface with no version 1

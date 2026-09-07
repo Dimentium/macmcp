@@ -44,8 +44,8 @@ set.
 ## Upgrade Migration
 
 The local installer migrates prior state from the legacy layout during its
-staged activation. It copies client approvals, mail-action settings, monitor
-state, and redacted tunnel failures; reads old launch configuration and
+staged activation. It copies client approvals, mail-action settings, and
+redacted tunnel failures; reads old launch configuration and
 Keychain items when needed; and keeps legacy command and socket aliases while
 an installation is upgraded. The old EventKit copy in `libexec` is removed:
 the only authoritative executable is the copy embedded in `MacMCP.app`.

@@ -73,15 +73,21 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertEqual(menu.items[1], statusItems.mail)
         XCTAssertEqual(menu.items[2], statusItems.calendar)
         XCTAssertEqual(menu.items[3], statusItems.reminders)
-        XCTAssertEqual(menu.items[4], statusItems.notifications)
-        XCTAssertEqual(menu.items[5], statusItems.loginItem)
-        XCTAssertEqual(menu.items[6], statusItems.tunnel)
-        XCTAssertEqual(menu.items[7], statusItems.clients)
-        XCTAssertTrue(menu.items[4].isEnabled)
-        XCTAssertFalse(menu.items[5].isEnabled)
+        XCTAssertEqual(menu.items[4], statusItems.loginItem)
+        XCTAssertEqual(menu.items[5], statusItems.tunnel)
+        XCTAssertEqual(menu.items[6], statusItems.clients)
+        XCTAssertFalse(menu.items[4].isEnabled)
+        XCTAssertTrue(menu.items[5].isEnabled)
+        XCTAssertNotNil(menu.items[5].submenu)
         XCTAssertTrue(menu.items[6].isEnabled)
-        XCTAssertNotNil(menu.items[6].submenu)
-        XCTAssertTrue(menu.items[7].isEnabled)
+        XCTAssertEqual(menu.items[8].title, "\(AppVersion.name) \(AppVersion.version)")
+        XCTAssertFalse(menu.items[8].isEnabled)
+        XCTAssertEqual(menu.items[9].title, "Open MacMCP Repository")
+        XCTAssertEqual(menu.items[9].action?.description, "openRepository")
+        XCTAssertEqual(menu.items[10].title, "🟡 Updates: checking")
+        XCTAssertNotNil(menu.items[10].submenu)
+        XCTAssertEqual(menu.items[11].title, "Restart MacMCP")
+        XCTAssertEqual(menu.items[11].action?.description, "restartMacMCP")
         XCTAssertEqual(quitItem?.title, "Quit")
         XCTAssertTrue(quitItem?.target === host)
         XCTAssertEqual(quitItem?.action, #selector(MenuBarHost.quit))
@@ -173,6 +179,17 @@ final class MenuBarHostTests: XCTestCase {
         )
     }
 
+    func testUpdateMenuTitlesDescribeCaskAndSourceStates() {
+        XCTAssertEqual(MenuBarHost.updateTitle(state: .checking), "🟡 Updates: checking")
+        XCTAssertEqual(MenuBarHost.updateTitle(state: .sourceInstall), "⚪ Updates: source install")
+        XCTAssertEqual(MenuBarHost.updateTitle(state: .current), "🟢 Updates: current")
+        XCTAssertEqual(
+            MenuBarHost.updateTitle(state: .available(version: "0.2.7")),
+            "🟡 Updates: 0.2.7 available"
+        )
+        XCTAssertEqual(MenuBarHost.installUpdateTitle(state: .available(version: "0.2.7")), "Update to 0.2.7")
+    }
+
     func testTunnelMenuShowsLatestRedactedFailure() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -196,10 +213,10 @@ final class MenuBarHostTests: XCTestCase {
         let menu = host.makeMenu(statusItems: .init())
 
         XCTAssertEqual(
-            menu.items[6].submenu?.items.first?.title,
+            menu.items[5].submenu?.items.first?.title,
             "Last failure: 2026-09-06T10:00:00Z Health: timed out"
         )
-        XCTAssertFalse(menu.items[6].submenu?.items.first?.isEnabled ?? true)
+        XCTAssertFalse(menu.items[5].submenu?.items.first?.isEnabled ?? true)
     }
 
     func testClientsMenuShowsPendingAndApprovedClients() {

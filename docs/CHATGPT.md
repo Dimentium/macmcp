@@ -28,7 +28,8 @@ a reader query to the configured mailboxes.
 In the tested ChatGPT desktop client, ordinary `Chat` did not expose local MCP
 tools. Use `Work` for the local MacMCP workflow.
 
-1. Start `~/Applications/MacMCP.app`.
+1. Start `/Applications/MacMCP.app` for a Cask install, or the app installed by
+   the source formula.
 2. In ChatGPT desktop, open Settings, then MCP servers.
 3. Add a server named `macmcp`.
 4. Choose STDIO.
@@ -103,7 +104,7 @@ redacted tunnel failure, if any, with an ISO timestamp, fixed phase, and fixed
 reason; `macmcp diagnose` retains the most recent 12 records. It also opens the
 `Restart Tunnel` command, `Replace Runtime API Key...`, and the two Platform
 setup URLs. If Keychain asks MacMCP to access an already stored runtime key,
-choose `Always Allow` once.
+choose `Allow`. `Always Allow` is not required.
 
 Then create the ChatGPT developer-mode app: open
 <https://chatgpt.com/plugins>, select plus, choose `Tunnel` for Connection, and

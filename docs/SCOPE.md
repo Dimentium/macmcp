@@ -3,12 +3,10 @@
 ## Product goal
 
 Run a small local macOS bridge that lets a constrained agent inspect IMAP mail,
-Calendar, and Reminders, identify items that need attention, and notify
-the user without modifying any source data.
+Calendar, and Reminders without modifying source data by default.
 
-The same bridge may later expose interactive write operations through a
-separate capability profile. Scheduled monitoring and interactive actions are
-separate trust domains.
+The bridge may later expose narrowly scoped interactive write operations
+through a separate capability profile.
 
 ## Version 1
 
@@ -21,12 +19,6 @@ Version 1 includes:
 - a local menu-bar host with health status;
 - local install, upgrade, uninstall, and transfer archive scripts;
 - per-client local approval before MCP reader-data tools can return data;
-- classification of new mail into:
-  - personal messages from real people;
-  - work requests and deadlines;
-  - payments, invoices, and security;
-  - school, medical, and family;
-- deduplicated macOS notifications explaining why an item needs attention;
 - local health/status information through the menu-bar app and `bridge_status`;
 - macOS Keychain storage for mail passwords;
 - adversarial tests for prompt injection and capability bypasses.
@@ -40,15 +32,12 @@ Version 1 includes:
 - creating, updating, completing, or deleting calendar/reminder items;
 - Notes, Contacts, Messages, or generic filesystem access;
 - direct reads from Apple Mail's private SQLite databases;
-- AppleScript/JXA in the unattended monitoring path;
-- exposing shell, browser, filesystem, or action tools to the classifier;
 - remote administration or a network-listening MCP endpoint.
 
 ## Trust boundaries
 
 - Email, event, and reminder text is untrusted content, never an instruction.
 - The reader gateway exposes only explicitly allowed tools and arguments.
-- Classification runs without tools and returns a fixed structured result.
 - Credentials remain inside the local bridge/sidecar process boundary.
 - Local MCP clients must connect through the app-owned IPC proxy and receive a
   per-client grant before reader-data tools are served.
@@ -57,15 +46,13 @@ Version 1 includes:
 
 ## Version 1 acceptance criteria
 
-1. A new email can be detected without changing flags or mailbox state.
+1. Mail can be searched and read without changing flags or mailbox state.
 2. Calendar and Reminders can be queried through EventKit without write tools
    appearing in the reader MCP tool list.
 3. A malicious message cannot cause an MCP write call, shell command, file
    access, a caller-selected attachment path, or arbitrary network request.
-4. A matching message creates at most one notification unless its assessed
-   urgency materially changes.
-5. Logs contain no message bodies, credentials, or attachment data.
-6. Revoking credentials or macOS permissions fails closed and is visible in
+4. Logs contain no message bodies, credentials, or attachment data.
+5. Revoking credentials or macOS permissions fails closed and is visible in
    status output.
 
 ## Later milestones
