@@ -13,6 +13,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.4"
       - name: Swift version
         run: swift --version
       - name: Resolve pinned packages

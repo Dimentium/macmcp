@@ -181,6 +181,18 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(formula.contains("depends_on \"python@3.14\""))
     }
 
+    func testCIInstallsThePinnedGoToolchain() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let workflow = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/ci.yml"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(workflow.contains("uses: actions/setup-go@v5"))
+        XCTAssertTrue(workflow.contains("go-version: \"1.25.4\""))
+        XCTAssertTrue(workflow.contains("scripts/verify-local-deployment.sh"))
+    }
+
     func testDeploymentAcceptanceScriptIsIsolated() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let script = try String(
