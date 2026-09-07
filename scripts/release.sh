@@ -54,7 +54,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --install-local)
       install_local=1
-      step_total=9
+      step_total=10
       shift
       ;;
     -h|--help)
@@ -322,6 +322,9 @@ if [[ "$install_local" -eq 1 ]]; then
   }
   restart_local_app
   macmcp diagnose --json
+
+  log_step 10 "Run local MCP acceptance"
+  "$project_dir/scripts/validate-local-mcp.sh"
 fi
 
 printf '\nRelease MacMCP %s completed successfully in %ss. Log: %s\n' "$version" "$SECONDS" "$release_log"

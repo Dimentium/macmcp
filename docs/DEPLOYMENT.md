@@ -121,3 +121,14 @@ macmcp diagnose
 The output is sanitized: it includes only component states, counts, Login Item
 state, and bounded redacted tunnel failures. It excludes mail addresses,
 message content, paths, tunnel IDs, and secrets.
+
+From a MacMCP checkout, run the local MCP acceptance test as well:
+
+```bash
+scripts/validate-local-mcp.sh
+```
+
+This exercises the app-owned local stdio proxy and all three local data
+components, including Mail folder/search/read calls. It does not start or test
+the ChatGPT tunnel; remote connector behavior is a separate product-surface
+check.

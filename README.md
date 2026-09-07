@@ -142,6 +142,16 @@ tunnel failures. Each tunnel record has only a timestamp, fixed phase, and
 fixed reason. It excludes email addresses, client names, paths, tunnel IDs,
 command output, and secrets.
 
+For a complete local MCP smoke test from a checkout, run:
+
+```bash
+scripts/validate-local-mcp.sh
+```
+
+It checks the installed app-owned bridge, all published tools and output
+schemas, Mail folder/search/read access, Calendar, and Reminders. It
+deliberately skips the ChatGPT tunnel and does not create or modify mail data.
+
 When the ChatGPT tunnel is configured, `ChatGPT Tunnel > Open Tunnel Log` opens
 `~/Library/Logs/MacMCP/chatgpt-tunnel.log`. The app keeps the active log and up
 to four rotated files; each file is capped at 10 MiB. Its one-line records are

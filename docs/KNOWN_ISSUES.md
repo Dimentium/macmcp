@@ -4,11 +4,13 @@ This is the current engineering issue register for MacMCP. It records remaining
 delivery and reliability gaps without account addresses, credentials, or
 personal data.
 
-## Verification Still Needed
+## Deferred Verification
 
-- Live acceptance after a normal in-app Cask update: iCloud and Gmail reads and
-  folder listing, Calendar, Reminders, approvals, tunnel reconnect, and app
-  restart from the replaced bundle.
+- ChatGPT tunnel acceptance after a normal in-app Cask update: tunnel reconnect,
+  remote discovery, consecutive calls, and the behavior of an already-open
+  ChatGPT chat. The local bridge and data paths are now checked automatically
+  by `scripts/validate-local-mcp.sh`; this item is deliberately not part of the
+  release gate.
 - Per-account mail actions on iCloud and Gmail: create a recipient-free draft,
   reject a human recipient edit, update an unchanged draft, and confirm that
   toggling `Read only` blocks and re-allows the same tools through local MCP

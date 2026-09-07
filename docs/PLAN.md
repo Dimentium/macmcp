@@ -13,10 +13,13 @@ install with iCloud and Gmail configured. Local MCP reader-data calls require
 per-client approval.
 
 Local stdio MCP validation has passed with iCloud and Gmail in one runtime:
-tool surface, account auth, `mail.search`, `mail.read`, and independent IMAP
-no-mutation snapshots. The menu-bar app now owns the local bridge/sidecars, and
-local MCP clients attach through a stdio proxy over user-local IPC. Restart and
-app-owned `--status-json` validation have passed. The post-upgrade and final
+tool surface, account auth, `mail.search`, `mail.read`, folder listing,
+Calendar, Reminders, and structured output. `scripts/validate-local-mcp.sh`
+now runs this local acceptance
+without the ChatGPT tunnel and is part of `scripts/release.sh --install-local`.
+The menu-bar app now owns the local bridge/sidecars, and local MCP clients
+attach through a stdio proxy over user-local IPC. Restart and app-owned
+`--status-json` validation have passed. The post-upgrade and final
 post-reboot gates both pass for components, Login Item persistence, local
 approval, and the two-account no-mutation reader path. `mail-mcp` is pinned to
 the small `Dimentium/mail-mcp` compatibility fork, which restores iCloud folder
@@ -32,10 +35,12 @@ inside a temporary HOME without touching a real user configuration.
    complete runtime. It checks GitHub Releases at launch and every six hours;
    its Updates menu can then refresh the Homebrew tap, upgrade the Cask, and
    restart from the new bundle.
-   Exercise a Cask upgrade against the live iCloud, Gmail, EventKit, local
-approval, and tunnel paths when a release changes those components. The
-menu-bar runtime now takes a per-user exclusive lock, so a repeated launch
-cannot create another sidecar or tunnel tree. The source formula remains
+   `scripts/release.sh --install-local` now exercises the live local iCloud,
+   Gmail, EventKit, approval, structured-output, and reader paths after
+   installing the published Cask. Tunnel behavior remains outside this local
+   gate. The menu-bar runtime now takes a per-user exclusive lock, so a
+   repeated launch cannot create another sidecar or tunnel tree. The source
+   formula remains
 supported for self-builds and may still require macOS permissions again after
 each ad-hoc-signed replacement.
 

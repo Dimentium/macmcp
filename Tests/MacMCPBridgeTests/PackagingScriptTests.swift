@@ -236,6 +236,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("brew upgrade --cask macmcp"))
         XCTAssertTrue(script.contains("wait_for_local_runtime"))
         XCTAssertTrue(script.contains("MacMCP runtime is ready"))
+        XCTAssertTrue(script.contains("Run local MCP acceptance"))
+        XCTAssertTrue(script.contains("validate-local-mcp.sh"))
         XCTAssertTrue(script.contains("Release failed at step"))
         XCTAssertFalse(script.contains("AuthKey_"))
     }
@@ -337,6 +339,32 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("remove_test_root()"))
         XCTAssertTrue(script.contains("HOME=\"$test_home\" go clean -modcache"))
         XCTAssertTrue(script.contains("Contents/Resources/macmcp\" help"))
+    }
+
+    func testLocalMCPAcceptanceIsTunnelIndependentAndPrivacySafe() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/validate-local-mcp.py"),
+            encoding: .utf8
+        )
+        let wrapper = try String(
+            contentsOf: root.appendingPathComponent("scripts/validate-local-mcp.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/usr/bin/env python3\n"))
+        XCTAssertTrue(script.contains("--diagnose-json"))
+        XCTAssertTrue(script.contains("mail.list_folders"))
+        XCTAssertTrue(script.contains("calendar.events"))
+        XCTAssertTrue(script.contains("reminders.list"))
+        XCTAssertTrue(script.contains("outputSchema"))
+        XCTAssertTrue(script.contains("structuredContent"))
+        XCTAssertTrue(script.contains("mail.search"))
+        XCTAssertTrue(script.contains("mail.read"))
+        XCTAssertTrue(script.contains("tunnel=SKIP local_only=true"))
+        XCTAssertFalse(script.contains("subprocess.run(\n            [\"tunnel-client\""))
+        XCTAssertTrue(wrapper.contains("validate-local-mcp.py"))
+        XCTAssertTrue(wrapper.contains("never starts tunnel-client"))
     }
 
     func testLocalUninstallScriptPreservesKeychainByDefault() throws {
