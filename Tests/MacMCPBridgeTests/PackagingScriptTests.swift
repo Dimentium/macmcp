@@ -192,9 +192,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.4\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.4</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.4</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.5\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.5</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.5</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {
@@ -226,8 +226,8 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(formula.contains("tag: \"v0.2.4\""))
-        XCTAssertTrue(formula.contains("revision: \"de267e82d8e0ef399d60fead7fac483350d5a8ed\""))
+        XCTAssertTrue(formula.contains("tag: \"v0.2.5\""))
+        XCTAssertTrue(formula.contains("revision: \"2fa3c0dd77e55fc529239fff04df1e82528fcf21\""))
         XCTAssertTrue(formula.contains("depends_on \"go\""))
         XCTAssertTrue(formula.contains("depends_on \"python@3.14\""))
     }
