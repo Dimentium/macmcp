@@ -85,7 +85,7 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         XCTAssertTrue(proxy.contains(socketURL.path))
         let log = try String(contentsOf: tunnelLogStore.fileURL, encoding: .utf8)
         XCTAssertTrue(log.contains("tunnel client ready"))
-        XCTAssertTrue(log.contains("\"source\":\"stdout\""))
+        XCTAssertTrue(log.contains("[stdout]"))
     }
 
     func testHungHealthProbeTimesOutAndDoesNotOverwriteUnavailableState() async throws {

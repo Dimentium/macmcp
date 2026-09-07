@@ -113,7 +113,9 @@ final class TunnelClientLogCapture: @unchecked Sendable {
 
     private let store: TunnelClientLogStore
     private let lock = NSLock()
+    private let readGroup = DispatchGroup()
     private var buffers: [TunnelClientLogSource: Data] = [:]
+    private var isFinishing = false
     private var isFinished = false
 
     private static let maximumInputLineBytes = 16 * 1024
@@ -134,40 +136,54 @@ final class TunnelClientLogCapture: @unchecked Sendable {
     }
 
     func finish() {
-        let remaining: [(TunnelClientLogSource, Data)] = lock.withLock {
-            guard !isFinished else { return [] }
-            isFinished = true
+        let shouldFinish: Bool = lock.withLock {
+            guard !isFinishing, !isFinished else { return false }
+            isFinishing = true
             standardOutput.fileHandleForReading.readabilityHandler = nil
             standardError.fileHandleForReading.readabilityHandler = nil
+            return true
+        }
+        guard shouldFinish else { return }
+
+        // A readability callback may already be queued when the process exits.
+        // Keep accepting its bytes until both pipes have been drained.
+        let finalOutput = standardOutput.fileHandleForReading.readDataToEndOfFile()
+        let finalError = standardError.fileHandleForReading.readDataToEndOfFile()
+        consume(finalOutput, source: .stdout, flushRemainder: true)
+        consume(finalError, source: .stderr, flushRemainder: true)
+        readGroup.wait()
+
+        let remaining: [(TunnelClientLogSource, Data)] = lock.withLock {
+            isFinished = true
+            isFinishing = false
             let values = buffers.map { ($0.key, $0.value) }.filter { !$0.1.isEmpty }
             buffers.removeAll()
             return values
         }
-        let finalOutput = standardOutput.fileHandleForReading.readDataToEndOfFile()
-        let finalError = standardError.fileHandleForReading.readDataToEndOfFile()
         for (source, data) in remaining {
             store.append(source: source, data: data)
-        }
-        if !finalOutput.isEmpty {
-            store.append(source: .stdout, data: finalOutput)
-        }
-        if !finalError.isEmpty {
-            store.append(source: .stderr, data: finalError)
         }
     }
 
     private func observe(_ handle: FileHandle, source: TunnelClientLogSource) {
         handle.readabilityHandler = { [weak self] readableHandle in
+            guard let self else {
+                readableHandle.readabilityHandler = nil
+                return
+            }
+            self.readGroup.enter()
+            defer { self.readGroup.leave() }
             let data = readableHandle.availableData
             guard !data.isEmpty else {
                 readableHandle.readabilityHandler = nil
                 return
             }
-            self?.consume(data, source: source)
+            self.consume(data, source: source)
         }
     }
 
-    private func consume(_ data: Data, source: TunnelClientLogSource) {
+    private func consume(_ data: Data, source: TunnelClientLogSource, flushRemainder: Bool = false) {
+        guard !data.isEmpty || flushRemainder else { return }
         let lines: [Data] = lock.withLock {
             guard !isFinished else { return [] }
             var pending = buffers[source] ?? Data()
@@ -188,6 +204,10 @@ final class TunnelClientLogCapture: @unchecked Sendable {
                     records.append(Data("tunnel-client log record exceeded the size limit".utf8))
                 }
             }
+            if flushRemainder, !pending.isEmpty {
+                records.append(pending)
+                pending.removeAll()
+            }
             buffers[source] = pending
             return records
         }
@@ -204,40 +224,79 @@ enum TunnelClientLogRedactor {
     ]
     private static let allowedNumberKeys: Set<String> = ["status_code"]
     private static let allowedBooleanKeys: Set<String> = ["final_response"]
+    private static let renderedDetailKeys = [
+        "request_kind", "channel", "phase", "reason", "error", "status_code", "final_response"
+    ]
 
     static func entry(source: TunnelClientLogSource, data: Data, date: Date) -> Data? {
         let raw = String(decoding: data, as: UTF8.self)
         let text = sanitizedText(raw)
         guard !text.isEmpty else { return nil }
 
-        var record: [String: Any] = [
-            "timestamp": ISO8601DateFormatter().string(from: date),
-            "source": source.rawValue
-        ]
+        var level = source == .stderr ? "WARN" : "INFO"
+        var component: String?
+        var message = text
+        var details: [String: String] = [:]
         if let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)),
            let fields = object as? [String: Any] {
             for (key, value) in fields {
                 let normalizedKey = key.lowercased()
                 if allowedTextKeys.contains(normalizedKey), let value = value as? String {
-                    record[normalizedKey] = sanitizedText(value)
+                    let sanitizedValue = sanitizedText(value)
+                    switch normalizedKey {
+                    case "level":
+                        level = normalizedLevel(sanitizedValue)
+                    case "component":
+                        component = sanitizedValue
+                    case "msg", "message":
+                        if message == text || normalizedKey == "msg" {
+                            message = sanitizedValue
+                        }
+                    case "time":
+                        break
+                    default:
+                        details[normalizedKey] = sanitizedValue
+                    }
                 } else if allowedNumberKeys.contains(normalizedKey), value is NSNumber {
-                    record[normalizedKey] = value
+                    details[normalizedKey] = String(describing: value)
                 } else if allowedBooleanKeys.contains(normalizedKey), let value = value as? Bool {
-                    record[normalizedKey] = value
+                    details[normalizedKey] = value ? "true" : "false"
                 }
             }
-            record["event"] = "tunnel-client"
-        } else {
-            record["event"] = "tunnel-client-output"
-            record["message"] = text
         }
 
-        guard let encoded = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]) else {
+        guard !isRoutineStartupNoise(message: message, component: component) else {
             return nil
         }
-        var result = encoded
-        result.append(UInt8(ascii: "\n"))
-        return result
+        let componentPrefix = component.map { " [\($0)]" } ?? ""
+        let renderedDetails = renderedDetailKeys.compactMap { key in
+            details[key].map { "\(key)=\($0)" }
+        }.joined(separator: " ")
+        let detailSuffix = renderedDetails.isEmpty ? "" : " \(renderedDetails)"
+        let timestamp = timestampFormatter.string(from: date)
+        return Data("\(timestamp) \(level) [\(source.rawValue)]\(componentPrefix) \(message)\(detailSuffix)\n".utf8)
+    }
+
+    private static let timestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static func normalizedLevel(_ value: String) -> String {
+        switch value.lowercased() {
+        case "trace", "debug": return "DEBUG"
+        case "warn", "warning": return "WARN"
+        case "error", "fatal": return "ERROR"
+        default: return "INFO"
+        }
+    }
+
+    private static func isRoutineStartupNoise(message: String, component: String?) -> Bool {
+        if message == "OnStart hook executing" || message == "OnStart hook executed" {
+            return true
+        }
+        return component == "harpoon" && message == "harpoon startup catalog digest"
     }
 
     private static func sanitizedText(_ input: String) -> String {

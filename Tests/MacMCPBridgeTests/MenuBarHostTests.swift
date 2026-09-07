@@ -178,7 +178,7 @@ final class MenuBarHostTests: XCTestCase {
     func testUpdateMenuTitlesDescribeCaskAndSourceStates() {
         XCTAssertEqual(MenuBarHost.updateTitle(state: .checking), "🟡 Updates: checking")
         XCTAssertEqual(MenuBarHost.updateTitle(state: .sourceInstall), "⚪ Updates: source install")
-        XCTAssertEqual(MenuBarHost.updateTitle(state: .current), "🟢 Updates: current")
+        XCTAssertEqual(MenuBarHost.updateTitle(state: .current), "Updates: MacMCP is up to date")
         XCTAssertEqual(
             MenuBarHost.updateTitle(state: .available(version: "0.2.7")),
             "🟡 Updates: 0.2.7 available"

@@ -3,7 +3,7 @@ import XCTest
 @testable import MacMCPBridge
 
 final class TunnelClientLogTests: XCTestCase {
-    func testRedactsSecretsAndKeepsUsefulStructuredTunnelFields() throws {
+    func testRedactsSecretsAndRendersUsefulTunnelFields() throws {
         let entry = try XCTUnwrap(TunnelClientLogRedactor.entry(
             source: .stdout,
             data: Data("""
@@ -12,13 +12,23 @@ final class TunnelClientLogTests: XCTestCase {
             date: Date(timeIntervalSince1970: 0)
         ))
         let text = String(decoding: entry, as: UTF8.self)
-        XCTAssertTrue(text.contains("\"component\":\"dispatcher\""))
-        XCTAssertTrue(text.contains("\"request_kind\":\"json_rpc\""))
-        XCTAssertTrue(text.contains("\"status_code\":200"))
+        XCTAssertTrue(text.contains("INFO [stdout] [dispatcher]"))
+        XCTAssertTrue(text.contains("request_kind=json_rpc"))
+        XCTAssertTrue(text.contains("status_code=200"))
         XCTAssertFalse(text.contains("sk-supersecret"))
         XCTAssertFalse(text.contains("tunnel_abcdef"))
         XCTAssertFalse(text.contains("private@example.com"))
         XCTAssertFalse(text.contains("payload"))
+    }
+
+    func testDropsRoutineStartupNoise() {
+        let entry = TunnelClientLogRedactor.entry(
+            source: .stdout,
+            data: Data("{\"level\":\"info\",\"msg\":\"OnStart hook executed\"}".utf8),
+            date: Date(timeIntervalSince1970: 0)
+        )
+
+        XCTAssertNil(entry)
     }
 
     func testRotatesAtConfiguredLimitAndKeepsPrivateFiles() throws {
@@ -56,7 +66,7 @@ final class TunnelClientLogTests: XCTestCase {
 
         let text = try String(contentsOf: fileURL, encoding: .utf8)
         XCTAssertTrue(text.contains("request delivered"))
-        XCTAssertTrue(text.contains("\"source\":\"stderr\""))
+        XCTAssertTrue(text.contains("[stderr]"))
         XCTAssertFalse(text.contains("reader@example.com"))
     }
 

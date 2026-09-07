@@ -381,7 +381,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .sourceInstall:
             return "⚪ Updates: source install"
         case .current:
-            return "🟢 Updates: current"
+            return "Updates: MacMCP is up to date"
         case .available(let version):
             return "🟡 Updates: \(version) available"
         case .installing:

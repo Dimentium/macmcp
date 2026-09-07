@@ -144,9 +144,10 @@ command output, and secrets.
 
 When the ChatGPT tunnel is configured, `ChatGPT Tunnel > Open Tunnel Log` opens
 `~/Library/Logs/MacMCP/chatgpt-tunnel.log`. The app keeps the active log and up
-to four rotated files; each file is capped at 10 MiB. It records tunnel process
-events and a redacted allowlist of `tunnel-client` JSON fields, never MCP
-payloads, mail data, headers, tunnel IDs, or credentials.
+to four rotated files; each file is capped at 10 MiB. Its one-line records are
+readable in Console and include timestamp, level, source, component, message,
+and safe status fields. Routine tunnel startup noise is omitted. The log never
+contains MCP payloads, mail data, headers, tunnel IDs, or credentials.
 
 ## Updates And Removal
 
