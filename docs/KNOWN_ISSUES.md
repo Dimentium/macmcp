@@ -15,9 +15,14 @@ personal data.
   toggling `Read only` blocks and re-allows the same tools through local MCP
   and the tunnel without a restart.
 - Reproduce one ChatGPT chat whose connector is marked unavailable after a
-  tool call, then correlate it with the redacted local tunnel log. Branching
-  the ChatGPT conversation is a confirmed workaround: it starts a fresh chat
-  while retaining the history copy.
+  tool call, then correlate it with the redacted local tunnel log. In the
+  current reproduction, the proxy received and answered `bridge_status`, but
+  no subsequent `mail` request reached MacMCP before ChatGPT disabled the
+  connector. A direct `mail.list_accounts` through the same proxy succeeded.
+  This localizes the observed drop to the remote ChatGPT session or tunnel
+  dispatcher rather than IMAP or a MacMCP sidecar. Branching the conversation
+  is a confirmed workaround: it starts a fresh chat while retaining the
+  history copy.
 
 ## Resolved Since The 2026-09-05 Audit
 
@@ -39,3 +44,6 @@ personal data.
 - Canonical product, package, executable, bundle, state-path, and Keychain
   names now use the `macmcp` namespace. The installer carries legacy aliases
   and state forward during an upgrade.
+- The menu-bar runtime holds a per-user exclusive lock. A repeated app launch
+  now leaves the existing runtime active, and the restart helper waits for the
+  current process to exit instead of starting a second sidecar and tunnel tree.

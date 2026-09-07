@@ -33,9 +33,11 @@ inside a temporary HOME without touching a real user configuration.
    its Updates menu can then refresh the Homebrew tap, upgrade the Cask, and
    restart from the new bundle.
    Exercise a Cask upgrade against the live iCloud, Gmail, EventKit, local
-   approval, and tunnel paths when a release changes those components. The
-   source formula remains supported for self-builds and may still require macOS
-   permissions again after each ad-hoc-signed replacement.
+approval, and tunnel paths when a release changes those components. The
+menu-bar runtime now takes a per-user exclusive lock, so a repeated launch
+cannot create another sidecar or tunnel tree. The source formula remains
+supported for self-builds and may still require macOS permissions again after
+each ad-hoc-signed replacement.
 
 2. Validate the app-managed ChatGPT tunnel beyond the validated local Work path.
    ChatGPT Work on the desktop app is the primary client target and has now
