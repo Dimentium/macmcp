@@ -12,7 +12,7 @@ This directory is copied unchanged into every distributed `MacMCP.app` under
   verbatim.
 - `go/` contains the license and NOTICE files emitted by
   `go-licenses v1.6.0 save ./...` for the pinned `mail-mcp` source at
-  `e26b28ef87e6eab46d796d63ec1bbaa210d080d4`.
+  `fefb9c4c4a548ec7e960880b96e268ffc0e6915b`.
 
 Regenerate the Go notices whenever the pinned mail sidecar revision or its Go
 module graph changes. Preserve all upstream texts when updating this directory.

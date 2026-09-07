@@ -215,6 +215,19 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertFalse(menu.items[4].submenu?.items.first?.isEnabled ?? true)
     }
 
+    func testTunnelHistoryMarksFailureAsResolvedWhenRunning() {
+        let failure = ChatGPTTunnelFailure(
+            occurredAt: "2026-09-06T10:00:00Z",
+            phase: .run,
+            reason: .processExited
+        )
+
+        XCTAssertEqual(
+            MenuBarHost.tunnelFailureHistoryTitle(state: .running, latest: failure),
+            "Previous failure (resolved): 2026-09-06T10:00:00Z Run: process exited"
+        )
+    }
+
     func testClientsMenuShowsPendingAndApprovedClients() {
         let host = MenuBarHost(
             configuration: BridgeLaunchConfiguration(

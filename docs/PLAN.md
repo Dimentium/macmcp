@@ -77,8 +77,10 @@ calendar, and reminder writes remain unavailable.
 
 Each managed draft has an HMAC marker created from a persistent Keychain key
 and held only in the private runtime sidecar config. Updating requires the
-exact revision returned by the previous operation; it refuses a missing or
-invalid marker, a changed draft, or any `To`, `Cc`, `Bcc`, `Reply-To`, or
+exact revision returned by the previous operation; a legacy draft with the
+valid marker but without a revision header gets a one-time revision derived
+from its current MIME. The server refuses an invalid marker, a changed draft,
+or any `To`, `Cc`, `Bcc`, `Reply-To`, or
 `Resent-*` recipient header.
 
 Updating appends the replacement before marking the prior draft deleted, without

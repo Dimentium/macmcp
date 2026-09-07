@@ -167,7 +167,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItems.mail.isEnabled = true
         menu.insertItem(statusItems.mail, at: 1)
         statusItems.tunnel.isEnabled = true
-        statusItems.tunnel.submenu = makeTunnelActionsMenu()
+        statusItems.tunnel.submenu = makeTunnelActionsMenu(state: tunnelState)
         menu.addItem(statusItems.tunnel)
         statusItems.clients.isEnabled = true
         menu.addItem(statusItems.clients)
@@ -356,7 +356,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshTunnelActionsMenu(_ item: NSMenuItem) {
-        item.submenu = makeTunnelActionsMenu()
+        item.submenu = makeTunnelActionsMenu(state: tunnelState)
     }
 
     private func updateUpdatesMenu() {
@@ -485,9 +485,9 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.submenu = submenu
     }
 
-    private func makeTunnelActionsMenu() -> NSMenu {
+    private func makeTunnelActionsMenu(state: ChatGPTTunnelState? = nil) -> NSMenu {
         let submenu = NSMenu()
-        let history = NSMenuItem(title: tunnelFailureHistoryTitle(), action: nil, keyEquivalent: "")
+        let history = NSMenuItem(title: tunnelFailureHistoryTitle(state: state), action: nil, keyEquivalent: "")
         history.isEnabled = false
         submenu.addItem(history)
         let openLog = NSMenuItem(
@@ -539,15 +539,23 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return submenu
     }
 
-    private func tunnelFailureHistoryTitle() -> String {
+    private func tunnelFailureHistoryTitle(state: ChatGPTTunnelState?) -> String {
         do {
             guard let latest = try tunnelFailureHistoryStore.read().last else {
                 return "Recent failures: none"
             }
-            return "Last failure: \(latest.occurredAt) \(latest.menuTitle)"
+            return Self.tunnelFailureHistoryTitle(state: state, latest: latest)
         } catch {
             return "Recent failures: unavailable"
         }
+    }
+
+    static func tunnelFailureHistoryTitle(
+        state: ChatGPTTunnelState?,
+        latest: ChatGPTTunnelFailure
+    ) -> String {
+        let label = state == .running ? "Previous failure (resolved)" : "Last failure"
+        return "\(label): \(latest.occurredAt) \(latest.menuTitle)"
     }
 
     func refreshClientsMenu() async {
