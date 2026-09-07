@@ -5,6 +5,7 @@ enum AppLaunchConfigurationError: LocalizedError, Equatable {
     case invalidArgument
     case passwordCommandNotAllowed
     case invalidChatGPTTunnelConfiguration
+    case unableToWriteConfiguration
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +17,8 @@ enum AppLaunchConfigurationError: LocalizedError, Equatable {
             return "Launch configuration must not contain password commands"
         case .invalidChatGPTTunnelConfiguration:
             return "Launch configuration contains an invalid ChatGPT tunnel"
+        case .unableToWriteConfiguration:
+            return "Unable to save MacMCP launch configuration"
         }
     }
 }
@@ -84,6 +87,55 @@ struct AppLaunchConfigurationStore: Sendable {
             launchAtLogin: payload.launchAtLogin ?? false,
             chatGPTTunnel: tunnel
         )
+    }
+
+    func write(
+        arguments: [String],
+        launchAtLogin: Bool,
+        chatGPTTunnel: ChatGPTTunnelConfiguration? = nil
+    ) throws {
+        try validate(arguments)
+        let tunnel = try chatGPTTunnel.map { configuration in
+            try validate(Payload.ChatGPTTunnel(
+                tunnelID: configuration.tunnelID,
+                clientPath: configuration.clientPath,
+                profile: configuration.profile
+            ))
+        }
+        let payload = Payload(
+            schemaVersion: 1,
+            args: arguments,
+            launchAtLogin: launchAtLogin,
+            chatGPTTunnel: tunnel.map {
+                Payload.ChatGPTTunnel(
+                    tunnelID: $0.tunnelID,
+                    clientPath: $0.clientPath,
+                    profile: $0.profile
+                )
+            }
+        )
+
+        do {
+            let directory = fileURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: directory.path
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(payload).write(to: fileURL, options: .atomic)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: fileURL.path
+            )
+        } catch {
+            throw AppLaunchConfigurationError.unableToWriteConfiguration
+        }
     }
 
     private func existingConfigurationURL() -> URL? {

@@ -43,6 +43,11 @@ enum CommandLineInterface {
                        [--mail-account ID=ADDRESS[,HOST[,PORT[,tls|starttls|plain]]]]
                        [--allow-unsafe-plain-imap]
                        [--eventkit-sidecar PATH] [--menu-bar]
+      macmcp-bridge --configure [--icloud-address ADDRESS]
+                       [--gmail-address ADDRESS]
+                       [--mail-account ID=ADDRESS[,HOST[,PORT[,tls|starttls|plain]]]]
+                       [--allow-unsafe-plain-imap] [--no-login-item]
+                       [--chatgpt-tunnel-id ID --chatgpt-tunnel-client PATH]
       macmcp-bridge --store-mail-password ADDRESS
       macmcp-bridge --delete-mail-password ADDRESS
       macmcp-bridge --store-chatgpt-tunnel-key
@@ -68,6 +73,11 @@ enum CommandLineInterface {
     the running MacMCP menu-bar app over local IPC. --diagnose-json prints a
     sanitized local runtime report and does not expose account identifiers,
     client names, file paths, or secrets.
+
+    --configure is for the packaged MacMCP app. It prompts for each mail
+    password and an optional ChatGPT tunnel key, stores them in Keychain, and
+    saves the app-owned launch configuration. It never accepts a password or
+    tunnel key as an argument or environment variable.
 
     """
 

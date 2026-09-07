@@ -40,6 +40,19 @@ if CommandLine.arguments.contains("--help") || CommandLine.arguments.contains("-
     exit(0)
 }
 
+if CommandLine.arguments.dropFirst().first == "--configure" {
+    do {
+        try AppConfigurationSetup.configure(
+            arguments: Array(CommandLine.arguments.dropFirst(2))
+        )
+        print("MacMCP setup is complete")
+        exit(0)
+    } catch {
+        writeStderr(error.localizedDescription)
+        exit(1)
+    }
+}
+
 if CommandLine.arguments.contains("--status-json") {
     do {
         print(try LocalBridgeIPC.requestBridgeStatus())

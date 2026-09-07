@@ -135,6 +135,49 @@ final class AppLaunchConfigurationStoreTests: XCTestCase {
         )
     }
 
+    func testWritesPrivateValidatedConfiguration() throws {
+        let fileURL = try temporaryFileURL()
+        let store = AppLaunchConfigurationStore(fileURL: fileURL)
+        let tunnel = ChatGPTTunnelConfiguration(
+            tunnelID: "tunnel_0123456789abcdef0123456789abcdef",
+            clientPath: "/opt/homebrew/bin/tunnel-client",
+            profile: "macmcp-local"
+        )
+
+        try store.write(
+            arguments: ["--gmail-address", "reader@gmail.com"],
+            launchAtLogin: true,
+            chatGPTTunnel: tunnel
+        )
+
+        XCTAssertEqual(
+            try store.readConfiguration(),
+            AppLaunchConfigurationStore.Configuration(
+                args: ["--gmail-address", "reader@gmail.com"],
+                launchAtLogin: true,
+                chatGPTTunnel: tunnel
+            )
+        )
+        let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+        XCTAssertEqual(attributes[.posixPermissions] as? NSNumber, 0o600)
+    }
+
+    func testWriteRejectsPasswordCommands() throws {
+        let store = AppLaunchConfigurationStore(fileURL: try temporaryFileURL())
+
+        XCTAssertThrowsError(
+            try store.write(
+                arguments: ["--store-mail-password", "reader@gmail.com"],
+                launchAtLogin: true
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AppLaunchConfigurationError,
+                .passwordCommandNotAllowed
+            )
+        }
+    }
+
     func testRejectsUnsafeChatGPTTunnelConfiguration() throws {
         let fileURL = try temporaryFileURL()
         try """

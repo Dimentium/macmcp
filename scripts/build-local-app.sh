@@ -68,6 +68,8 @@ bridge_binary="$project_dir/.build/release/macmcp-bridge"
 app_bridge="$app/Contents/MacOS/macmcp-bridge"
 app_eventkit="$app/Contents/Resources/CheICalMCP"
 app_mail="$app/Contents/Resources/mail-mcp"
+app_cli="$app/Contents/Resources/macmcp"
+cask_cli="$project_dir/Packaging/macmcp"
 
 if [[ "$eventkit_binary" != /* ]]; then
   echo "CheICalMCP path must be absolute: $eventkit_binary" >&2
@@ -89,7 +91,7 @@ if [[ -n "$mail_binary" && ! -x "$mail_binary" ]]; then
   exit 2
 fi
 
-if [[ ! -f "$info_plist" || ! -f "$entitlements" ]]; then
+if [[ ! -f "$info_plist" || ! -f "$entitlements" || ! -f "$cask_cli" ]]; then
   echo "Packaging template or entitlements file is missing" >&2
   exit 2
 fi
@@ -108,10 +110,11 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$info_plist" "$app/Contents/Info.plist"
 cp "$bridge_binary" "$app_bridge"
 cp "$eventkit_binary" "$app_eventkit"
+cp "$cask_cli" "$app_cli"
 if [[ -n "$mail_binary" ]]; then
   cp "$mail_binary" "$app_mail"
 fi
-chmod 755 "$app_bridge" "$app_eventkit"
+chmod 755 "$app_bridge" "$app_eventkit" "$app_cli"
 [[ -z "$mail_binary" ]] || chmod 755 "$app_mail"
 
 sign_target() {

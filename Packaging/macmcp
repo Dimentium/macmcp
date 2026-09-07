@@ -1,0 +1,98 @@
+#!/bin/bash
+set -euo pipefail
+
+resource_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+contents_dir="$(cd "$resource_dir/.." && pwd)"
+app_path="$(cd "$contents_dir/.." && pwd)"
+bridge="$contents_dir/MacOS/macmcp-bridge"
+
+usage() {
+  cat <<'EOF'
+Usage: macmcp <command> [options]
+
+Commands:
+  setup       Configure MacMCP and open the menu-bar app.
+  configure   Reconfigure accounts and open the menu-bar app.
+  diagnose    Print a sanitized local runtime report.
+  status      Print the bridge status JSON.
+  upgrade     Upgrade the MacMCP Cask with Homebrew.
+  uninstall   Remove the MacMCP Cask with Homebrew.
+  help        Show this help.
+
+Setup options use the iCloud, Gmail, custom IMAP, and optional ChatGPT tunnel
+arguments described by `macmcp-bridge --help`.
+EOF
+}
+
+[[ -x "$bridge" ]] || {
+  echo "MacMCP app runtime is missing" >&2
+  exit 1
+}
+
+command_name="${1:-setup}"
+if [[ $# -gt 0 ]]; then
+  shift
+fi
+
+case "$command_name" in
+  setup|configure)
+    for argument in "$@"; do
+      case "$argument" in
+        --help|-h)
+          exec "$bridge" --help
+          ;;
+      esac
+    done
+
+    has_tunnel_id=0
+    has_tunnel_client=0
+    for argument in "$@"; do
+      case "$argument" in
+        --chatgpt-tunnel-id)
+          has_tunnel_id=1
+          ;;
+        --chatgpt-tunnel-client)
+          has_tunnel_client=1
+          ;;
+      esac
+    done
+    if [[ "$has_tunnel_id" -eq 1 && "$has_tunnel_client" -eq 0 ]]; then
+      tunnel_client="$(command -v tunnel-client || true)"
+      if [[ -z "$tunnel_client" ]]; then
+        command -v brew >/dev/null || {
+          echo "Homebrew is required to install tunnel-client" >&2
+          exit 1
+        }
+        brew install openai/tools/tunnel-client
+        tunnel_client="$(command -v tunnel-client || true)"
+      fi
+      [[ -n "$tunnel_client" && -x "$tunnel_client" ]] || {
+        echo "tunnel-client was not found after Homebrew installation" >&2
+        exit 1
+      }
+      "$bridge" --configure "$@" --chatgpt-tunnel-client "$tunnel_client"
+    else
+      "$bridge" --configure "$@"
+    fi
+    exec /usr/bin/open "$app_path"
+    ;;
+  diagnose)
+    exec "$bridge" --diagnose-json
+    ;;
+  status)
+    exec "$bridge" --status-json
+    ;;
+  upgrade)
+    exec brew upgrade --cask macmcp
+    ;;
+  uninstall)
+    exec brew uninstall --cask macmcp
+    ;;
+  help|--help|-h)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 64
+    ;;
+esac

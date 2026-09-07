@@ -52,15 +52,17 @@ Install and configure it with:
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
 brew trust --tap Dimentium/macmcp
 brew install macmcp
-macmcp setup
+macmcp setup --gmail-address you@gmail.com
 ```
 
-`macmcp setup` installs the app and starts first-run configuration. It is the
-only setup command users need to run; the implementation scripts remain
-internal. After installation, the MacMCP menu-bar item shows bridge, mail,
-Calendar, Reminders, client approvals, notifications, and the optional tunnel.
-Open `Mail > account` to keep an account read-only or allow its limited mail
-actions. The control applies immediately and persists across app restarts.
+`macmcp setup` installs the app, prompts for the account app password, and
+starts first-run configuration. Use `--icloud-address` for iCloud Mail or
+`--mail-account` for a custom IMAP account; account options may be repeated.
+The implementation scripts remain internal. After installation, the MacMCP
+menu-bar item shows bridge, mail, Calendar, Reminders, client approvals,
+notifications, and the optional tunnel. Open `Mail > account` to keep an
+account read-only or allow its limited mail actions. The control applies
+immediately and persists across app restarts.
 
 macOS may ask for Keychain, Calendar, or Reminders access on first use. Grant
 only the permissions needed for the features you enable.
@@ -73,24 +75,38 @@ mail sidecar, and EventKit sidecar, so it will not need Swift, Go, or source
 checkouts on the target Mac. The first launch will still need account setup and
 the macOS permissions required by the enabled features.
 
+After the first notarized release is published, the Cask path will be:
+
+```bash
+brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
+brew install --cask macmcp
+macmcp setup --gmail-address you@gmail.com
+```
+
+`macmcp setup` prompts for the app password, stores it in Keychain, registers
+the Login Item, and opens the app. It accepts repeatable `--gmail-address`,
+`--icloud-address`, and `--mail-account` options. Adding
+`--chatgpt-tunnel-id tunnel_YOUR_ID` installs `tunnel-client` when needed and
+prompts once for the restricted runtime API key. Cask upgrades use
+`macmcp upgrade` or `brew upgrade --cask macmcp` and retain configuration and
+Keychain secrets.
+
 ## Connect ChatGPT
 
 The default local setup works with local MCP clients. To use MacMCP from
-ChatGPT, configure the optional tunnel from the MacMCP menu.
+ChatGPT, configure the optional tunnel during setup or reconfiguration.
 
 1. Create a tunnel in the [OpenAI tunnel settings](https://platform.openai.com/settings/organization/tunnels).
 2. Create a restricted runtime API key in the [OpenAI API key settings](https://platform.openai.com/api-keys).
-3. Install the OpenAI tunnel client once:
+3. Configure the tunnel. The Cask wrapper installs `tunnel-client` when needed:
 
    ```bash
-   brew install openai/tools/tunnel-client
-   ```
-
-4. Configure the tunnel during installation, or add it to an existing local
-   runtime:
-
-   ```bash
+   # Source installation with an existing configured runtime
    macmcp upgrade --chatgpt-tunnel-id tunnel_YOUR_ID
+
+   # Cask installation, including the configured account again
+   macmcp configure --gmail-address you@gmail.com \
+     --chatgpt-tunnel-id tunnel_YOUR_ID
    ```
 
    This requests the runtime key once and stores it in Keychain; the tunnel ID

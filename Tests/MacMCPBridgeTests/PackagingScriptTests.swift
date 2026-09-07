@@ -23,6 +23,9 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("Developer ID signature is missing a secure timestamp"))
         XCTAssertTrue(script.contains("\"$app_eventkit\""))
         XCTAssertTrue(script.contains("\"$app_mail\""))
+        XCTAssertTrue(script.contains("app_cli=\"$app/Contents/Resources/macmcp\""))
+        XCTAssertTrue(script.contains("cask_cli=\"$project_dir/Packaging/macmcp\""))
+        XCTAssertTrue(script.contains("cp \"$cask_cli\" \"$app_cli\""))
         XCTAssertTrue(script.contains("codesign --verify --strict --verbose=2 \"$app_mail\""))
         XCTAssertTrue(script.contains("codesign --verify --strict --verbose=2 \"$app_eventkit\""))
         XCTAssertTrue(script.contains("codesign --verify --deep --strict --verbose=2 \"$app\""))
@@ -148,6 +151,43 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertFalse(script.contains("AuthKey_"))
     }
 
+    func testCaskFormulaWriterTargetsTheNotarizedReleaseArchive() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/write-cask-formula.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
+        XCTAssertTrue(script.contains("MacMCP-VERSION-macos.zip"))
+        XCTAssertTrue(script.contains("shasum -a 256 \"$archive\""))
+        XCTAssertTrue(script.contains("# typed: strict"))
+        XCTAssertTrue(script.contains("releases/download/v#{version}/MacMCP-#{version}-macos.zip"))
+        XCTAssertTrue(script.contains("binary \"#{appdir}/MacMCP.app/Contents/Resources/macmcp\""))
+        XCTAssertTrue(script.contains("~/Library/Application Support/macmcp"))
+        XCTAssertFalse(script.contains("AuthKey_"))
+    }
+
+    func testPackagedVersionsMatchTheNextSourceRelease() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let appVersion = try String(
+            contentsOf: root.appendingPathComponent("Sources/MacMCPBridge/AppVersion.swift"),
+            encoding: .utf8
+        )
+        let appInfo = try String(
+            contentsOf: root.appendingPathComponent("Sources/MacMCPBridge/Info.plist"),
+            encoding: .utf8
+        )
+        let bundleInfo = try String(
+            contentsOf: root.appendingPathComponent("Packaging/Info.plist"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.3\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.3</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.3</string>").count, 3)
+    }
+
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let script = try String(
@@ -218,6 +258,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("uninstall-local.sh"))
         XCTAssertTrue(script.contains("remove_test_root()"))
         XCTAssertTrue(script.contains("HOME=\"$test_home\" go clean -modcache"))
+        XCTAssertTrue(script.contains("Contents/Resources/macmcp\" help"))
     }
 
     func testLocalUninstallScriptPreservesKeychainByDefault() throws {

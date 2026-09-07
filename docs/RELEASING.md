@@ -70,3 +70,22 @@ artifact can be inspected before publication with:
 codesign --verify --deep --strict --verbose=2 /path/to/MacMCP.app
 spctl --assess --type execute --verbose=4 /path/to/MacMCP.app
 ```
+
+## Publish the Cask
+
+After creating the signed artifact, create a GitHub Release for the matching
+`v<version>` tag and upload both files from `dist/`. Then generate and commit
+the Cask formula with the archive that was uploaded:
+
+```sh
+scripts/write-cask-formula.sh \
+  --archive /absolute/path/to/dist/MacMCP-<version>-macos.zip
+git add Casks/macmcp.rb
+git commit -m "Publish MacMCP <version> Cask"
+git push public public-main:main
+```
+
+The generated Cask installs `MacMCP.app` and exposes its bundle-owned `macmcp`
+command. `brew uninstall --cask macmcp` leaves Keychain secrets and user
+configuration intact; `--zap` removes configuration and caches but never
+removes Keychain records.
