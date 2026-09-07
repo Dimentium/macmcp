@@ -2,8 +2,8 @@
 # frozen_string_literal: true
 
 cask "macmcp" do
-  version "0.2.14"
-  sha256 "aedefaa67881ac92579dc505d7d596106808cb7b0179326e1eace3edd9f9c972"
+  version "0.2.15"
+  sha256 "e1c30de744063f4147f7595c48c4a33925133551a522d74de4c4765a9113b71d"
 
   url "https://github.com/Dimentium/macmcp/releases/download/v#{version}/MacMCP-#{version}-macos.zip"
   name "MacMCP"
