@@ -98,8 +98,8 @@ configured mail accounts, Calendar, and Reminders. It does not start
 
 The same gate runs automatically as the final step of
 `scripts/release.sh --install-local`. The current published and installed
-runtime is `MacMCP 0.2.20`; changes to these scripts and docs do not require a
-new binary release by themselves. The 0.2.20 publication completed through
+runtime is `MacMCP 0.2.21`; changes to these scripts and docs do not require a
+new binary release by themselves. The 0.2.21 publication completed through
 GitHub and Cask installation, but the `--install-local` restart wait reported
 that MacMCP did not exit. A manual post-install `macmcp diagnose --json` and
 `scripts/validate-local-mcp.sh` both passed.
