@@ -421,4 +421,19 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertFalse(script.contains("tccutil reset"))
     }
 
+    func testLiveAcceptanceValidationSupportsCaskRuntimeAndAccountGatedWrites() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/validate-live-acceptance.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.contains("MACMCP_BRIDGE_PATH"))
+        XCTAssertTrue(script.contains("/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge"))
+        XCTAssertTrue(script.contains("writeCapabilitiesEnabled"))
+        XCTAssertTrue(script.contains("runtime=PASS mode=reader mail_actions=account_gated"))
+        XCTAssertTrue(script.contains("validate-local-mail-readonly.py\" --deep"))
+        XCTAssertFalse(script.contains("reader_contract"))
+    }
+
 }

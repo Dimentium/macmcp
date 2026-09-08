@@ -23,7 +23,7 @@ EOF
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 install_root="${MACMCP_INSTALL_ROOT:-${MAC_AGENT_BRIDGE_INSTALL_ROOT:-$HOME/.local/opt/macmcp}}"
-runtime_cli="$install_root/bin/macmcp-bridge"
+runtime_bridge="${MACMCP_BRIDGE_PATH:-$install_root/bin/macmcp-bridge}"
 phase="manual"
 require_tunnel=0
 skip_mail_validation=0
@@ -55,12 +55,23 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -x "$runtime_cli" ]] || {
-  echo "runtime_cli=FAIL reason=not_installed"
+if [[ ! -x "$runtime_bridge" ]]; then
+  for candidate in \
+    "/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge" \
+    "$HOME/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge"; do
+    if [[ -x "$candidate" ]]; then
+      runtime_bridge="$candidate"
+      break
+    fi
+  done
+fi
+
+[[ -x "$runtime_bridge" ]] || {
+  echo "runtime_bridge=FAIL reason=not_installed"
   exit 1
 }
 
-diagnostics="$($runtime_cli --diagnose-json)" || {
+diagnostics="$($runtime_bridge --diagnose-json)" || {
   echo "diagnostics=FAIL reason=unavailable"
   exit 1
 }
@@ -84,8 +95,8 @@ if bridge.get("availability") != "available":
     print("runtime=FAIL reason=bridge_unavailable")
     sys.exit(1)
 status = bridge.get("status") or {}
-if status.get("writeCapabilitiesEnabled") is not False:
-    print("runtime=FAIL reason=reader_contract")
+if not isinstance(status.get("writeCapabilitiesEnabled"), bool):
+    print("runtime=FAIL reason=capability_status")
     sys.exit(1)
 if require_tunnel == "1" and report.get("tunnel") != "running":
     print("tunnel=FAIL reason=not_running")
@@ -93,7 +104,7 @@ if require_tunnel == "1" and report.get("tunnel") != "running":
 
 print("macmcp-live-acceptance")
 print(f"phase={phase}")
-print("runtime=PASS reader_only=true")
+print("runtime=PASS mode=reader mail_actions=account_gated")
 print("tunnel=" + ("PASS running" if require_tunnel == "1" else "SKIP not_required"))
 PY
 
