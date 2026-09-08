@@ -81,6 +81,31 @@ dirty worktree, mismatched version fields, existing version tag, absent GitHub
 authentication, missing artifact, checksum mismatch, or mismatched Cask and
 formula revision.
 
+## Local Acceptance Gate
+
+Run the local gate directly from this checkout when diagnosing or verifying an
+installed runtime:
+
+```sh
+scripts/validate-local-mcp.sh
+```
+
+It uses the app-owned bridge and socket, so it also works with a Cask install
+that has no standalone `mcp.local.json`. It checks diagnostics, approvals, all
+17 published tools, `outputSchema` plus real `structuredContent`, both
+configured mail accounts, Calendar, and Reminders. It does not start
+`tunnel-client`, create drafts, change message flags, or modify mail data.
+
+The same gate runs automatically as the final step of
+`scripts/release.sh --install-local`. The current published and installed
+runtime is `MacMCP 0.2.19`; changes to these scripts and docs do not require a
+new binary release by themselves.
+
+`scripts/validate-local-mail-readonly.py` remains an optional deeper IMAP
+snapshot check. It reads passwords through the macOS `security` CLI and may
+trigger a Keychain prompt. It is intentionally not part of the normal release
+gate.
+
 ## Low-Level Notarization
 
 Run this only on the release Mac:
