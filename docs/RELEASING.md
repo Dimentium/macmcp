@@ -101,10 +101,11 @@ The same gate runs automatically as the final step of
 runtime is `MacMCP 0.2.19`; changes to these scripts and docs do not require a
 new binary release by themselves.
 
-`scripts/validate-local-mail-readonly.py` remains an optional deeper IMAP
-snapshot check. It reads passwords through the macOS `security` CLI and may
-trigger a Keychain prompt. It is intentionally not part of the normal release
-gate.
+`scripts/validate-local-mail-readonly.py --deep` remains an optional deeper IMAP
+snapshot check. The script refuses to run without `--deep`, so an accidental
+invocation cannot touch Keychain or start an IMAP session. The deep check reads
+passwords through the macOS `security` CLI and may trigger a Keychain prompt;
+it is intentionally not part of the normal release gate.
 
 ## Low-Level Notarization
 

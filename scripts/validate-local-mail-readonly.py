@@ -4,6 +4,8 @@ Privacy-safe local IMAP/MCP validation.
 
 This script intentionally prints only aggregate PASS/FAIL status. It suppresses
 raw MCP, IMAP, Keychain, message, folder, UID, subject, sender, and body data.
+The independent IMAP snapshot portion is a deliberate deep check and must be
+enabled explicitly with --deep.
 """
 
 from __future__ import annotations
@@ -610,7 +612,23 @@ def safe_reason(error: Exception) -> str:
     return text[:160]
 
 
+def require_deep_option() -> None:
+    arguments = sys.argv[1:]
+    if arguments == ["--deep"]:
+        return
+    if arguments in (["--help"], ["-h"]):
+        print("usage: scripts/validate-local-mail-readonly.py --deep")
+        print("Runs the independent IMAP snapshot validation; Keychain access may prompt.")
+        raise SystemExit(0)
+    print(
+        "deep IMAP validation is opt-in; rerun with --deep (use --help for details)",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+
 if __name__ == "__main__":
+    require_deep_option()
     try:
         sys.exit(main())
     except KeyboardInterrupt:

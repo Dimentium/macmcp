@@ -411,6 +411,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("--status-json"))
         XCTAssertTrue(script.contains("--client-approvals-json"))
         XCTAssertTrue(script.contains("validate-local-mail-readonly.py"))
+        XCTAssertTrue(script.contains("validate-local-mail-readonly.py\" --deep"))
         XCTAssertTrue(script.contains("accounts_configured=$count"))
         XCTAssertTrue(script.contains("process_stdio_proxy"))
         XCTAssertTrue(script.contains("process_chatgpt_tunnel"))

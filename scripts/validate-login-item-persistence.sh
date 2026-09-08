@@ -259,7 +259,7 @@ fi
 
 if [[ "$run_mail_validation" -eq 1 ]]; then
   if [[ -x "$project_dir/scripts/validate-local-mail-readonly.py" ]]; then
-    if "$project_dir/scripts/validate-local-mail-readonly.py"; then
+    if "$project_dir/scripts/validate-local-mail-readonly.py" --deep; then
       pass mail_reader_validation
     else
       fail mail_reader_validation

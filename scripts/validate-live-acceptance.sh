@@ -98,7 +98,7 @@ print("tunnel=" + ("PASS running" if require_tunnel == "1" else "SKIP not_requir
 PY
 
 if [[ "$skip_mail_validation" -eq 0 ]]; then
-  "$script_dir/validate-local-mail-readonly.py"
+  "$script_dir/validate-local-mail-readonly.py" --deep
 else
   echo "mail_no_mutation=SKIP"
 fi
