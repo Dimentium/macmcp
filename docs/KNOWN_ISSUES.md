@@ -6,10 +6,6 @@ personal data.
 
 ## Deferred Verification
 
-- Per-account mail actions on iCloud and Gmail: create a recipient-free draft,
-  reject a human recipient edit, update an unchanged draft, and confirm that
-  toggling `Read only` blocks and re-allows the same tools through local MCP
-  and the tunnel without a restart.
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
   `reminders.list` response with the old default of 100 items occupied about
   125 KiB because the untrusted-data envelope is intentionally present in both
@@ -50,6 +46,9 @@ personal data.
 - Subsequent signed Cask updates preserved the working ChatGPT tunnel in
   already-open chats; discovery and normal tool calls did not regress after
   updates.
+- ChatGPT validation covered both Gmail and iCloud: recipient-free managed
+  drafts were created and updated, and re-enabling `Read only` blocked a later
+  update immediately without restarting MacMCP.
 - Public sidecar outputs are bounded after JSON escaping and structured-output
   duplication, rather than only at their raw source-text size. This prevents a
   large Calendar, Reminders, mail, or attachment response from producing an
