@@ -34,11 +34,11 @@ enum MacMCPServerMetadata {
         case "calendar.list":
             description = "List calendars available through local Apple Calendar on this Mac. Use for local calendar-account or calendar-list questions."
         case "calendar.events":
-            description = "Read events from local Apple Calendar for a specified date range. Use for calendar questions when a date range or calendar filter is needed."
+            description = "Read events from local Apple Calendar for a specified date range. The default is compact summary; use `detail_level=standard` or a `fields` array to include notes, URL, location, structured location, attendees, organizer, and recurrence when present. Use for calendar questions when a date range or calendar filter is needed."
         case "calendar.upcoming":
-            description = "Read upcoming events from local Apple Calendar. Prefer this for questions such as what is on the calendar today, tomorrow, this week, or soon. This is separate from the Google Calendar integration."
+            description = "Read upcoming events from local Apple Calendar. The default is compact summary; use `detail_level=standard` or a `fields` array to include notes, URL, location, structured location, attendees, organizer, and recurrence when present. Prefer this for questions such as what is on the calendar today, tomorrow, this week, or soon. This is separate from the Google Calendar integration."
         case "calendar.search":
-            description = "Search events in local Apple Calendar. Use for questions about a meeting or event by name, keyword, date range, or calendar."
+            description = "Search events in local Apple Calendar. The default is compact summary; use `detail_level=standard` or a `fields` array to include notes, URL, location, structured location, attendees, organizer, and recurrence when present. Use for questions about a meeting or event by name, keyword, date range, or calendar."
         case "reminders.list":
             description = "Read reminders from local Apple Reminders. Use for questions about current, incomplete, completed, or filtered reminders on this Mac."
         case "reminders.search":

@@ -82,20 +82,32 @@ final class ReaderPolicyTests: XCTestCase {
         XCTAssertEqual(arguments["limit"], .int(10))
     }
 
-    func testCalendarDetailIsForcedToSummary() throws {
-        let arguments = try ReaderPolicy().prepareArguments(
-            for: "calendar.events",
-            supplied: ["limit": .int(5)]
-        )
-        XCTAssertEqual(arguments["detail_level"], .string("summary"))
+    func testCalendarDetailDefaultsToSummaryButAllowsStandardAndFields() throws {
+        let selectedFields: [Value] = [
+            .string("title"), .string("notes"), .string("location"),
+            .string("url"), .string("structured_location"), .string("attendees"),
+            .string("organizer")
+        ]
+        let policy = ReaderPolicy()
 
-        XCTAssertThrowsError(
-            try ReaderPolicy().prepareArguments(
-                for: "calendar.events",
+        for toolName in ["calendar.events", "calendar.upcoming", "calendar.search"] {
+            let arguments = try policy.prepareArguments(
+                for: toolName,
+                supplied: ["limit": .int(5)]
+            )
+            XCTAssertEqual(arguments["detail_level"], .string("summary"), toolName)
+
+            let detailed = try policy.prepareArguments(
+                for: toolName,
                 supplied: ["detail_level": .string("standard")]
             )
-        ) { error in
-            XCTAssertEqual(error as? ReaderPolicyError, .unknownArgument("detail_level"))
+            XCTAssertEqual(detailed["detail_level"], .string("standard"), toolName)
+
+            let selected = try policy.prepareArguments(
+                for: toolName,
+                supplied: ["fields": .array(selectedFields)]
+            )
+            XCTAssertEqual(selected["fields"], .array(selectedFields), toolName)
         }
     }
 
@@ -134,7 +146,11 @@ final class ReaderPolicyTests: XCTestCase {
                     "range": .object(["type": .string("string")]),
                     "week_starts_on": .object(["type": .string("string")]),
                     "limit": .object(["type": .string("integer")]),
-                    "detail_level": .object(["type": .string("string")])
+                    "detail_level": .object(["type": .string("string")]),
+                    "fields": .object([
+                        "type": .string("array"),
+                        "items": .object(["type": .string("string")])
+                    ])
                 ])
             ])
         )
@@ -149,6 +165,17 @@ final class ReaderPolicyTests: XCTestCase {
                 .string("next_30_days"), .string("next_7_days"), .string("next_week"),
                 .string("this_month"), .string("this_week"), .string("today"), .string("tomorrow")
             ])
+        )
+
+        let properties = projected.inputSchema.objectValue?["properties"]?.objectValue
+        XCTAssertEqual(
+            properties?["detail_level"]?.objectValue?["enum"],
+            .array([.string("standard"), .string("summary")])
+        )
+        XCTAssertEqual(properties?["fields"]?.objectValue?["type"], .string("array"))
+        XCTAssertEqual(
+            properties?["fields"]?.objectValue?["items"],
+            .object(["type": .string("string")])
         )
     }
 

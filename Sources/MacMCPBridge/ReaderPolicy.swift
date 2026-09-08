@@ -129,11 +129,11 @@ struct ReaderPolicy: Sendable {
             upstreamName: "list_events",
             allowedArguments: [
                 "start_date", "end_date", "calendar_name", "calendar_source", "filter",
-                "sort", "limit", "display_timezone"
+                "sort", "limit", "detail_level", "fields", "display_timezone"
             ],
-            defaultArguments: ["limit": .int(100)],
-            forcedArguments: ["detail_level": .string("summary")],
-            maximumIntegers: ["limit": 100]
+            defaultArguments: ["limit": .int(100), "detail_level": .string("summary")],
+            maximumIntegers: ["limit": 100],
+            allowedStrings: ["detail_level": ["summary", "standard"]]
         ),
         ReaderToolRule(
             publicName: "calendar.upcoming",
@@ -141,12 +141,12 @@ struct ReaderPolicy: Sendable {
             upstreamName: "list_events_quick",
             allowedArguments: [
                 "range", "week_starts_on", "calendar_name", "calendar_source", "limit",
-                "display_timezone"
+                "detail_level", "fields", "display_timezone"
             ],
-            defaultArguments: ["limit": .int(100)],
-            forcedArguments: ["detail_level": .string("summary")],
+            defaultArguments: ["limit": .int(100), "detail_level": .string("summary")],
             maximumIntegers: ["limit": 100],
             allowedStrings: [
+                "detail_level": ["summary", "standard"],
                 "range": [
                     "today", "tomorrow", "this_week", "next_week", "this_month",
                     "next_7_days", "next_30_days"
@@ -160,11 +160,11 @@ struct ReaderPolicy: Sendable {
             upstreamName: "search_events",
             allowedArguments: [
                 "keyword", "keywords", "match_mode", "start_date", "end_date",
-                "calendar_name", "calendar_source", "limit", "display_timezone"
+                "calendar_name", "calendar_source", "limit", "detail_level", "fields", "display_timezone"
             ],
-            defaultArguments: ["limit": .int(100)],
-            forcedArguments: ["detail_level": .string("summary")],
-            maximumIntegers: ["limit": 100]
+            defaultArguments: ["limit": .int(100), "detail_level": .string("summary")],
+            maximumIntegers: ["limit": 100],
+            allowedStrings: ["detail_level": ["summary", "standard"]]
         ),
         ReaderToolRule(
             publicName: "reminders.list",
