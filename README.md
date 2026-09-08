@@ -10,6 +10,9 @@ The app owns the local runtime, stores secrets in macOS Keychain, and exposes a
 MCP endpoint. An optional OpenAI tunnel makes the same endpoint available to
 ChatGPT.
 
+For the current engineering state, verified behavior, and continuation notes,
+see [docs/HANDOFF.md](docs/HANDOFF.md).
+
 ## What It Can Do
 
 - Search and read mail from multiple IMAP accounts, including iCloud Mail and

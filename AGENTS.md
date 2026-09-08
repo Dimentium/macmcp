@@ -1,5 +1,12 @@
 # Agent Notes
 
+## Continuity
+
+Read [docs/HANDOFF.md](docs/HANDOFF.md) first for the current architecture,
+verified state, open work, and operational constraints. Keep it aligned with
+`docs/PLAN.md`, `docs/KNOWN_ISSUES.md`, and `docs/RELEASING.md`; do not create a
+second competing handoff document.
+
 ## Release MacMCP
 
 For a normal release, use `scripts/release.sh`. Do not publish a signed app or
