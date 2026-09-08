@@ -28,6 +28,24 @@ their private config, reconnect the router, and expose restart counts in bridge
 status. A CI deployment acceptance runs setup, upgrade, diagnose, and uninstall
 inside a temporary HOME without touching a real user configuration.
 
+## Current Operational Notes
+
+- The published and installed runtime is `MacMCP 0.2.19`; the current source
+  changes do not require a new binary release.
+- Run `scripts/validate-local-mcp.sh` from this checkout to validate the local
+  app-owned MCP path. It uses the installed bridge and socket, works with a
+  Cask install even when no standalone `mcp.local.json` exists, and does not
+  start `tunnel-client` or modify mail.
+- The local gate checks diagnostics, approvals, all 17 published tools,
+  `outputSchema` plus real `structuredContent`, both configured mail accounts,
+  Calendar, and Reminders. The tunnel is intentionally reported as skipped.
+- `scripts/validate-local-mail-readonly.py` is a deeper optional IMAP snapshot
+  check. It reads passwords through the macOS `security` CLI and can therefore
+  trigger a Keychain prompt; do not use it as the normal release gate.
+- The local acceptance commit is published on `public/main`. ChatGPT tunnel
+  acceptance and already-open ChatGPT chat behavior remain deferred and are not
+  part of the automated release gate.
+
 ## Direction
 
 1. Keep signed Cask upgrades reliable.
