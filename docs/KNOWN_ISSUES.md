@@ -17,6 +17,13 @@ personal data.
   disabled its connector; a branch may help because it creates a new chat, but
   is not a reliable repair for an already disabled tool session.
 
+- `scripts/release.sh --install-local` successfully upgraded the 0.2.20 Cask,
+  but its restart wait reported that MacMCP did not exit. The installed app
+  was healthy afterward, and the manual post-install `macmcp diagnose` plus
+  `scripts/validate-local-mcp.sh` both passed. The restart/quit detection in
+  the release step still needs a follow-up before relying on that step as the
+  only final acceptance signal.
+
 ## Resolved Since The 2026-09-05 Audit
 
 - Reader sidecars cannot start through the direct production CLI path; data

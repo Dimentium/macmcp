@@ -3,7 +3,7 @@
 Last verified: 2026-09-08
 Repository: `Dimentium/macmcp`
 Working branch: `public-main`, pushed to `public/main`
-Current published and installed app: `MacMCP 0.2.19`
+Current published and installed app: `MacMCP 0.2.20`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -39,7 +39,7 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.19
+app version: 0.2.20
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
@@ -201,12 +201,20 @@ Do not manually replace the Cask unless diagnosing a failed release step.
    remote ChatGPT/tunnel product surface. Local attachment text extraction has
    already passed; the current local gate checks the tool surface but does not
    call an attachment.
-3. Investigate the observed diagnostics discrepancy where `launchAtLogin` was
-   true while the `loginItem` field reported `not_registered`. Confirm whether
-   this is a reporting/API distinction before changing Login Item behavior.
-4. Consider adding a privacy-safe local attachment call to the acceptance gate
+3. Consider adding a privacy-safe local attachment call to the acceptance gate
    if a deterministic attachment fixture can be used without modifying a real
    mailbox.
+
+The earlier `launchAtLogin=true` / `loginItem=not_registered` observation was
+confirmed to be two distinct states: the persisted preference in `launch.json`
+and the actual `SMAppService.mainApp.status`. On the installed 0.2.20 runtime
+both the diagnostic and direct Login Item query report `enabled`; no Login Item
+behavior change is needed.
+
+The 0.2.20 publication also exposed a release-script follow-up: the Cask
+upgrade completed, but `release.sh --install-local` did not observe the app
+exiting during its restart step. The post-install diagnostic and local gate
+pass when run manually.
 
 The per-account draft/read-only acceptance item is closed by manual ChatGPT
 testing. The response-size edge case remains a deferred remote verification,
