@@ -57,9 +57,9 @@ each ad-hoc-signed replacement.
    the Homebrew client when requested, stores the runtime key in Keychain, and
    the menu-bar app owns its lifecycle. A live new ChatGPT chat has completed
    consecutive remote mail calls after reconnect. Continue validating
-   account-gated remote mail actions and treat a connector disabled in one
-   existing ChatGPT chat as remote per-chat state: a new chat is the reliable
-   workaround. The public untrusted-data envelope is bounded below 12 KiB
+   account-gated remote mail actions. A connector disabled in one existing
+   ChatGPT chat was a per-chat state issue; subsequent signed Cask updates
+   have not broken existing chats. The public untrusted-data envelope is bounded below 12 KiB
    after JSON escaping and duplication into both MCP response fields; this
    keeps large mail, Calendar, Reminder, and attachment results within a
    conservative remote transport budget. Claude Desktop support is

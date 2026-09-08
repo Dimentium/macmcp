@@ -6,11 +6,6 @@ personal data.
 
 ## Deferred Verification
 
-- ChatGPT tunnel acceptance after a normal in-app Cask update: tunnel reconnect,
-  remote discovery, consecutive calls, and the behavior of an already-open
-  ChatGPT chat. The local bridge and data paths are now checked automatically
-  by `scripts/validate-local-mcp.sh`; this item is deliberately not part of the
-  release gate.
 - Per-account mail actions on iCloud and Gmail: create a recipient-free draft,
   reject a human recipient edit, update an unchanged draft, and confirm that
   toggling `Read only` blocks and re-allows the same tools through local MCP
@@ -52,6 +47,9 @@ personal data.
 - A live remote ChatGPT tunnel session completed consecutive Mail calls after
   tunnel reconnect. The app, tunnel client, local proxy, and both mail
   sidecars remained healthy throughout.
+- Subsequent signed Cask updates preserved the working ChatGPT tunnel in
+  already-open chats; discovery and normal tool calls did not regress after
+  updates.
 - Public sidecar outputs are bounded after JSON escaping and structured-output
   duplication, rather than only at their raw source-text size. This prevents a
   large Calendar, Reminders, mail, or attachment response from producing an
