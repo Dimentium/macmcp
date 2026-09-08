@@ -447,8 +447,10 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
                 "capabilities": .object(["tools": .object([:])]),
                 "serverInfo": .object([
                     "name": .string(AppVersion.name),
-                    "version": .string(AppVersion.version)
-                ])
+                    "version": .string(AppVersion.version),
+                    "title": .string(MacMCPServerMetadata.title)
+                ]),
+                "instructions": .string(MacMCPServerMetadata.instructions)
             ])
         case "ping":
             return .object([:])

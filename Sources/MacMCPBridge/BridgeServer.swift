@@ -27,6 +27,8 @@ final class BridgeServer {
         server = Server(
             name: AppVersion.name,
             version: AppVersion.version,
+            title: MacMCPServerMetadata.title,
+            instructions: MacMCPServerMetadata.instructions,
             capabilities: .init(tools: .init())
         )
         transport = StdioTransport()
@@ -42,7 +44,7 @@ final class BridgeServer {
         [
             Tool(
                 name: "bridge_status",
-                description: "Report local bridge health and capability mode. Does not access personal data.",
+                description: "Report local MacMCP health and capability mode. Use to verify that local Mail, Calendar, and Reminders access is available; it does not access personal data.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([:]),

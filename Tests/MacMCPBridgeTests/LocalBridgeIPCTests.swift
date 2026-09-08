@@ -139,7 +139,10 @@ final class LocalBridgeIPCTests: XCTestCase {
             ]
         )
         XCTAssertNil(initialize["error"])
-        XCTAssertNotNil((initialize["result"] as? [String: Any])?["serverInfo"])
+        let initializeResult = initialize["result"] as? [String: Any]
+        let serverInfo = initializeResult?["serverInfo"] as? [String: Any]
+        XCTAssertEqual(serverInfo?["title"] as? String, MacMCPServerMetadata.title)
+        XCTAssertEqual(initializeResult?["instructions"] as? String, MacMCPServerMetadata.instructions)
 
         let listTools = try request(fd: fd, id: 2, method: "tools/list", params: [:])
         let tools = ((listTools["result"] as? [String: Any])?["tools"] as? [[String: Any]]) ?? []

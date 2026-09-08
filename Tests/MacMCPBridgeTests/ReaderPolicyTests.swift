@@ -254,6 +254,23 @@ final class ReaderPolicyTests: XCTestCase {
         XCTAssertEqual(projected.annotations.readOnlyHint, true)
         XCTAssertEqual(projected.outputSchema, ReaderOutputSchema.untrustedData)
         XCTAssertFalse(projected.description?.contains("Read email") ?? true)
+        XCTAssertTrue(projected.description?.contains("local macOS Mail") == true)
+        XCTAssertTrue(projected.description?.contains("mail.search") == true)
+    }
+
+    func testProjectedDescriptionsRouteNaturalLanguageDomains() throws {
+        let cases = [
+            ("mail.search", "new, recent, unread"),
+            ("calendar.upcoming", "calendar today"),
+            ("reminders.list", "local Apple Reminders")
+        ]
+
+        for (name, expectedPhrase) in cases {
+            XCTAssertTrue(
+                MacMCPServerMetadata.toolDescription(for: name, exposure: .reader).contains(expectedPhrase),
+                "Expected \(name) description to contain \(expectedPhrase)"
+            )
+        }
     }
 
     func testZeroArgumentToolAcceptsObjectSchemaWithoutProperties() throws {
