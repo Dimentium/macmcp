@@ -3,7 +3,7 @@
 Last verified: 2026-09-09
 Repository: `Dimentium/macmcp`
 Working branch: `public-main`, pushed to `public/main`
-Current published and installed app: `MacMCP 0.2.22`
+Current published and installed app: `MacMCP 0.2.24`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -39,7 +39,7 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.22
+app version: 0.2.24
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
@@ -207,16 +207,23 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 The earlier `launchAtLogin=true` / `loginItem=not_registered` observation was
 confirmed to be two distinct states: the persisted preference in `launch.json`
-and the actual `SMAppService.mainApp.status`. On the installed 0.2.22 runtime
-both the diagnostic and direct Login Item query report `enabled`; no Login Item
-behavior change is needed.
+and the actual `SMAppService.mainApp.status`. On the installed 0.2.24 runtime
+both the diagnostic and direct Login Item query report `enabled`; no Login
+Item behavior change is needed.
 
-The 0.2.22 publication reproduced the release-script follow-up: the Cask
+The 0.2.24 publication reproduced the release-script follow-up: the Cask
 upgrade completed, but `release.sh --install-local` mistook the still-running
 Codex `macmcp-bridge --stdio-proxy` for the app runtime and stopped during its
-restart wait. Launching the new Cask manually produced a healthy 0.2.22 app;
+restart wait. Launching the new Cask manually produced a healthy 0.2.24 app;
 the post-install diagnostic and local gate pass, and the configured tunnel is
 running. The restart/quit detection still needs a follow-up.
+
+The 0.2.24 idle-CPU fix traced the remaining load to the pinned MCP Swift SDK:
+each empty non-blocking stdio pipe was retried every 10 ms. The release build
+now applies a reproducible 100 ms backoff to both the bridge and CheICalMCP
+sidecar. After stabilization, a 20-second CPU-time sample measured roughly
+0.35% for the bridge and 0.2% for CheICalMCP, with Mail and tunnel-client near
+0%.
 
 The per-account draft/read-only acceptance item is closed by manual ChatGPT
 testing. The response-size edge case remains a deferred remote verification,
@@ -258,6 +265,8 @@ not a reason to change the local bridge without a reproduction.
 ## Recent Commits
 
 - `252b995` Support Cask runtime in live validation
+- `1db1f5b` Reduce idle MCP transport polling
+- `3efb899` Publish MacMCP 0.2.24 Cask
 - `ac73a60` Record mail action acceptance
 - `90774bd` Record stable ChatGPT updates
 - `b5b019b` Make deep IMAP validation opt in

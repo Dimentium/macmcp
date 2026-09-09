@@ -17,7 +17,7 @@ personal data.
   disabled its connector; a branch may help because it creates a new chat, but
   is not a reliable repair for an already disabled tool session.
 
-- `scripts/release.sh --install-local` successfully upgraded the 0.2.22 Cask,
+- `scripts/release.sh --install-local` successfully upgraded the 0.2.24 Cask,
   but its restart wait mistook a still-running Codex
   `macmcp-bridge --stdio-proxy` for the app runtime and reported that MacMCP
   did not exit. Launching the installed app manually restored a healthy
@@ -37,6 +37,8 @@ personal data.
 - Tunnel diagnostics retain the 12 newest redacted failures across app and
   process restarts, and expose the latest one in the menu and all records in
   `macmcp diagnose`.
+- The idle CPU issue is resolved in 0.2.24: the pinned MCP Swift SDK's empty
+  stdio retry now backs off to 100 ms for both the bridge and EventKit sidecar.
 - CheICalMCP now builds only with the reviewed, checksum-verified
   `CheICalMCP.Package.resolved` graph and `--disable-automatic-resolution`.
 - Custom plain IMAP requires an explicit `--allow-unsafe-plain-imap` override.
