@@ -113,6 +113,7 @@ fi
 cd "$project_dir"
 plutil -lint "$info_plist" "$entitlements" >/dev/null
 # Keep the final app path as this script's only stdout value for callers.
+"$script_dir/patch-mcp-sdk-stdio.sh" --package-path "$project_dir" >&2
 swift build -c release --product macmcp-bridge >&2
 if [[ ! -x "$bridge_binary" ]]; then
   echo "Release bridge binary was not produced" >&2

@@ -227,6 +227,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
         XCTAssertTrue(script.contains("--install-local"))
         XCTAssertTrue(script.contains("git status --porcelain"))
+        XCTAssertTrue(script.contains("patch-mcp-sdk-stdio.sh"))
         XCTAssertTrue(script.contains("swift test"))
         XCTAssertTrue(script.contains("notarize-local-app.sh"))
         XCTAssertTrue(script.contains("git tag -a \"$tag\""))
@@ -240,6 +241,26 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("validate-local-mcp.sh"))
         XCTAssertTrue(script.contains("Release failed at step"))
         XCTAssertFalse(script.contains("AuthKey_"))
+    }
+
+    func testIdleStdioPatchIsAppliedToEverySwiftBuild() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let patch = try String(
+            contentsOf: root.appendingPathComponent("Packaging/mcp-sdk-stdio-idle.patch"),
+            encoding: .utf8
+        )
+        let appBuild = try String(
+            contentsOf: root.appendingPathComponent("scripts/build-local-app.sh"),
+            encoding: .utf8
+        )
+        let eventKitBuild = try String(
+            contentsOf: root.appendingPathComponent("scripts/build-pinned-eventkit-sidecar.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(patch.contains("milliseconds(100)"))
+        XCTAssertTrue(appBuild.contains("patch-mcp-sdk-stdio.sh"))
+        XCTAssertTrue(eventKitBuild.contains("patch-mcp-sdk-stdio.sh"))
     }
 
     func testPackagedVersionsMatchTheNextSourceRelease() throws {
@@ -257,9 +278,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.23\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.23</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.23</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.24\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.24</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.24</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

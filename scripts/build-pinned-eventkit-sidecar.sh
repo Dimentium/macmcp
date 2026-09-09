@@ -90,6 +90,7 @@ echo "Building pinned CheICalMCP from $CHE_COMMIT" >&2
 git -C "$che_src" fetch --tags origin >&2
 git -C "$che_src" checkout --detach "$CHE_COMMIT" >&2
 cp "$che_resolution" "$che_src/Package.resolved"
+"$project_dir/scripts/patch-mcp-sdk-stdio.sh" --package-path "$che_src" >&2
 swift build --disable-automatic-resolution -c release --product CheICalMCP --package-path "$che_src" >&2
 
 [[ -x "$che_binary" ]] || {

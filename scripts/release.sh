@@ -232,6 +232,7 @@ printf 'Release version: %s\nSource commit: %s\nPublic remote: %s\n' \
   "$version" "$source_revision" "$remote"
 
 log_step 2 "Run the full test suite"
+"$script_dir/patch-mcp-sdk-stdio.sh" --package-path "$project_dir"
 swift test
 require_clean_worktree
 

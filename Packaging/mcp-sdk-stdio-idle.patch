@@ -1,0 +1,15 @@
+diff --git a/Sources/MCP/Base/Transports/StdioTransport.swift b/Sources/MCP/Base/Transports/StdioTransport.swift
+index 45522fa..be7b075 100644
+--- a/Sources/MCP/Base/Transports/StdioTransport.swift
++++ b/Sources/MCP/Base/Transports/StdioTransport.swift
+@@ -163,7 +163,8 @@ import struct Foundation.Data
+                         }
+                     }
+                 } catch let error where MCPError.isResourceTemporarilyUnavailable(error) {
++                    // MacMCP idle transport: avoid a 100 Hz retry loop on empty pipes.
+-                    try? await Task.sleep(for: .milliseconds(10))
++                    try? await Task.sleep(for: .milliseconds(100))
+                     continue
+                 } catch {
+                     if !Task.isCancelled {
+                         logger.error("Read error occurred", metadata: ["error": "\(error)"])
