@@ -17,9 +17,11 @@ personal data.
   disabled its connector; a branch may help because it creates a new chat, but
   is not a reliable repair for an already disabled tool session.
 
-- `scripts/release.sh --install-local` successfully upgraded the 0.2.21 Cask,
-  but its restart wait reported that MacMCP did not exit. The installed app
-  was healthy afterward, and the manual post-install `macmcp diagnose` plus
+- `scripts/release.sh --install-local` successfully upgraded the 0.2.22 Cask,
+  but its restart wait mistook a still-running Codex
+  `macmcp-bridge --stdio-proxy` for the app runtime and reported that MacMCP
+  did not exit. Launching the installed app manually restored a healthy
+  runtime; the post-install `macmcp diagnose` and
   `scripts/validate-local-mcp.sh` both passed. The restart/quit detection in
   the release step still needs a follow-up before relying on that step as the
   only final acceptance signal.

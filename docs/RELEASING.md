@@ -98,11 +98,13 @@ configured mail accounts, Calendar, and Reminders. It does not start
 
 The same gate runs automatically as the final step of
 `scripts/release.sh --install-local`. The current published and installed
-runtime is `MacMCP 0.2.21`; changes to these scripts and docs do not require a
-new binary release by themselves. The 0.2.21 publication completed through
-GitHub and Cask installation, but the `--install-local` restart wait reported
-that MacMCP did not exit. A manual post-install `macmcp diagnose --json` and
-`scripts/validate-local-mcp.sh` both passed.
+runtime is `MacMCP 0.2.22`; changes to these scripts and docs do not require a
+new binary release by themselves. The 0.2.22 publication completed through
+GitHub and Cask installation, but the `--install-local` restart wait mistook a
+still-running Codex `macmcp-bridge --stdio-proxy` for the app runtime and
+reported that MacMCP did not exit. Launching the new Cask manually restored the
+runtime; `macmcp diagnose --json` and `scripts/validate-local-mcp.sh` both
+passed.
 
 `scripts/validate-local-mail-readonly.py --deep` remains an optional deeper IMAP
 snapshot check. The script refuses to run without `--deep`, so an accidental

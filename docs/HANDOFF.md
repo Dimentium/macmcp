@@ -1,9 +1,9 @@
 # MacMCP Handoff
 
-Last verified: 2026-09-08
+Last verified: 2026-09-09
 Repository: `Dimentium/macmcp`
 Working branch: `public-main`, pushed to `public/main`
-Current published and installed app: `MacMCP 0.2.21`
+Current published and installed app: `MacMCP 0.2.22`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -39,7 +39,7 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.21
+app version: 0.2.22
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
@@ -207,14 +207,16 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 The earlier `launchAtLogin=true` / `loginItem=not_registered` observation was
 confirmed to be two distinct states: the persisted preference in `launch.json`
-and the actual `SMAppService.mainApp.status`. On the installed 0.2.21 runtime
+and the actual `SMAppService.mainApp.status`. On the installed 0.2.22 runtime
 both the diagnostic and direct Login Item query report `enabled`; no Login Item
 behavior change is needed.
 
-The 0.2.21 publication also reproduced the release-script follow-up: the Cask
-upgrade completed, but `release.sh --install-local` did not observe the app
-exiting during its restart step. The post-install diagnostic and local gate
-pass when run manually.
+The 0.2.22 publication reproduced the release-script follow-up: the Cask
+upgrade completed, but `release.sh --install-local` mistook the still-running
+Codex `macmcp-bridge --stdio-proxy` for the app runtime and stopped during its
+restart wait. Launching the new Cask manually produced a healthy 0.2.22 app;
+the post-install diagnostic and local gate pass, and the configured tunnel is
+running. The restart/quit detection still needs a follow-up.
 
 The per-account draft/read-only acceptance item is closed by manual ChatGPT
 testing. The response-size edge case remains a deferred remote verification,
