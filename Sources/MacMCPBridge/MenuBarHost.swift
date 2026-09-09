@@ -69,6 +69,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var terminationReplySent = false
 
     private let updateCheckIntervalNanoseconds: UInt64 = 21_600_000_000_000
+    private let statusRefreshIntervalNanoseconds: UInt64 = 5_000_000_000
 
     init(
         configuration: BridgeLaunchConfiguration,
@@ -873,9 +874,14 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func refreshLoop() async {
         while !Task.isCancelled {
-            await refreshMenuState()
+            // Menu contents are refreshed on menu open and after the explicit
+            // actions that can change them. Keep the background loop limited to
+            // the small status display and tunnel liveness check; otherwise it
+            // rereads the approval and mail-action JSON files every second.
+            await refreshStatusMenu()
+            tunnelSupervisor?.refreshHealth()
             do {
-                try await Task.sleep(nanoseconds: 1_000_000_000)
+                try await Task.sleep(nanoseconds: statusRefreshIntervalNanoseconds)
             } catch {
                 return
             }

@@ -65,7 +65,11 @@ final class ChatGPTTunnelSupervisor {
     private var healthProbeTimeoutTask: Task<Void, Never>?
     private var lastHealthProbeAt: Date?
 
-    private let healthProbeInterval: TimeInterval = 5
+    // The tunnel client itself owns the long-lived control-plane connection.
+    // This probe is only a fallback liveness check, so spawning a new
+    // `tunnel-client health` process every five seconds is unnecessarily busy
+    // while the machine is otherwise idle.
+    private let healthProbeInterval: TimeInterval = 30
     private let initialHealthProbeGracePeriod: TimeInterval = 60
     private let healthProbeTimeoutNanoseconds: UInt64
     private var lifecycleGeneration = 0
