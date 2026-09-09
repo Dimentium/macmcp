@@ -65,11 +65,12 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var updateState: UpdateMenuState = .checking
     private var displayedWritableAccountIDs: Set<String>?
     private var displayedClientApprovalSnapshot: ClientApprovalSnapshot?
+    private var displayedStatusSnapshot: BridgeStatus?
     private var terminationRequested = false
     private var terminationReplySent = false
 
     private let updateCheckIntervalNanoseconds: UInt64 = 21_600_000_000_000
-    private let statusRefreshIntervalNanoseconds: UInt64 = 5_000_000_000
+    private let statusRefreshIntervalNanoseconds: UInt64 = 30_000_000_000
 
     init(
         configuration: BridgeLaunchConfiguration,
@@ -255,6 +256,14 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func updateStatusMenu(_ statusItems: StatusMenuItems, snapshot: BridgeStatus) {
+        // Status changes are infrequent. Avoid asking AppKit to redraw the
+        // status item and all menu titles when the actor snapshot is unchanged.
+        // Tests call this before a real status item exists, so keep their
+        // initial menu construction deterministic.
+        if statusItem != nil, displayedStatusSnapshot == snapshot {
+            return
+        }
+        displayedStatusSnapshot = snapshot
         let marker = Self.marker(forOverallStatus: snapshot)
         statusItem?.button?.title = "MacMCP \(marker)"
         statusItems.overall.title = "\(marker) MacMCP: \(Self.overallLabel(for: snapshot))"

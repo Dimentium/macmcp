@@ -322,7 +322,11 @@ final class BridgeRuntime {
         recurringHealthTask = Task {
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(nanoseconds: 30_000_000_000)
+                    // Sidecar termination is observed immediately by the
+                    // supervisor. These calls are only a slow permission and
+                    // liveness refresh; running EventKit list operations every
+                    // 30 seconds keeps the idle sidecar needlessly active.
+                    try await Task.sleep(nanoseconds: 300_000_000_000)
                 } catch {
                     return
                 }
