@@ -53,10 +53,12 @@ final class SettingsWindowModel: ObservableObject {
     @Published var localBridgeConfigured = false
     @Published var localBridgeEnabled = false
     @Published var localBridgeStatus = "Off"
+    @Published var localBridgeToggleAvailable = false
 
     @Published var tunnelConfigured = false
     @Published var tunnelEnabled = false
     @Published var tunnelStatus = "Off"
+    @Published var tunnelToggleAvailable = false
 
     @Published var eventKitConfigured = false
     @Published var calendarAccess = false
@@ -261,6 +263,7 @@ private struct SettingsAccessControlContent: View {
                     get: { model.localBridgeEnabled },
                     set: { model.setLocalBridgeEnabled($0) }
                 ),
+                toggleAvailable: model.localBridgeToggleAvailable,
                 onRestart: nil,
                 onSettings: nil,
                 restartEnabled: false
@@ -277,6 +280,7 @@ private struct SettingsAccessControlContent: View {
                     get: { model.tunnelEnabled },
                     set: { model.setTunnelEnabled($0) }
                 ),
+                toggleAvailable: model.tunnelToggleAvailable,
                 onRestart: { model.onTunnelRestart?() },
                 onSettings: { model.onOpenTunnelSettings?() },
                 restartEnabled: model.tunnelConfigured && model.tunnelEnabled
@@ -328,6 +332,7 @@ private struct SettingsAccessRow: View {
     let statusTint: Color
     let configured: Bool
     @Binding var enabled: Bool
+    let toggleAvailable: Bool
     let onRestart: (() -> Void)?
     let onSettings: (() -> Void)?
     let restartEnabled: Bool
@@ -377,7 +382,7 @@ private struct SettingsAccessRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
-                .disabled(!configured)
+                .disabled(!configured || !toggleAvailable)
         }
     }
 }

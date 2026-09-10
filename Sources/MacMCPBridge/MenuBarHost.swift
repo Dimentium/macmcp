@@ -65,6 +65,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var periodicUpdateTask: Task<Void, Never>?
     private var setupAssistant: SetupAssistant?
     private var settingsWindowController: SettingsWindowController?
+    private let settingsWindowModel = SettingsWindowModel()
     private var updateState: UpdateMenuState = .checking
     private var displayedWritableAccountIDs: Set<String>?
     private var displayedClientApprovalSnapshot: ClientApprovalSnapshot?
@@ -455,6 +456,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateUpdatesMenu() {
+        syncSettingsUpdateState()
         guard let updatesMenuItem else { return }
         updatesMenuItem.title = Self.updateTitle(state: updateState)
 
@@ -955,9 +957,99 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openSettings() {
         if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController()
+            settingsWindowController = SettingsWindowController(model: settingsWindowModel)
         }
+        refreshSettingsWindow()
         settingsWindowController?.show()
+    }
+
+    private func refreshSettingsWindow() {
+        let launch = try? launchConfigurationStore.readConfiguration()
+        settingsWindowModel.launchAtLogin = launch?.launchAtLogin == true
+        settingsWindowModel.launchAtLoginAvailable = loginItemController?.status != .unavailable
+
+        let bridgeIsRunning = runtime != nil
+        settingsWindowModel.localBridgeConfigured = true
+        settingsWindowModel.localBridgeEnabled = bridgeIsRunning
+        settingsWindowModel.localBridgeStatus = bridgeIsRunning ? "Running" : "Starting"
+        settingsWindowModel.localBridgeToggleAvailable = false
+
+        if launch?.chatGPTTunnel != nil {
+            settingsWindowModel.tunnelConfigured = true
+            settingsWindowModel.tunnelEnabled = tunnelSupervisor != nil
+            settingsWindowModel.tunnelStatus = settingsTunnelStatus
+        } else {
+            settingsWindowModel.tunnelConfigured = false
+            settingsWindowModel.tunnelEnabled = false
+            settingsWindowModel.tunnelStatus = "Off"
+        }
+        settingsWindowModel.tunnelToggleAvailable = false
+        settingsWindowModel.eventKitConfigured = configuration.eventKitSidecarURL != nil
+        syncSettingsUpdateState()
+        settingsWindowModel.mailAccounts = configuration.mailAccounts.map { account in
+            SettingsWindowModel.MailAccount(
+                id: account.id,
+                provider: settingsMailProvider(for: account),
+                address: account.username,
+                imapHost: account.imapHost,
+                enabled: true,
+                readOnly: true,
+                hasPassword: hasMailPassword(for: account)
+            )
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            let enabledCategories = await dataAccess.enabledCategories()
+            let writableAccountIDs = await runtime?.mailActionAccess.writableAccountIDs() ?? []
+            settingsWindowModel.calendarAccess = enabledCategories.contains(.calendar)
+            settingsWindowModel.remindersAccess = enabledCategories.contains(.reminders)
+            settingsWindowModel.mailAccounts = settingsWindowModel.mailAccounts.map { account in
+                var updated = account
+                updated.readOnly = !writableAccountIDs.contains(account.id)
+                return updated
+            }
+        }
+    }
+
+    private var settingsTunnelStatus: String {
+        switch tunnelState {
+        case .none:
+            return "Off"
+        case .some(.starting):
+            return "Starting"
+        case .some(.running):
+            return "Connected"
+        case .some(.unavailable):
+            return "Unavailable"
+        }
+    }
+
+    private func settingsMailProvider(for account: MailAccountConfiguration) -> String {
+        switch account.id.split(separator: "-").first.map(String.init) {
+        case "icloud": return "iCloud Mail"
+        case "gmail": return "Gmail"
+        default: return "Other IMAP"
+        }
+    }
+
+    private func hasMailPassword(for account: MailAccountConfiguration) -> Bool {
+        guard var password = try? MigratingCredentialStore.mail().readSecret(account: account.username) else {
+            return false
+        }
+        defer { password.resetBytes(in: 0..<password.count) }
+        return !password.isEmpty
+    }
+
+    private func syncSettingsUpdateState() {
+        settingsWindowModel.updateState = switch updateState {
+        case .checking: .checking
+        case .sourceInstall: .sourceInstall
+        case .current: .current
+        case .available(let version): .available(version: version)
+        case .installing: .installing
+        case .unavailable: .unavailable
+        }
     }
 
     @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
