@@ -77,6 +77,31 @@ final class BridgeRuntimeTests: XCTestCase {
         XCTAssertEqual(errno, ESRCH)
     }
 
+    func testDisabledMailAccountIsExcludedFromTheRuntime() async throws {
+        let account = try MailAccountConfiguration.gmail(address: "reader@gmail.com")
+        let accessURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("mail-account-access.json")
+        let access = MailAccountAccessStore(fileURL: accessURL)
+        try await access.setEnabled(false, for: account.id)
+        defer { try? FileManager.default.removeItem(at: accessURL.deletingLastPathComponent()) }
+
+        let runtime = try await BridgeRuntime.start(
+            configuration: BridgeLaunchConfiguration(
+                mailSidecarURL: URL(fileURLWithPath: "/missing/mail-mcp"),
+                eventKitSidecarURL: nil,
+                mailAccounts: [account],
+                menuBar: true
+            ),
+            mailAccountAccess: access
+        )
+        let status = await runtime.statusSource.snapshot()
+        XCTAssertEqual(status.mail, .notConfigured)
+        let writableAccounts = await runtime.mailActionAccess.writableAccountIDs()
+        XCTAssertTrue(writableAccounts.isEmpty)
+        await runtime.stop()
+    }
+
     private func makeSleepingExecutable() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("macmcp-tests-\(UUID().uuidString)", isDirectory: true)
