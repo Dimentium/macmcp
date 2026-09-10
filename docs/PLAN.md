@@ -79,6 +79,44 @@ each ad-hoc-signed replacement.
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
+## Settings Window Migration Contract
+
+The approved single-page SwiftUI settings UX is being migrated from the
+standalone prototype into the menu-bar app. The AppKit host remains responsible
+for runtime ownership and lifecycle; the SwiftUI model is an adapter, not a
+second configuration store.
+
+State ownership during migration:
+
+- `AppLaunchConfigurationStore` remains the source of truth for launch
+  arguments, Login Item preference, and the non-secret ChatGPT tunnel
+  configuration (`tunnelID`, client path, and profile).
+- `MigratingCredentialStore.chatGPTTunnel()` remains the source of truth for
+  the tunnel runtime key. It must never be written to `launch.json`, logs, or
+  diagnostic snapshots. Mail passwords continue to use the account username as
+  their Keychain account.
+- `MCPDataAccessController` owns Calendar and Reminders MCP access. The
+  existing `MailActionAccessController` owns per-account read-only/draft
+  permissions. Both must continue to gate local IPC, STDIO, and tunnel calls.
+- `MenuBarHost` and `ChatGPTTunnelSupervisor` remain the source of live bridge
+  and tunnel status. Settings actions must use their existing lifecycle paths
+  rather than starting an independent runtime or tunnel client.
+- `HomebrewCaskUpdater` remains the source of update state and installation;
+  logs open from `MacMCPPaths.logsDirectory(homeDirectory:)`, without exposing
+  their contents in settings.
+
+The first integration pass must explicitly resolve two UX/runtime gaps. A
+Local Bridge switch is only valid if it invokes the app-owned runtime stop/start
+path, and a mail-account on/off switch needs a real account access gate across
+all transports; neither may be implemented as a preference that only changes
+the display. Until those semantics are wired, the UI may show status without
+presenting a misleading control.
+
+The old status-bar actions remain available as compatibility aliases until the
+new window has passed the parity matrix. The final cleanup may remove duplicate
+menu actions only after manual checks cover empty, partially configured,
+configured, unavailable, and multi-account states.
+
 ## Per-Account Mail Actions
 
 The standard MacMCP endpoint always advertises the three narrow mail-action
