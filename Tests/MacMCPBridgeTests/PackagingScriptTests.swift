@@ -313,9 +313,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.25\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.25</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.25</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.26\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.26</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.26</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

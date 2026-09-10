@@ -12,6 +12,19 @@ Unreleased
 
 No unreleased changes.
 
+0.2.26 - 2026-09-10
+-------------------
+
+- Add the integrated one-page MacMCP Settings window for login, local and
+  tunnel access, EventKit, mail accounts, updates, logs, and repository links.
+- Add mail-account add, edit, remove, provider validation, multiple-account
+  support, and per-account read-only/draft controls.
+- Add tunnel configuration with validation and direct links to tunnel and
+  ChatGPT custom MCP documentation.
+- Simplify the status-bar menu to `Open Settings...` and `Quit`.
+- Sign the local CLI with the same configured Developer ID identity as the app
+  to avoid repeated Keychain authorization prompts.
+
 0.2.25 - 2026-09-10
 -------------------
 
