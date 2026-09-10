@@ -135,8 +135,8 @@ configured mail accounts, Calendar, and Reminders. It does not start
 
 The same gate runs automatically as the final step of
 `scripts/release.sh --install-local`. The current published and installed
-runtime is `MacMCP 0.2.25`; changes to these scripts and docs do not require a
-new binary release by themselves. The 0.2.25 publication completed through
+runtime is `MacMCP 0.2.26`; changes to these scripts and docs do not require a
+new binary release by themselves. The 0.2.26 publication completed through
 Apple notarization, GitHub, and Cask installation. Its local restart initially
 exposed that a still-running Codex `macmcp-bridge --stdio-proxy` could be
 mistaken for the app runtime; the release helper now matches the app's exact

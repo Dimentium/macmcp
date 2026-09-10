@@ -41,9 +41,10 @@ macmcp setup --gmail-address you@gmail.com
 It supports repeated `--icloud-address`, repeated `--gmail-address`, and
 custom `--mail-account` values. It stores passwords in macOS Keychain and
 starts `/Applications/MacMCP.app`. The Cask and the DMG use the same prebuilt
-runtime.
+runtime, including the signed `tunnel-client`; a Cask install does not need a
+separate `brew install openai/tools/tunnel-client`.
 
-On its first launch, `0.2.5` or later imports a legacy `mac-agent-bridge`
+On its first launch, `0.2.26` or later imports a legacy `mac-agent-bridge`
 configuration when present. Mail accounts, Keychain-backed secrets, mail action
 settings, and the ChatGPT tunnel configuration are retained. The
 legacy local MCP proxy is deliberately not trusted by the new app, so approve
@@ -58,6 +59,9 @@ brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
 brew install macmcp
 macmcp setup --gmail-address you@gmail.com
 ```
+
+Unlike the Cask, the source formula builds from source and does not provide the
+signed release bundle or bundled `tunnel-client`.
 
 ## Layout
 
@@ -135,12 +139,19 @@ Platform:
 - <https://platform.openai.com/settings/organization/tunnels>
 - <https://platform.openai.com/settings/organization/api-keys>
 
-For a Homebrew installation, run:
+For a Homebrew Cask installation, run:
+
+```bash
+macmcp configure --gmail-address you@example.com \
+  --chatgpt-tunnel-id tunnel_YOUR_ID
+```
+
+The packaged CLI automatically uses the signed `tunnel-client` inside
+`MacMCP.app` and prompts for the restricted runtime key. A source formula or
+source install needs the separate OpenAI package before tunnel setup:
 
 ```bash
 brew install openai/tools/tunnel-client
-macmcp configure --gmail-address you@example.com \
-  --chatgpt-tunnel-id tunnel_YOUR_ID
 ```
 
 For a direct DMG installation, open `MacMCP > Open Settings...` and use the
