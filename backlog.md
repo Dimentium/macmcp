@@ -2,7 +2,7 @@
 - [x] 2. Выделить из Prototypes/SettingsPrototype переиспользуемые SwiftUI-компоненты и модель представления, сохранив одностраничный UX, фиксированную ширину, always-on-top, адаптивную прокрутку и фиксированный футер.
 - [x] 3. Добавить в основной target AppKit-хост SettingsWindowController с одним живущим экземпляром окна, корректной активацией, закрытием, повторным открытием и подключением к пункту MacMCP в status-bar меню.
 - [x] 4. Подключить реальные read-only состояния и статусы: Launch at Login, Local Bridge, ChatGPT Tunnel, Calendar, Reminders, mail accounts, update availability и version/repository/logs actions.
-- [ ] 5. Реализовать действия access control: безопасные toggle для EventKit и mail actions, lifecycle Local Bridge/Tunnel, restart, обработку ошибок и обновление меню без перезапуска там, где это уже поддержано.
+- [x] 5. Реализовать действия access control: безопасные toggle для EventKit и mail actions, lifecycle Local Bridge/Tunnel, restart, обработку ошибок и обновление меню без перезапуска там, где это уже поддержано.
 - [ ] 6. Перенести управление mail accounts: список из текущей конфигурации, add/edit/remove, provider validation, Keychain passwords, drafts creation allowed/read-only, сохранение совместимого launch.json и безопасный restart runtime.
 - [ ] 7. Перенести настройки ChatGPT Tunnel: редактируемые tunnel_id и runtime API key, restricted Tunnel Read+Use hint, Check configuration перед Apply, ссылки Platform и инструкция custom MCP в ChatGPT, Keychain/config persistence и restart supervisor.
 - [ ] 8. Добавить в основное окно открытие папки ~/Library/Logs/MacMCP и, при необходимости, отдельные переходы к tunnel/proxy logs; не показывать секреты и содержимое логов в UI.

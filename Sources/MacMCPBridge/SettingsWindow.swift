@@ -63,12 +63,15 @@ final class SettingsWindowModel: ObservableObject {
     @Published var eventKitConfigured = false
     @Published var calendarAccess = false
     @Published var calendarReadOnly = true
+    @Published var calendarSettingsAvailable = false
     @Published var remindersAccess = false
     @Published var remindersReadOnly = true
+    @Published var remindersSettingsAvailable = false
 
     @Published var mailAccounts: [MailAccount] = [] {
         didSet { onMailAccountCountChanged?(mailAccounts.count) }
     }
+    @Published var mailAccountToggleAvailable = false
     @Published var updateState: SettingsUpdateState = .checking
     @Published var version = AppVersion.version
 
@@ -298,6 +301,7 @@ private struct SettingsAccessControlContent: View {
                     get: { model.calendarAccess },
                     set: { model.setCalendarAccess($0) }
                 ),
+                settingsAvailable: model.calendarSettingsAvailable,
                 onSettings: { model.onOpenCalendarSettings?() }
             )
             Divider()
@@ -311,6 +315,7 @@ private struct SettingsAccessControlContent: View {
                     get: { model.remindersAccess },
                     set: { model.setRemindersAccess($0) }
                 ),
+                settingsAvailable: model.remindersSettingsAvailable,
                 onSettings: { model.onOpenRemindersSettings?() }
             )
             Divider()
@@ -424,6 +429,7 @@ private struct SettingsPermissionRow: View {
     let configured: Bool
     let readOnly: Bool
     @Binding var enabled: Bool
+    let settingsAvailable: Bool
     let onSettings: () -> Void
 
     var body: some View {
@@ -450,7 +456,7 @@ private struct SettingsPermissionRow: View {
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
-            .disabled(!configured)
+            .disabled(!configured || !settingsAvailable)
             .help("\(title) settings")
             Toggle("", isOn: $enabled)
                 .labelsHidden()
@@ -471,6 +477,7 @@ private struct SettingsMailAccountsSection: View {
             ForEach($model.mailAccounts) { $account in
                 SettingsMailAccountRow(
                     account: $account,
+                    toggleAvailable: model.mailAccountToggleAvailable,
                     onSettings: { model.onOpenMailAccountSettings?(account.id) },
                     onEnabledChanged: { model.setMailAccountEnabled(id: account.id, enabled: $0) }
                 )
@@ -500,6 +507,7 @@ private struct SettingsMailAccountsSection: View {
 
 private struct SettingsMailAccountRow: View {
     @Binding var account: SettingsWindowModel.MailAccount
+    let toggleAvailable: Bool
     let onSettings: () -> Void
     let onEnabledChanged: (Bool) -> Void
 
@@ -534,6 +542,7 @@ private struct SettingsMailAccountRow: View {
             .labelsHidden()
             .toggleStyle(.switch)
             .controlSize(.small)
+            .disabled(!toggleAvailable)
         }
         .opacity(account.enabled ? 1 : 0.58)
     }

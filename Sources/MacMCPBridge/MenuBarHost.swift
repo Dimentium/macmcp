@@ -918,6 +918,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             do {
                 try await dataAccess.setEnabled(!enabled, for: category)
                 await refreshDataAccessMenus()
+                refreshSettingsWindow()
             } catch {
                 let alert = NSAlert()
                 alert.messageText = "Unable to change (category.title) access"
@@ -958,9 +959,28 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openSettings() {
         if settingsWindowController == nil {
             settingsWindowController = SettingsWindowController(model: settingsWindowModel)
+            wireSettingsActions()
         }
         refreshSettingsWindow()
         settingsWindowController?.show()
+    }
+
+    private func wireSettingsActions() {
+        settingsWindowModel.onLaunchAtLoginChanged = { [weak self] enabled in
+            self?.setLaunchAtLoginFromSettings(enabled)
+        }
+        settingsWindowModel.onTunnelRestart = { [weak self] in
+            self?.restartChatGPTTunnel()
+        }
+        settingsWindowModel.onOpenTunnelSettings = { [weak self] in
+            self?.openTunnelSettings()
+        }
+        settingsWindowModel.onCalendarChanged = { [weak self] enabled in
+            self?.setSettingsDataAccess(enabled, category: .calendar)
+        }
+        settingsWindowModel.onRemindersChanged = { [weak self] enabled in
+            self?.setSettingsDataAccess(enabled, category: .reminders)
+        }
     }
 
     private func refreshSettingsWindow() {
@@ -1052,26 +1072,51 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
-        guard let loginItemController else { return }
-        let enable = sender.state != .on
+    private func setSettingsDataAccess(_ enabled: Bool, category: MCPDataCategory) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await dataAccess.setEnabled(enabled, for: category)
+                await refreshDataAccessMenus()
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Unable to change \(category.title) access"
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+                refreshSettingsWindow()
+            }
+        }
+    }
+
+    private func setLaunchAtLoginFromSettings(_ enabled: Bool) {
+        guard let loginItemController else {
+            refreshSettingsWindow()
+            return
+        }
         do {
-            if enable {
+            if enabled {
                 try loginItemController.register()
             } else {
                 try loginItemController.unregister()
             }
-            try launchConfigurationStore.setLaunchAtLogin(enable)
+            try launchConfigurationStore.setLaunchAtLogin(enabled)
+            settingsWindowModel.launchAtLogin = enabled
         } catch {
             let alert = NSAlert()
             alert.messageText = "Unable to change Launch at Login"
             alert.informativeText = "Check macOS Login Items settings and try again."
             alert.addButton(withTitle: "OK")
             alert.runModal()
+            refreshSettingsWindow()
         }
         if let loginItemMenuItem {
             updateLoginItemMenu(loginItemMenuItem, status: loginItemController.status)
         }
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
+        setLaunchAtLoginFromSettings(sender.state != .on)
     }
 
     @objc private func installUpdate() {
