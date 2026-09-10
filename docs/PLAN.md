@@ -81,10 +81,12 @@ each ad-hoc-signed replacement.
 
 ## Settings Window Migration Contract
 
-The approved single-page SwiftUI settings UX is being migrated from the
-standalone prototype into the menu-bar app. The AppKit host remains responsible
+The approved single-page SwiftUI settings UX is now integrated into the
+menu-bar app on the `ux/settings-window` branch. `SettingsWindowController`
+owns one fixed-width, always-on-top window and `MenuBarHost` remains responsible
 for runtime ownership and lifecycle; the SwiftUI model is an adapter, not a
-second configuration store.
+second configuration store. The standalone prototype is no longer part of the
+runtime path.
 
 State ownership during migration:
 
@@ -105,17 +107,24 @@ State ownership during migration:
   logs open from `MacMCPPaths.logsDirectory(homeDirectory:)`, without exposing
   their contents in settings.
 
-The first integration pass must explicitly resolve two UX/runtime gaps. A
-Local Bridge switch is only valid if it invokes the app-owned runtime stop/start
-path, and a mail-account on/off switch needs a real account access gate across
-all transports; neither may be implemented as a preference that only changes
-the display. Until those semantics are wired, the UI may show status without
-presenting a misleading control.
+The migration wires the real Login Item, mail-account access, EventKit access,
+tunnel access/restart/configuration, Keychain-backed credentials, update, log,
+repository, and account CRUD paths. Mail-account changes deliberately restart
+the app-owned runtime so every transport observes the same account set.
 
-The old status-bar actions remain available as compatibility aliases until the
-new window has passed the parity matrix. The final cleanup may remove duplicate
-menu actions only after manual checks cover empty, partially configured,
-configured, unavailable, and multi-account states.
+Two controls remain intentionally conservative. The Local Bridge switch is
+status-only and disabled until a safe app-owned stop/start path exists. The
+Calendar and Reminders settings gears are present but disabled because there is
+no separate per-category settings store to edit; their access switches remain
+live. These states are recorded in [docs/KNOWN_ISSUES.md](KNOWN_ISSUES.md)
+rather than represented by UI-only preferences.
+
+The old status-bar actions remain available as compatibility aliases. The
+settings integration has automated parity coverage and has been manually
+reviewed through the approved UX prototype; a signed production bundle was
+also launched in a no-sidecar/tunnel-unavailable check without modifying the
+installed runtime. A release should still include a visual pass on a clean Mac
+with Assistive Access or direct user interaction available.
 
 ## Per-Account Mail Actions
 

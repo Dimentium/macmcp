@@ -2,7 +2,7 @@
 
 Last verified: 2026-09-10
 Repository: `Dimentium/macmcp`
-Working branch: `public-main`, pushed to `public/main`
+Working branch: `ux/settings-window` (local, not released)
 Current published and installed app: `MacMCP 0.2.25`
 
 This is the canonical current-state handoff. Read it first, then use
@@ -37,6 +37,10 @@ The project is beyond MVP for local use:
   first-launch setup window optionally configures mail and/or the ChatGPT
   tunnel, storing secrets in Keychain; either or both can be left disabled.
   The menu retains `Set Up Mail...` and `Set Up ChatGPT Tunnel...` actions.
+- The approved single-page settings window is now integrated into the
+  menu-bar app on this branch. It centralizes Login Item, local/tunnel access,
+  EventKit access, mail-account CRUD and gates, tunnel configuration, update,
+  logs, repository, and close actions. Secrets remain Keychain-only.
 
 ## Verified State
 
@@ -84,6 +88,14 @@ local runtime remained healthy. This is a stale client-session condition, not
 evidence that MacMCP is down. Restart the `macmcp` MCP server from the Codex /
 ChatGPT desktop MCP settings and start a new Codex session if necessary. Do not
 reinstall MacMCP for this condition.
+
+The settings migration was verified with a production Swift build, the full
+XCTest suite, and a locally launched Developer ID-signed bundle. The local
+bundle was run with no embedded sidecars, so it exercised the empty local state
+and unavailable tunnel path without replacing the installed app. The visual
+prototype had already been reviewed interactively through the UX iterations;
+the remaining clean-host visual click-through is a release check because this
+terminal session lacks Assistive Access.
 
 ## Architecture
 
@@ -275,6 +287,10 @@ not a reason to change the local bridge without a reproduction.
 - `Sources/MacMCPBridge/LocalBridgeIPC.swift`: bounded local IPC.
 - `Sources/MacMCPBridge/LocalBridgeStdioProxy.swift`: client-facing STDIO.
 - `Sources/MacMCPBridge/MenuBarHost.swift`: menu, settings, restart, update.
+- `Sources/MacMCPBridge/SettingsWindow.swift`: production settings UI and model.
+- `Sources/MacMCPBridge/MailAccountConfigurationStore.swift`: mail CRUD and validation.
+- `Sources/MacMCPBridge/MailAccountAccessStore.swift`: persisted per-account gates.
+- `Sources/MacMCPBridge/ChatGPTTunnelAccessStore.swift`: persisted tunnel gate.
 - `Sources/MacMCPBridge/ChatGPTTunnelSupervisor.swift`: app-owned tunnel.
 - `Sources/MacMCPBridge/ClientApprovalStore.swift`: local client approvals.
 - `Sources/MacMCPBridge/MailActionAccessStore.swift`: account read-only state.
@@ -290,6 +306,16 @@ not a reason to change the local bridge without a reproduction.
 
 ## Recent Commits
 
+- `c880575` Cover settings integration behavior
+- `f3302c7` Cover settings menu parity aliases
+- `af7e710` Connect settings footer actions
+- `f6d43eb` Add ChatGPT tunnel settings
+- `8ee76e7` Add real mail account settings
+- `2d3a610` Wire settings access controls
+- `ef64bfc` Populate settings window from runtime state
+- `a0d3b20` Open settings window from menu bar app
+- `f4faa53` Add shared SwiftUI settings components
+- `68a1ca9` Document settings window integration contract
 - `252b995` Support Cask runtime in live validation
 - `1db1f5b` Reduce idle MCP transport polling
 - `3efb899` Publish MacMCP 0.2.24 Cask
@@ -297,4 +323,5 @@ not a reason to change the local bridge without a reproduction.
 - `90774bd` Record stable ChatGPT updates
 - `b5b019b` Make deep IMAP validation opt in
 
-The worktree was clean when this handoff was written.
+The settings migration branch intentionally has not been released or deployed.
+The user-local `AGENTS.md` modification is not part of this work.

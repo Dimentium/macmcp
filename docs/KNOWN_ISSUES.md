@@ -17,6 +17,26 @@ personal data.
   disabled its connector; a branch may help because it creates a new chat, but
   is not a reliable repair for an already disabled tool session.
 
+- The production settings window was compiled, integration-tested, and launched
+  from a Developer ID-signed local bundle. The final visual click-through on a
+  clean Mac remains a release check because the current terminal session does
+  not have macOS Assistive Access. The approved UX was manually reviewed during
+  the standalone prototype iterations.
+
+## Settings Window
+
+- Local Bridge is shown as a live status row, but its switch is disabled. The
+  menu-bar app does not yet expose an independent stop/start lifecycle that can
+  be safely controlled from settings.
+- Calendar and Reminders access switches are live. Their settings gears remain
+  disabled until a separate EventKit settings store exists; there are no
+  additional EventKit parameters to edit today.
+- Saving mail-account configuration restarts the app-owned runtime so local
+  IPC, STDIO, and the ChatGPT tunnel receive the same account set. This is
+  intentional, but it is not an in-place account reload.
+- The Update button is available only for a newer Homebrew Cask release. A
+  source or ad-hoc install must be updated through its normal source workflow.
+
 ## Resolved Since The 2026-09-05 Audit
 
 - Reader sidecars cannot start through the direct production CLI path; data
