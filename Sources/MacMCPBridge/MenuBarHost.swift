@@ -1022,6 +1022,12 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowModel.onRemindersChanged = { [weak self] enabled in
             self?.setSettingsDataAccess(enabled, category: .reminders)
         }
+        settingsWindowModel.onOpenLogs = {
+            NSWorkspace.shared.open(MacMCPPaths.logsDirectory())
+        }
+        settingsWindowModel.onUpdate = { [weak self] in
+            self?.installUpdate()
+        }
     }
 
     private func refreshSettingsWindow() {
