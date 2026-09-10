@@ -10,9 +10,11 @@ mechanisms:
 
 The build mechanisms are:
 
-- `scripts/install-local.sh` is a source installer. It builds locally and uses
-  an ad-hoc signature, so it does not need a developer certificate on the
-  target Mac.
+- `scripts/install-local.sh` is a source installer. It defaults to an ad-hoc
+  signature, so it does not need a developer certificate on the target Mac. If
+  `MACMCP_SIGNING_IDENTITY` is provided, it signs both the app and its local
+  CLI with that identity; this keeps Keychain access under one designated
+  requirement. `MACMCP_SIGNING_KEYCHAIN` can select the signing keychain.
 - `scripts/notarize-local-app.sh` is the release path. It creates a Developer
   ID-signed, Apple-notarized `MacMCP.app` with a stable macOS code identity.
 

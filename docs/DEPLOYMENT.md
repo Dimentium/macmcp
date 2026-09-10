@@ -66,7 +66,7 @@ macmcp setup --gmail-address you@gmail.com
 - Direct app (without admin rights): `~/Applications/MacMCP.app`
 - Direct app bridge: `~/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge`
 - Direct app CLI: `~/Applications/MacMCP.app/Contents/Resources/macmcp`
-- Source app: `~/Applications/MacMCP.app` (same location, ad-hoc signed)
+- Source app: `~/Applications/MacMCP.app` (ad-hoc signed by default)
 - Source bridge: `~/.local/bin/macmcp-bridge`
 - Runtime configuration and IPC: `~/Library/Application Support/macmcp/`
 
@@ -88,10 +88,13 @@ brew upgrade --cask macmcp
 Use `brew upgrade macmcp` for the source formula. Cask upgrades retain the
 configuration and Keychain secrets outside the app bundle. The signed Cask has
 a stable Developer ID identity; source-install replacements remain ad-hoc
-signed and may need macOS permissions again.
+signed by default and may need macOS permissions again. Set
+`MACMCP_SIGNING_IDENTITY` when installing locally with a Developer ID identity
+if the existing Keychain access should remain under the same designated
+requirement.
 
 The Homebrew Cask menu-bar app checks the latest GitHub Release at launch and
-every six hours. Its `Updates` submenu can refresh Homebrew, install the Cask
+every six hours. Its settings window can refresh Homebrew, install the Cask
 update, and restart the app. A direct DMG install does not silently replace the
 app; update it by downloading the new DMG.
 

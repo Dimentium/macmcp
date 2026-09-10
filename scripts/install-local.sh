@@ -50,6 +50,8 @@ legacy_install_root="$HOME/.local/opt/mac-agent-bridge"
 legacy_config_dir="$HOME/Library/Application Support/mac-agent-bridge"
 legacy_tunnel_proxy_dir="$HOME/Library/MacMCP"
 build_root="${MACMCP_BUILD_ROOT:-${MAC_AGENT_BRIDGE_BUILD_ROOT:-$project_dir/.build/local-install}}"
+signing_identity="${MACMCP_SIGNING_IDENTITY:--}"
+signing_keychain="${MACMCP_SIGNING_KEYCHAIN:-}"
 mail_args=()
 password_accounts=()
 skip_password=0
@@ -552,9 +554,19 @@ codesign --verify --deep --strict --verbose=2 "$stage_app"
 
 cp "$project_dir/.build/release/macmcp-bridge" "$stage_cli_path"
 chmod 755 "$stage_cli_path"
-codesign --force --sign - --options runtime \
-  --entitlements "$project_dir/Sources/MacMCPBridge/Entitlements.plist" \
-  "$stage_cli_path"
+cli_sign_arguments=(
+  --force
+  --sign "$signing_identity"
+  --options runtime
+  --entitlements "$project_dir/Sources/MacMCPBridge/Entitlements.plist"
+)
+if [[ -n "$signing_keychain" ]]; then
+  cli_sign_arguments+=(--keychain "$signing_keychain")
+fi
+if [[ "$signing_identity" != "-" ]]; then
+  cli_sign_arguments+=(--timestamp)
+fi
+codesign "${cli_sign_arguments[@]}" "$stage_cli_path"
 codesign --verify --strict --verbose=2 "$stage_cli_path"
 
 json_cli_path="$(printf '%s' "$cli_path" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
