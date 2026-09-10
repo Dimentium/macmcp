@@ -4,13 +4,6 @@ This is the current engineering issue register for MacMCP. It records remaining
 delivery and reliability gaps without account addresses, credentials, or
 personal data.
 
-## Release Pending
-
-- The published `0.2.24` artifact still has the old Homebrew-first onboarding.
-  The next signed release must publish the new DMG, bundled `tunnel-client`,
-  and optional first-launch setup assistant before the Homebrew-free path is
-  available to users.
-
 ## Deferred Verification
 
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
@@ -23,15 +16,6 @@ personal data.
   through the same live tunnel. Start a new chat when an older chat has already
   disabled its connector; a branch may help because it creates a new chat, but
   is not a reliable repair for an already disabled tool session.
-
-- `scripts/release.sh --install-local` successfully upgraded the 0.2.24 Cask,
-  but its restart wait mistook a still-running Codex
-  `macmcp-bridge --stdio-proxy` for the app runtime and reported that MacMCP
-  did not exit. Launching the installed app manually restored a healthy
-  runtime; the post-install `macmcp diagnose` and
-  `scripts/validate-local-mcp.sh` both passed. The restart/quit detection in
-  the release step still needs a follow-up before relying on that step as the
-  only final acceptance signal.
 
 ## Resolved Since The 2026-09-05 Audit
 

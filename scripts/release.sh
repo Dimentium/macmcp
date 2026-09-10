@@ -139,19 +139,23 @@ RUBY
 }
 
 restart_local_app() {
-  if pgrep -x macmcp-bridge >/dev/null; then
+  if app_runtime_running; then
     osascript -e 'tell application id "com.dimentium.macmcp" to quit'
     for _ in {1..20}; do
-      pgrep -x macmcp-bridge >/dev/null || break
+      app_runtime_running || break
       sleep 0.5
     done
-    pgrep -x macmcp-bridge >/dev/null && {
+    app_runtime_running && {
       echo "MacMCP did not exit after the requested restart" >&2
       exit 1
     }
   fi
   open -na /Applications/MacMCP.app
   wait_for_local_runtime
+}
+
+app_runtime_running() {
+  pgrep -f -x '/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge' >/dev/null
 }
 
 local_runtime_ready() {
@@ -169,7 +173,7 @@ wait_for_local_runtime() {
   local max_attempts=30
   echo "Waiting for MacMCP bridge and configured tunnel to become ready (up to 60s)"
   for attempt in $(seq 1 "$max_attempts"); do
-    if pgrep -x macmcp-bridge >/dev/null && local_runtime_ready; then
+    if app_runtime_running && local_runtime_ready; then
       echo "MacMCP runtime is ready after $(((attempt - 1) * 2))s"
       return 0
     fi

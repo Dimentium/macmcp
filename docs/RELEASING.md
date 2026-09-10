@@ -133,13 +133,13 @@ configured mail accounts, Calendar, and Reminders. It does not start
 
 The same gate runs automatically as the final step of
 `scripts/release.sh --install-local`. The current published and installed
-runtime is `MacMCP 0.2.24`; changes to these scripts and docs do not require a
-new binary release by themselves. The 0.2.24 publication completed through
-GitHub and Cask installation, but the `--install-local` restart wait mistook a
-still-running Codex `macmcp-bridge --stdio-proxy` for the app runtime and
-reported that MacMCP did not exit. Launching the new Cask manually restored the
-runtime; `macmcp diagnose --json` and `scripts/validate-local-mcp.sh` both
-passed.
+runtime is `MacMCP 0.2.25`; changes to these scripts and docs do not require a
+new binary release by themselves. The 0.2.25 publication completed through
+Apple notarization, GitHub, and Cask installation. Its local restart initially
+exposed that a still-running Codex `macmcp-bridge --stdio-proxy` could be
+mistaken for the app runtime; the release helper now matches the app's exact
+command line, and the installed runtime passes `macmcp diagnose --json` and
+`scripts/validate-local-mcp.sh`.
 
 The 0.2.24 build also patches the pinned MCP Swift SDK's empty-pipe retry from
 10 ms to 100 ms. The patch is applied by `scripts/patch-mcp-sdk-stdio.sh` to
