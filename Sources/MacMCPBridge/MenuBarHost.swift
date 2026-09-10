@@ -184,32 +184,17 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func makeMenu(statusItems: StatusMenuItems) -> NSMenu {
         let menu = NSMenu()
         menu.delegate = self
-        for item in [statusItems.overall, statusItems.calendar, statusItems.reminders] {
-            item.isEnabled = item === statusItems.overall ? false : true
-            menu.addItem(item)
-        }
-        statusItems.calendar.submenu = makeDataAccessMenu(
-            category: .calendar,
-            enabled: true,
-            configured: configuration.eventKitSidecarURL != nil
+        let settings = NSMenuItem(
+            title: "Open Settings...",
+            action: #selector(openSettings),
+            keyEquivalent: ","
         )
-        statusItems.reminders.submenu = makeDataAccessMenu(
-            category: .reminders,
-            enabled: true,
-            configured: configuration.eventKitSidecarURL != nil
-        )
-        statusItems.mail.isEnabled = true
-        menu.insertItem(statusItems.mail, at: 1)
-        statusItems.tunnel.isEnabled = true
-        statusItems.tunnel.submenu = makeTunnelActionsMenu(state: tunnelState)
-        menu.addItem(statusItems.tunnel)
-        statusItems.clients.isEnabled = true
-        menu.addItem(statusItems.clients)
+        settings.target = self
+        menu.addItem(settings)
         menu.addItem(.separator())
-        let version = NSMenuItem(title: "\(AppVersion.name) \(AppVersion.version)", action: nil, keyEquivalent: "")
-        version.isEnabled = true
-        version.submenu = makeApplicationActionsMenu()
-        menu.addItem(version)
+        let quit = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
         return menu
     }
 

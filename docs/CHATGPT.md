@@ -56,8 +56,8 @@ tools. Use `Work` for the local MacMCP workflow.
 The server process does not own sidecars. It connects to the running menu-bar
 app over user-local IPC. If the app is not running, it fails closed. The
 `bridge_status` tool, initialization, and tool listing remain available before
-approval. Reader-data tools require approving the pending local client in the
-MacMCP menu under `Clients`.
+approval. Reader-data tools require approving the pending local client with
+`macmcp-bridge --approve-pending-client`.
 
 For a Cask/source install, the equivalent generated config lives at:
 
@@ -105,23 +105,22 @@ runs `init --force`, `doctor`, and then `run`. It repeats this after login.
 No Terminal needs to remain open, and neither the key nor an inbound network
 listener is written to disk.
 
-For a direct DMG install, open `MacMCP > ChatGPT Tunnel > Set Up ChatGPT
-Tunnel...`. The release DMG includes the signed `tunnel-client`, so Homebrew
-and administrator access are not required. The setup window stores the
-runtime key in Keychain and the tunnel ID in MacMCP configuration.
+For a direct DMG install, open `MacMCP > Open Settings...`, then open the
+ChatGPT Tunnel settings gear. The release DMG includes the signed
+`tunnel-client`, so Homebrew and administrator access are not required. The
+settings window stores the runtime key in Keychain and the tunnel ID in MacMCP
+configuration.
 
 ```sh
 open "$HOME/Applications/MacMCP.app"
 ```
 
-The `MacMCP` menu shows `ChatGPT Tunnel: running` only after the managed client
-has completed a successful control-plane poll. Its submenu shows the latest
-redacted tunnel failure, if any, with an ISO timestamp, fixed phase, and fixed
-reason; `macmcp diagnose` retains the most recent 12 records. It also opens the
-`Restart Tunnel` command, `Replace Runtime API Key...`, and the two Platform
-setup URLs. It also offers `Set Up ChatGPT Tunnel...`, `Reconfigure Tunnel...`,
-and `Disable ChatGPT Tunnel`. If Keychain asks MacMCP to access an already stored runtime key,
-choose `Allow`. `Always Allow` is not required.
+The settings window shows `ChatGPT Tunnel: running` only after the managed
+client has completed a successful control-plane poll. It provides the tunnel
+restart and configuration controls, including the two Platform setup URLs and
+the redacted failure state. `macmcp diagnose` retains the most recent 12
+records. If Keychain asks MacMCP to access an already stored runtime key,
+choose `Allow`; `Always Allow` is not required.
 
 Then create the ChatGPT developer-mode app: open
 <https://chatgpt.com/plugins>, select plus, choose `Tunnel` for Connection, and
@@ -143,7 +142,8 @@ The tunnel path preserves the same account-gated contract as local MCP:
   cached calls before the sidecar is reached;
 - the three narrow mail-action tools are advertised, but every account begins
   with `Read only` enabled;
-- clear `MacMCP > Mail > account > Read only` locally before a remote action;
+- clear the account's `Read only` control in `MacMCP > Open Settings...` before
+  a remote action;
 - re-enable `Read only` to block new local and remote action calls immediately;
 - same argument filtering and untrusted-data wrapping;
 - same privacy-safe status and errors;
@@ -174,7 +174,7 @@ server entry and lists `bridge_status`.
 
 The remote developer-mode validation gate is:
 
-1. The `MacMCP` menu reports `ChatGPT Tunnel: running`.
+1. `MacMCP > Open Settings...` reports `ChatGPT Tunnel: running`.
 2. ChatGPT lists the developer-mode app backed by the selected tunnel.
 3. Tool listing exposes reader tools and the three account-gated mail actions.
 4. `bridge_status` works before approval.

@@ -20,9 +20,9 @@ first-launch setup window lets the user optionally configure Gmail or iCloud
 Mail and/or the ChatGPT tunnel. Mail passwords and tunnel keys are stored in
 macOS Keychain.
 
-If the setup window was closed, use `MacMCP > Mail > Set Up Mail...` or
-`MacMCP > ChatGPT Tunnel > Set Up ChatGPT Tunnel...`. Choose `Set Up Later`
-when only Calendar or Reminders are needed.
+If the setup window was closed, choose `MacMCP > Open Settings...` and
+configure mail or the ChatGPT tunnel there. Choose `Set Up Later` during first
+launch when only Calendar or Reminders are needed.
 
 macOS can ask for Keychain, Calendar, Reminders, and Login Item permissions.
 Grant only the capabilities you intend to use.
@@ -47,7 +47,7 @@ On its first launch, `0.2.5` or later imports a legacy `mac-agent-bridge`
 configuration when present. Mail accounts, Keychain-backed secrets, mail action
 settings, and the ChatGPT tunnel configuration are retained. The
 legacy local MCP proxy is deliberately not trusted by the new app, so approve
-the new proxy once from `MacMCP > Clients`.
+the new proxy once with `macmcp-bridge --approve-pending-client`.
 
 ## Source Install
 
@@ -120,8 +120,8 @@ codex mcp add macmcp -- \
 Use `/Applications/MacMCP.app` in that command if you installed there.
 
 Keep the menu-bar app running. On the first reader-data request, approve the
-pending local MCP client from `MacMCP > Clients`. `bridge_status` remains
-available before approval.
+pending local MCP client with `macmcp-bridge --approve-pending-client`.
+`bridge_status` remains available before approval.
 
 ## ChatGPT Tunnel
 
@@ -140,9 +140,9 @@ macmcp configure --gmail-address you@example.com \
   --chatgpt-tunnel-id tunnel_YOUR_ID
 ```
 
-For a direct DMG installation, use `MacMCP > ChatGPT Tunnel > Set Up ChatGPT
-Tunnel...`. The release DMG includes a signed `tunnel-client`, so neither
-Homebrew nor administrator access is needed:
+For a direct DMG installation, open `MacMCP > Open Settings...` and use the
+ChatGPT Tunnel settings gear. The release DMG includes a signed
+`tunnel-client`, so neither Homebrew nor administrator access is needed:
 
 ```bash
 open "$HOME/Applications/MacMCP.app"

@@ -9,3 +9,4 @@
 - [x] 9. Сверить старое status-bar меню с новым окном: сохранить доступность критичных действий как aliases на время миграции, затем убрать дубли только после ручной проверки полного parity matrix.
 - [x] 10. Покрыть интеграцию тестами с injected stores/supervisors: миграция конфигурации, Keychain add/update/remove, validation, toggles, restart/error paths, update/log/repository actions и отсутствие секретов в логах.
 - [x] 11. Провести ручную UX-проверку на чистом и настроенном хосте, проверить сценарии без mail/tunnel, multiple mail accounts и tunnel unavailable; обновить docs/PLAN.md, docs/HANDOFF.md и docs/KNOWN_ISSUES.md после принятия.
+- [x] 12. Упростить status-bar меню до двух действий: Open Settings и Quit; обновить parity-тесты и локально установить проверенную сборку.

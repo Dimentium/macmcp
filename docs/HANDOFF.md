@@ -36,11 +36,14 @@ The project is beyond MVP for local use:
 - The release DMG is the Homebrew-free, administrator-free install path. A
   first-launch setup window optionally configures mail and/or the ChatGPT
   tunnel, storing secrets in Keychain; either or both can be left disabled.
-  The menu retains `Set Up Mail...` and `Set Up ChatGPT Tunnel...` actions.
+  After first launch, `Open Settings...` is the single entry point for these
+  configuration tasks.
 - The approved single-page settings window is now integrated into the
   menu-bar app on this branch. It centralizes Login Item, local/tunnel access,
   EventKit access, mail-account CRUD and gates, tunnel configuration, update,
   logs, repository, and close actions. Secrets remain Keychain-only.
+- The status-bar menu intentionally contains only `Open Settings...` and
+  `Quit`; component status and lifecycle controls are shown in settings.
 
 ## Verified State
 
@@ -151,7 +154,7 @@ attachment-download tools.
 Mail action rules:
 
 - Each account starts in `Read only` mode.
-- The menu path is `MacMCP > Mail > <account>`.
+- The account control is in `MacMCP > Open Settings...`.
 - The control gates local MCP, STDIO, and ChatGPT tunnel calls immediately.
 - Managed drafts have no `To`, `Cc`, `Bcc`, `Reply-To`, or `Resent-*` headers.
 - Only drafts carrying the valid MacMCP marker can be updated.
@@ -183,7 +186,7 @@ Upgrade without losing configuration or Keychain secrets:
 
 ```sh
 brew upgrade --cask macmcp
-# or use MacMCP > MacMCP version > Update to <version>
+# or use MacMCP > Open Settings... > Update
 ```
 
 The app's update checker queries GitHub Releases at launch and every six hours.

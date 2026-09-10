@@ -119,20 +119,21 @@ no separate per-category settings store to edit; their access switches remain
 live. These states are recorded in [docs/KNOWN_ISSUES.md](KNOWN_ISSUES.md)
 rather than represented by UI-only preferences.
 
-The old status-bar actions remain available as compatibility aliases. The
-settings integration has automated parity coverage and has been manually
-reviewed through the approved UX prototype; a signed production bundle was
-also launched in a no-sidecar/tunnel-unavailable check without modifying the
-installed runtime. A release should still include a visual pass on a clean Mac
-with Assistive Access or direct user interaction available.
+The status-bar menu intentionally exposes only `Open Settings...` and `Quit`.
+Detailed controls live in the settings window. The integration has automated
+parity coverage and has been manually reviewed through the approved UX
+prototype; a signed production bundle was also launched in a
+no-sidecar/tunnel-unavailable check without modifying the installed runtime. A
+release should still include a visual pass on a clean Mac with Assistive Access
+or direct user interaction available.
 
 ## Per-Account Mail Actions
 
 The standard MacMCP endpoint always advertises the three narrow mail-action
 tools and applies the same policy through local IPC, stdio, and the ChatGPT
 tunnel. Every configured account begins with `Read only` enabled. The
-`MacMCP > Mail > account` toggle enables or disables new action calls for that
-specific account immediately and persists across app restarts.
+The account toggle in `MacMCP > Open Settings...` enables or disables new action
+calls for that specific account immediately and persists across app restarts.
 
 It exposes only recipient-free managed drafts and one-message `read`, `unread`,
 `flagged`, or `unflagged` operations. SMTP, send, delete, move, archive,

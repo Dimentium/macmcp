@@ -66,69 +66,12 @@ final class MenuBarHostTests: XCTestCase {
         let statusItems = MenuBarHost.StatusMenuItems()
         let menu = host.makeMenu(statusItems: statusItems)
 
-        let applicationMenu = menu.items[7].submenu
-        let quitItem = applicationMenu?.items.last
         XCTAssertTrue(menu.delegate === host)
-        XCTAssertEqual(menu.items.prefix(4).map(\.isEnabled), [false, true, true, true])
-        XCTAssertEqual(menu.items[0], statusItems.overall)
-        XCTAssertEqual(menu.items[1], statusItems.mail)
-        XCTAssertEqual(menu.items[2], statusItems.calendar)
-        XCTAssertEqual(menu.items[3], statusItems.reminders)
-        XCTAssertNotNil(menu.items[2].submenu)
-        XCTAssertNotNil(menu.items[3].submenu)
-        XCTAssertEqual(menu.items[4], statusItems.tunnel)
-        XCTAssertEqual(menu.items[5], statusItems.clients)
-        XCTAssertTrue(menu.items[4].isEnabled)
-        XCTAssertNotNil(menu.items[4].submenu)
-        XCTAssertTrue(menu.items[5].isEnabled)
-        XCTAssertEqual(menu.items[7].title, "\(AppVersion.name) \(AppVersion.version)")
-        XCTAssertTrue(menu.items[7].isEnabled)
-        XCTAssertEqual(applicationMenu?.items[0].title, "Launch at Login")
-        XCTAssertEqual(applicationMenu?.items[0].action?.description, "toggleLaunchAtLogin:")
-        XCTAssertEqual(applicationMenu?.items[1].title, "Open Settings...")
-        XCTAssertEqual(applicationMenu?.items[1].action?.description, "openSettings")
-        XCTAssertEqual(applicationMenu?.items[3].title, "Open MacMCP Repository")
-        XCTAssertEqual(applicationMenu?.items[3].action?.description, "openRepository")
-        XCTAssertEqual(applicationMenu?.items[4].title, "🟡 Updates: checking")
-        XCTAssertNotNil(applicationMenu?.items[4].submenu)
-        XCTAssertFalse(applicationMenu?.items[4].submenu?.autoenablesItems ?? true)
-        XCTAssertFalse(applicationMenu?.items[4].submenu?.items[1].isEnabled ?? true)
-        XCTAssertEqual(applicationMenu?.items[5].title, "Restart MacMCP")
-        XCTAssertEqual(applicationMenu?.items[5].action?.description, "restartMacMCP")
-        XCTAssertEqual(quitItem?.title, "Quit")
-        XCTAssertTrue(quitItem?.target === host)
-        XCTAssertEqual(quitItem?.action, #selector(MenuBarHost.quit))
-    }
-
-    func testSettingsAliasKeepsLegacyApplicationActionsAvailable() {
-        let historyURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-            .appendingPathComponent("tunnel-failures.json")
-        defer { try? FileManager.default.removeItem(at: historyURL.deletingLastPathComponent()) }
-        let host = MenuBarHost(
-            configuration: BridgeLaunchConfiguration(
-                mailSidecarURL: nil,
-                eventKitSidecarURL: nil,
-                iCloudAddress: nil,
-                menuBar: true
-            ),
-            tunnelFailureHistoryStore: TunnelFailureHistoryStore(fileURL: historyURL)
-        )
-        let menu = host.makeMenu(statusItems: .init())
-        let applicationMenu = menu.items[7].submenu
-
-        XCTAssertEqual(
-            applicationMenu?.items.compactMap { $0.action?.description },
-            [
-                "toggleLaunchAtLogin:", "openSettings", "openRepository", "submenuAction:",
-                "restartMacMCP", "quit"
-            ]
-        )
-        XCTAssertEqual(menu.items[4].submenu?.items.first?.title, "Recent failures: none")
-        XCTAssertEqual(
-            menu.items[4].submenu?.items.dropFirst(1).first?.title,
-            "Open Tunnel Log"
-        )
+        XCTAssertEqual(menu.items.map(\.title), ["Open Settings...", "", "Quit"])
+        XCTAssertEqual(menu.items[0].action?.description, "openSettings")
+        XCTAssertTrue(menu.items[0].target === host)
+        XCTAssertEqual(menu.items[2].action, #selector(MenuBarHost.quit))
+        XCTAssertTrue(menu.items[2].target === host)
     }
 
     func testStatusMenuTitlesUseMacMCPAndComponentCircles() {
@@ -228,23 +171,6 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertTrue(toggle?.isEnabled == true)
     }
 
-    func testTunnelMenuOffersSetupWhenTunnelIsNotConfigured() {
-        let host = MenuBarHost(
-            configuration: BridgeLaunchConfiguration(
-                mailSidecarURL: nil,
-                eventKitSidecarURL: nil,
-                iCloudAddress: nil,
-                menuBar: true
-            )
-        )
-        let statusItems = MenuBarHost.StatusMenuItems()
-        let menu = host.makeMenu(statusItems: statusItems)
-
-        let tunnelSetup = menu.items[4].submenu?.items.first { $0.title == "Set Up ChatGPT Tunnel..." }
-        XCTAssertNotNil(tunnelSetup)
-        XCTAssertEqual(tunnelSetup?.action?.description, "openTunnelSetupAssistant")
-    }
-
     func testChatGPTTunnelStatusTitlesUseCircles() {
         XCTAssertEqual(
             MenuBarHost.chatGPTTunnelTitle(state: nil),
@@ -273,35 +199,6 @@ final class MenuBarHostTests: XCTestCase {
             "🟡 Updates: 0.2.7 available"
         )
         XCTAssertEqual(MenuBarHost.installUpdateTitle(state: .available(version: "0.2.7")), "Update to 0.2.7")
-    }
-
-    func testTunnelMenuShowsLatestRedactedFailure() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let history = TunnelFailureHistoryStore(fileURL: directory.appendingPathComponent("tunnel-failures.json"))
-        try history.record(.init(
-            occurredAt: "2026-09-06T10:00:00Z",
-            phase: .health,
-            reason: .healthTimedOut
-        ))
-        let host = MenuBarHost(
-            configuration: BridgeLaunchConfiguration(
-                mailSidecarURL: nil,
-                eventKitSidecarURL: nil,
-                iCloudAddress: nil,
-                menuBar: true
-            ),
-            tunnelFailureHistoryStore: history
-        )
-        let menu = host.makeMenu(statusItems: .init())
-
-        XCTAssertEqual(
-            menu.items[4].submenu?.items.first?.title,
-            "Last failure: 2026-09-06T10:00:00Z Health: timed out"
-        )
-        XCTAssertFalse(menu.items[4].submenu?.items.first?.isEnabled ?? true)
     }
 
     func testTunnelHistoryMarksFailureAsResolvedWhenRunning() {
