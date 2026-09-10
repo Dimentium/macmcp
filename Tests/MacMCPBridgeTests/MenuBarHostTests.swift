@@ -100,6 +100,37 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertEqual(quitItem?.action, #selector(MenuBarHost.quit))
     }
 
+    func testSettingsAliasKeepsLegacyApplicationActionsAvailable() {
+        let historyURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("tunnel-failures.json")
+        defer { try? FileManager.default.removeItem(at: historyURL.deletingLastPathComponent()) }
+        let host = MenuBarHost(
+            configuration: BridgeLaunchConfiguration(
+                mailSidecarURL: nil,
+                eventKitSidecarURL: nil,
+                iCloudAddress: nil,
+                menuBar: true
+            ),
+            tunnelFailureHistoryStore: TunnelFailureHistoryStore(fileURL: historyURL)
+        )
+        let menu = host.makeMenu(statusItems: .init())
+        let applicationMenu = menu.items[7].submenu
+
+        XCTAssertEqual(
+            applicationMenu?.items.compactMap { $0.action?.description },
+            [
+                "toggleLaunchAtLogin:", "openSettings", "openRepository", "submenuAction:",
+                "restartMacMCP", "quit"
+            ]
+        )
+        XCTAssertEqual(menu.items[4].submenu?.items.first?.title, "Recent failures: none")
+        XCTAssertEqual(
+            menu.items[4].submenu?.items.dropFirst(1).first?.title,
+            "Open Tunnel Log"
+        )
+    }
+
     func testStatusMenuTitlesUseMacMCPAndComponentCircles() {
         let host = MenuBarHost(
             configuration: BridgeLaunchConfiguration(

@@ -6,6 +6,6 @@
 - [x] 6. Перенести управление mail accounts: список из текущей конфигурации, add/edit/remove, provider validation, Keychain passwords, drafts creation allowed/read-only, сохранение совместимого launch.json и безопасный restart runtime.
 - [x] 7. Перенести настройки ChatGPT Tunnel: редактируемые tunnel_id и runtime API key, restricted Tunnel Read+Use hint, Check configuration перед Apply, ссылки Platform и инструкция custom MCP в ChatGPT, Keychain/config persistence и restart supervisor.
 - [x] 8. Добавить в основное окно открытие папки ~/Library/Logs/MacMCP и, при необходимости, отдельные переходы к tunnel/proxy logs; не показывать секреты и содержимое логов в UI.
-- [ ] 9. Сверить старое status-bar меню с новым окном: сохранить доступность критичных действий как aliases на время миграции, затем убрать дубли только после ручной проверки полного parity matrix.
+- [x] 9. Сверить старое status-bar меню с новым окном: сохранить доступность критичных действий как aliases на время миграции, затем убрать дубли только после ручной проверки полного parity matrix.
 - [ ] 10. Покрыть интеграцию тестами с injected stores/supervisors: миграция конфигурации, Keychain add/update/remove, validation, toggles, restart/error paths, update/log/repository actions и отсутствие секретов в логах.
 - [ ] 11. Провести ручную UX-проверку на чистом и настроенном хосте, проверить сценарии без mail/tunnel, multiple mail accounts и tunnel unavailable; обновить docs/PLAN.md, docs/HANDOFF.md и docs/KNOWN_ISSUES.md после принятия.
