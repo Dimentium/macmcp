@@ -248,8 +248,10 @@ fi
 "${notarize_arguments[@]}"
 archive="$project_dir/dist/MacMCP-$version-macos.zip"
 checksum="$archive.sha256"
-[[ -f "$archive" && -f "$checksum" ]] || {
-  echo "notarization did not produce the expected release artifact" >&2
+dmg="$project_dir/dist/MacMCP-$version-macos.dmg"
+dmg_checksum="$dmg.sha256"
+[[ -f "$archive" && -f "$checksum" && -f "$dmg" && -f "$dmg_checksum" ]] || {
+  echo "notarization did not produce the expected release artifacts" >&2
   exit 1
 }
 expected_checksum="$(awk 'NR == 1 { print $1 }' "$checksum")"
@@ -258,7 +260,14 @@ actual_checksum="$(shasum -a 256 "$archive" | awk '{ print $1 }')"
   echo "release artifact checksum does not match its checksum file" >&2
   exit 1
 }
+expected_dmg_checksum="$(awk 'NR == 1 { print $1 }' "$dmg_checksum")"
+actual_dmg_checksum="$(shasum -a 256 "$dmg" | awk '{ print $1 }')"
+[[ "$actual_dmg_checksum" == "$expected_dmg_checksum" ]] || {
+  echo "release DMG checksum does not match its checksum file" >&2
+  exit 1
+}
 printf 'Notarized archive: %s\nSHA-256: %s\n' "$archive" "$actual_checksum"
+printf 'Release DMG: %s\nSHA-256: %s\n' "$dmg" "$actual_dmg_checksum"
 
 log_step 4 "Tag and publish the signed source commit"
 require_clean_worktree
@@ -274,10 +283,10 @@ git tag -a "$tag" -m "MacMCP $version" "$source_revision"
 git push "$remote" "$branch:main" "$tag"
 
 log_step 5 "Create the GitHub Release"
-gh release create "$tag" "$archive" "$checksum" \
+gh release create "$tag" "$archive" "$checksum" "$dmg" "$dmg_checksum" \
   --repo "Dimentium/macmcp" \
   --title "MacMCP $version" \
-  --notes "Signed and Apple-notarized MacMCP $version."
+  --notes "Signed and Apple-notarized MacMCP $version. Download the DMG for a Homebrew-free, administrator-free install, or use the ZIP with Homebrew."
 
 log_step 6 "Generate and validate the Homebrew Cask and source formula"
 "$script_dir/write-cask-formula.sh" --archive "$archive"

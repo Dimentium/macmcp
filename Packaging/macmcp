@@ -21,8 +21,8 @@ Commands:
   configure   Reconfigure accounts and open the menu-bar app.
   diagnose    Print a sanitized local runtime report.
   status      Print the bridge status JSON.
-  upgrade     Upgrade the MacMCP Cask with Homebrew.
-  uninstall   Remove the MacMCP Cask with Homebrew.
+  upgrade     Upgrade MacMCP with Homebrew, or print DMG upgrade guidance.
+  uninstall   Remove MacMCP with Homebrew, or print DMG removal guidance.
   help        Show this help.
 
 Setup options use the iCloud, Gmail, custom IMAP, and optional ChatGPT tunnel
@@ -63,10 +63,16 @@ case "$command_name" in
       esac
     done
     if [[ "$has_tunnel_id" -eq 1 && "$has_tunnel_client" -eq 0 ]]; then
-      tunnel_client="$(command -v tunnel-client || true)"
+      bundled_tunnel_client="$contents_dir/Resources/tunnel-client/tunnel-client"
+      tunnel_client=""
+      if [[ -x "$bundled_tunnel_client" ]]; then
+        tunnel_client="$bundled_tunnel_client"
+      else
+        tunnel_client="$(command -v tunnel-client || true)"
+      fi
       if [[ -z "$tunnel_client" ]]; then
         command -v brew >/dev/null || {
-          echo "Homebrew is required to install tunnel-client" >&2
+          echo "This MacMCP build does not include tunnel-client. Install the latest MacMCP DMG or pass --chatgpt-tunnel-client PATH." >&2
           exit 1
         }
         brew install openai/tools/tunnel-client
@@ -89,10 +95,18 @@ case "$command_name" in
     exec "$bridge" --status-json
     ;;
   upgrade)
-    exec brew upgrade --cask macmcp
+    if command -v brew >/dev/null; then
+      exec brew upgrade --cask macmcp
+    fi
+    echo "This MacMCP app was installed from a DMG. Download the latest DMG from https://github.com/Dimentium/macmcp/releases and replace MacMCP.app in Applications." >&2
+    exit 1
     ;;
   uninstall)
-    exec brew uninstall --cask macmcp
+    if command -v brew >/dev/null; then
+      exec brew uninstall --cask macmcp
+    fi
+    echo "This MacMCP app was installed from a DMG. Quit MacMCP and move MacMCP.app from Applications to the Trash." >&2
+    exit 1
     ;;
   help|--help|-h)
     usage

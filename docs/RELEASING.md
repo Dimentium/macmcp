@@ -1,6 +1,14 @@
 # Signing and Notarization
 
-This repository has two intentionally separate installation paths:
+This repository has three user-facing distribution paths and two build
+mechanisms:
+
+- the signed release DMG for normal users, which needs neither Homebrew nor
+  administrator access;
+- the signed Homebrew Cask for command-line setup and upgrades;
+- the source formula for inspection and self-builds.
+
+The build mechanisms are:
 
 - `scripts/install-local.sh` is a source installer. It builds locally and uses
   an ad-hoc signature, so it does not need a developer certificate on the
@@ -8,9 +16,11 @@ This repository has two intentionally separate installation paths:
 - `scripts/notarize-local-app.sh` is the release path. It creates a Developer
   ID-signed, Apple-notarized `MacMCP.app` with a stable macOS code identity.
 
-The release script embeds the pinned `mail-mcp` and EventKit sidecars in the
-app bundle, which is the artifact distributed by the Homebrew Cask. Per-user
-mail account configuration and Keychain secrets remain outside the bundle.
+The release script embeds the pinned `mail-mcp` and EventKit sidecars plus the
+signed OpenAI `tunnel-client` and its matching companion files in the app
+bundle. It publishes both a ZIP for Homebrew and a drag-and-drop DMG for users
+without Homebrew or administrator access. Per-user mail account configuration
+and Keychain secrets remain outside the bundle.
 
 ## One-Time Release-Machine Setup
 
@@ -23,6 +33,11 @@ pinned source revisions. Install Xcode Command Line Tools with Swift 6.1 or
 later, Go 1.25.4 or later, Git, and Python 3. The release Mac also needs
 outbound access to GitHub, the Go module proxy, and the pinned Swift package
 repositories while building.
+
+The release Mac must also have the OpenAI `tunnel-client` executable available
+on `PATH` (for example, `brew install openai/tools/tunnel-client`). The release
+build signs and embeds that binary and its companion files so target Macs do
+not need to install it separately.
 
 The release Mac also needs outbound access to Apple's code-signing timestamp
 service while `codesign` runs. Notarization requires this secure timestamp; a
@@ -45,12 +60,32 @@ software:
 xcrun notarytool history --keychain-profile macmcp-notarization
 ```
 
+## Update the Changelog
+
+Before changing the source version, update the top `Unreleased` section in
+[`changelog.txt`](../changelog.txt) from the Git history since the previous
+release tag. Use the commit history as the source of truth, for example:
+
+```sh
+git log --no-merges --pretty=format:'- %s' v0.2.24..HEAD
+```
+
+Keep the changelog user-facing: summarize meaningful behavior changes and fold
+repetitive Cask/formula publication commits into the release entry. Move the
+completed bullets into a new dated section named for the version being
+released, then leave an empty `Unreleased` section at the top. Do not list
+secrets, account data, or internal implementation noise. The changelog update
+must be included in the intended source commit before `scripts/release.sh` is
+run; the release script intentionally refuses a dirty worktree.
+
 ## Publish a Release
 
-The normal release path is one command. First bump all source version fields,
-commit the intended release, and ensure the worktree is clean. The command
+The normal release path is one command. First update `changelog.txt`, bump all
+source version fields, commit the intended release, and ensure the worktree is
+clean. The command
 runs the full tests, builds the pinned sidecars, signs and notarizes the app,
-validates Gatekeeper, tags and pushes the source commit, creates the GitHub
+creates the ZIP and DMG release artifacts, validates Gatekeeper, tags and pushes
+the source commit, creates the GitHub
 Release, regenerates and commits the Cask and source formula, and pushes that
 metadata commit. Every stage is printed as a numbered step; on failure it
 reports the last completed boundary and does not run later publication steps.
@@ -127,11 +162,14 @@ scripts/notarize-local-app.sh \
 
 The script builds the pinned EventKit sidecar, applies hardened-runtime signing
 and a secure timestamp to the app and nested executable, submits a ZIP to
-Apple, staples the accepted ticket, performs Gatekeeper assessment, and writes:
+Apple, staples the accepted ticket, performs Gatekeeper assessment, and writes
+both release formats:
 
 ```text
 dist/MacMCP-<version>-macos.zip
 dist/MacMCP-<version>-macos.zip.sha256
+dist/MacMCP-<version>-macos.dmg
+dist/MacMCP-<version>-macos.dmg.sha256
 ```
 
 It leaves the currently installed `~/Applications/MacMCP.app` untouched. The
@@ -146,9 +184,10 @@ spctl --assess --type execute --verbose=4 /path/to/MacMCP.app
 
 `scripts/release.sh` is preferred. These lower-level commands remain useful
 only for diagnosing a failed release step after its state has been inspected.
-After creating the signed artifact, create a GitHub Release for the matching
-`v<version>` tag and upload both files from `dist/`. Then generate and commit
-the Cask formula with the archive that was uploaded:
+After creating the signed artifacts, create a GitHub Release for the matching
+`v<version>` tag and upload the ZIP, ZIP checksum, DMG, and DMG checksum from
+`dist/`. Then generate and commit the Cask formula with the archive that was
+uploaded:
 
 ```sh
 scripts/write-cask-formula.sh \
@@ -159,6 +198,7 @@ git push public public-main:main
 ```
 
 The generated Cask installs `MacMCP.app` and exposes its bundle-owned `macmcp`
-command. `brew uninstall --cask macmcp` leaves Keychain secrets and user
-configuration intact; `--zap` removes configuration and caches but never
-removes Keychain records.
+command. The DMG is intentionally independent of Homebrew and can be copied
+to `~/Applications` by a non-admin user. `brew uninstall --cask macmcp` leaves
+Keychain secrets and user configuration intact; `--zap` removes configuration
+and caches but never removes Keychain records.

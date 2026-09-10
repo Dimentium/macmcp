@@ -4,26 +4,29 @@ import MCP
 final class BridgeServer {
     private let server: Server
     private let transport: StdioTransport
-    private let tools: [Tool]
+    private let allTools: [Tool]
     private let router: GatewayRouter?
     private let policy: ReaderPolicy
     private let statusSource: BridgeStatusSource
     private let attachmentReader: AttachmentTextReader?
     private let mailActionAccess: MailActionAccessController?
+    private let dataAccess: MCPDataAccessController
 
     init(
         router: GatewayRouter? = nil,
         policy: ReaderPolicy = ReaderPolicy(),
         statusSource: BridgeStatusSource = BridgeStatusSource(),
         attachmentReader: AttachmentTextReader? = nil,
-        mailActionAccess: MailActionAccessController? = nil
+        mailActionAccess: MailActionAccessController? = nil,
+        dataAccess: MCPDataAccessController = MCPDataAccessController()
     ) async {
         self.router = router
         self.policy = policy
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
         self.mailActionAccess = mailActionAccess
-        tools = await Self.exposedTools(router: router, policy: policy)
+        self.dataAccess = dataAccess
+        allTools = await Self.exposedTools(router: router, policy: policy)
         server = Server(
             name: AppVersion.name,
             version: AppVersion.version,
@@ -89,11 +92,11 @@ final class BridgeServer {
     }
 
     private func registerHandlers() async {
-        await server.withMethodHandler(ListTools.self) { [tools] _ in
-            ListTools.Result(tools: tools)
+        await server.withMethodHandler(ListTools.self) { [allTools, dataAccess] _ in
+            ListTools.Result(tools: await dataAccess.filterTools(allTools))
         }
 
-        await server.withMethodHandler(CallTool.self) { [router, policy, attachmentReader, mailActionAccess, weak self] params in
+        await server.withMethodHandler(CallTool.self) { [router, policy, attachmentReader, mailActionAccess, dataAccess, weak self] params in
             if params.name == "bridge_status" {
                 return await self?.bridgeStatusResult(arguments: params.arguments) ?? CallTool.Result(
                     content: [.text("Unable to encode status")],
@@ -109,6 +112,10 @@ final class BridgeServer {
                     )
                 }
                 return await attachmentReader.read(arguments: params.arguments)
+            }
+
+            if let denial = await dataAccess.deniedMessage(forToolName: params.name) {
+                return CallTool.Result(content: [.text(denial)], isError: true)
             }
 
             guard let router else {

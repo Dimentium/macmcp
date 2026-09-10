@@ -4,6 +4,13 @@ This is the current engineering issue register for MacMCP. It records remaining
 delivery and reliability gaps without account addresses, credentials, or
 personal data.
 
+## Release Pending
+
+- The published `0.2.24` artifact still has the old Homebrew-first onboarding.
+  The next signed release must publish the new DMG, bundled `tunnel-client`,
+  and optional first-launch setup assistant before the Homebrew-free path is
+  available to users.
+
 ## Deferred Verification
 
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live

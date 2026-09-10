@@ -39,6 +39,12 @@ final class PackagingScriptTests: XCTestCase {
 
         XCTAssertEqual(process.terminationStatus, 0)
         XCTAssertEqual(String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self), "ready\n")
+
+        let packagingCLI = try String(
+            contentsOf: project.appendingPathComponent("Packaging/macmcp"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(packagingCLI.contains("This MacMCP app was installed from a DMG"))
     }
 
     func testLocalAppBuildScriptChecksEmbeddedSidecar() throws {
@@ -57,6 +63,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("--signing-identity ID"))
         XCTAssertTrue(script.contains("--signing-keychain PATH"))
         XCTAssertTrue(script.contains("--mail-sidecar PATH"))
+        XCTAssertTrue(script.contains("--tunnel-client PATH"))
         XCTAssertTrue(script.contains("--output PATH"))
         XCTAssertTrue(script.contains("MACMCP_SIGNING_IDENTITY"))
         XCTAssertTrue(script.contains("MACMCP_SIGNING_KEYCHAIN"))
@@ -67,6 +74,9 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("\"$app_eventkit\""))
         XCTAssertTrue(script.contains("\"$app_mail\""))
         XCTAssertTrue(script.contains("app_cli=\"$app/Contents/Resources/macmcp\""))
+        XCTAssertTrue(script.contains("app_tunnel_client=\"$app_tunnel_dir/tunnel-client\""))
+        XCTAssertTrue(script.contains("cloudflared-manifest.json"))
+        XCTAssertTrue(script.contains("sign_target \"$app_tunnel_client\""))
         XCTAssertTrue(script.contains("cask_cli=\"$project_dir/Packaging/macmcp\""))
         XCTAssertTrue(script.contains("cp \"$cask_cli\" \"$app_cli\""))
         XCTAssertTrue(script.contains("notices_dir=\"$project_dir/Packaging/ThirdPartyNotices\""))
@@ -91,6 +101,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("legacy_install_root"))
         XCTAssertTrue(script.contains("mail-action-access.json"))
         XCTAssertTrue(script.contains("--chatgpt-tunnel-id ID"))
+        XCTAssertTrue(script.contains("--tunnel-client \"$chatgpt_tunnel_client\""))
         XCTAssertTrue(script.contains("brew install openai/tools/tunnel-client"))
         XCTAssertTrue(script.contains("--store-chatgpt-tunnel-key"))
         XCTAssertTrue(script.contains("\"chatGPTTunnel\""))
@@ -188,6 +199,9 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("build_arguments+=(--signing-keychain \"$signing_keychain\")"))
         XCTAssertTrue(script.contains("build-pinned-eventkit-sidecar.sh"))
         XCTAssertTrue(script.contains("build-pinned-mail-sidecar.sh"))
+        XCTAssertTrue(script.contains("Packaging/tunnel-client.version"))
+        XCTAssertTrue(script.contains("tunnel-client version mismatch"))
+        XCTAssertTrue(script.contains("--tunnel-client PATH"))
         XCTAssertTrue(script.contains("--keychain-profile \"$notary_profile\""))
         XCTAssertTrue(script.contains("xcrun notarytool submit \"$archive\""))
         XCTAssertTrue(script.contains("xcrun stapler staple \"$app\""))
@@ -195,7 +209,26 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("spctl --assess --type execute --verbose=4 \"$app\""))
         XCTAssertTrue(script.contains("ditto -c -k --sequesterRsrc --keepParent \"$app\" \"$archive\""))
         XCTAssertTrue(script.contains("shasum -a 256 \"$archive\" > \"$checksum\""))
+        XCTAssertTrue(script.contains("create-release-dmg.sh"))
+        XCTAssertTrue(script.contains("MacMCP-$version-macos.dmg"))
         XCTAssertFalse(script.contains("AuthKey_"))
+    }
+
+    func testReleaseDMGIsHomebrewAndAdminIndependent() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let script = try String(
+            contentsOf: root.appendingPathComponent("scripts/create-release-dmg.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(script.hasPrefix("#!/bin/bash\n"))
+        XCTAssertTrue(script.contains("--app PATH"))
+        XCTAssertTrue(script.contains("hdiutil create"))
+        XCTAssertTrue(script.contains("ln -s /Applications"))
+        XCTAssertTrue(script.contains("without administrator access"))
+        XCTAssertTrue(script.contains("Homebrew is not required"))
+        XCTAssertTrue(script.contains("Read Me First.txt"))
+        XCTAssertTrue(script.contains("app-specific password"))
     }
 
     func testCaskFormulaWriterTargetsTheNotarizedReleaseArchive() throws {
@@ -232,6 +265,8 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("notarize-local-app.sh"))
         XCTAssertTrue(script.contains("git tag -a \"$tag\""))
         XCTAssertTrue(script.contains("gh release create \"$tag\""))
+        XCTAssertTrue(script.contains("MacMCP-$version-macos.dmg"))
+        XCTAssertTrue(script.contains("$dmg_checksum"))
         XCTAssertTrue(script.contains("write-cask-formula.sh"))
         XCTAssertTrue(script.contains("git push \"$remote\" \"$branch:main\""))
         XCTAssertTrue(script.contains("brew upgrade --cask macmcp"))
@@ -278,9 +313,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.24\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.24</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.24</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.25\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.25</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.25</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

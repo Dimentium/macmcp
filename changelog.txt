@@ -1,0 +1,204 @@
+MacMCP Changelog
+================
+
+Tagged release history is summarized from Git commits. Repetitive release
+bookkeeping commits (Cask/formula pointer updates and publication commits) are
+folded into the corresponding release. The Unreleased section describes the
+current working-tree changes and must be moved into a dated version section
+before publication.
+
+Unreleased
+----------
+
+No unreleased changes.
+
+0.2.25 - 2026-09-10
+-------------------
+
+- Add a Homebrew-free, administrator-free drag-and-drop DMG installation path.
+- Add first-launch setup for optional Mail and/or ChatGPT tunnel configuration;
+  allow Mail-only, tunnel-only, both, or neither.
+- Bundle the signed OpenAI `tunnel-client` and its official companion files in
+  the release app so tunnel setup does not require Homebrew or a separate CLI.
+- Add menu controls for `Calendar > Allow MCP access` and
+  `Reminders > Allow MCP access`, persisted and applied immediately to local
+  MCP and ChatGPT tunnel traffic.
+
+0.2.24 - 2026-09-09
+-------------------
+
+- Reduce idle MCP transport polling and the resulting background CPU activity.
+
+0.2.23 - 2026-09-09
+-------------------
+
+- Reduce idle health polling while retaining runtime health monitoring.
+
+0.2.22 - 2026-09-09
+-------------------
+
+- Reduce MacMCP idle polling across the menu-bar runtime.
+
+0.2.21 - 2026-09-08
+-------------------
+
+- Expose bounded detailed Calendar event fields, including optional location,
+  attendees, organizer, URL, recurrence, and notes data.
+
+0.2.20 - 2026-09-08
+-------------------
+
+- Prefer MacMCP for local personal-data questions in the published tool
+  guidance.
+- Add a tunnel-independent local MCP acceptance gate and support validation of
+  the app-owned Cask runtime.
+- Make the deep IMAP validation explicitly opt in and document stable local and
+  ChatGPT acceptance workflows.
+
+0.2.19 - 2026-09-07
+-------------------
+
+- Wait for runtime readiness during the release and install flow before
+  reporting success.
+
+0.2.18 - 2026-09-07
+-------------------
+
+- Adopt compatible legacy managed drafts during migration.
+- Clarify tunnel history and recovery behavior.
+
+0.2.17 - 2026-09-07
+-------------------
+
+- Pin the provider-safe managed-draft compatibility fix.
+- Document the standard signed release workflow.
+
+0.2.16 - 2026-09-07
+-------------------
+
+- Pass tunnel credentials correctly to tunnel health checks.
+
+0.2.15 - 2026-09-07
+-------------------
+
+- Recover managed-draft revisions safely when adopting legacy drafts.
+- Automate signed Cask releases with release preflight checks and retained,
+  time-stamped failure logs.
+
+0.2.14 - 2026-09-07
+-------------------
+
+- Bound remote MCP response sizes after JSON encoding.
+- Record and document live ChatGPT new-chat tunnel validation.
+
+0.2.13 - 2026-09-07
+-------------------
+
+- Prevent duplicate MacMCP menu-bar runtimes with a per-user instance lock.
+
+0.2.12 - 2026-09-07
+-------------------
+
+- Add privacy-safe diagnostics for the tunnel-owned stdio proxy.
+
+0.2.11 - 2026-09-07
+-------------------
+
+- Fail closed for unrecognized or unsafe tunnel log output.
+
+0.2.10 - 2026-09-07
+-------------------
+
+- Improve tunnel log readability while retaining bounded output.
+
+0.2.9 - 2026-09-07
+-------------------
+
+- Add redacted tunnel-client lifecycle logging.
+
+0.2.8 - 2026-09-07
+-------------------
+
+- Improve in-app MacMCP update controls and Homebrew Cask upgrade handling.
+
+0.2.7 - 2026-09-07
+-------------------
+
+- Recenter the product on the reader-only local MCP runtime.
+- Add in-app Cask update support and remove the obsolete scanner,
+  notification, and monitor components.
+
+0.2.6 - 2026-09-07
+-------------------
+
+- Resolve the Homebrew Cask CLI through its stable bundle path and symlinks.
+
+0.2.5 - 2026-09-07
+-------------------
+
+- Migrate legacy configuration and state for Cask installations.
+
+0.2.4 - 2026-09-07
+-------------------
+
+- Prepare the first packaged MacMCP distribution around the Cask install path.
+
+0.2.3 - 2026-09-07
+-------------------
+
+- Add the Homebrew Cask setup flow and verify the source formula through CI and
+  a temporary tap.
+
+0.2.2 - 2026-09-07
+-------------------
+
+- Add the Developer ID signing and Apple notarization pipeline.
+- Build and embed the pinned Mail sidecar in the app bundle.
+- Add the pinned Go toolchain to macOS CI.
+
+0.2.1 - 2026-09-07
+-------------------
+
+- Complete the app-owned runtime migration.
+- Add per-account Mail action controls with a default `Read only` gate.
+- Pin the EventKit sidecar dependency graph and strengthen deployment/CI
+  diagnostics.
+
+0.2.0 - 2026-09-06
+-------------------
+
+- Add the local managed-mail action profile for recipient-free drafts and
+  explicit message-state changes.
+
+0.1.9 - 2026-09-06
+-------------------
+
+- Persist redacted tunnel failure diagnostics across app restarts.
+
+0.1.8 - 2026-09-06
+-------------------
+
+- Stabilize the diagnostic deployment contract.
+
+0.1.7 - 2026-09-06
+-------------------
+
+- Improve runtime operations and deployment validation.
+
+0.1.6 - 2026-09-06
+-------------------
+
+- Upgrade the Mail sidecar for iCloud folder listing.
+- Document bundled third-party components.
+
+0.1.5 - 2026-09-06
+-------------------
+
+- Add the Homebrew installation path and tap trust guidance.
+- Restart sidecars after unexpected exits and run macOS CI sequentially.
+
+0.1.4 - 2026-09-06
+-------------------
+
+- Publish the initial public MacMCP source and command entrypoint.
+- Document the developer-oriented source installation path.

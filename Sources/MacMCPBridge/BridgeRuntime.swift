@@ -92,6 +92,7 @@ final class BridgeRuntime {
     // ChatGPT tunnel. Per-account action access is checked separately.
     let policy: ReaderPolicy
     let mailActionAccess: MailActionAccessController
+    let dataAccess: MCPDataAccessController
     let statusSource: BridgeStatusSource
     let attachmentReader: AttachmentTextReader?
     private var mailSidecarConfiguration: MaterializedMailConfiguration?
@@ -104,6 +105,7 @@ final class BridgeRuntime {
         router: GatewayRouter,
         policy: ReaderPolicy,
         mailActionAccess: MailActionAccessController,
+        dataAccess: MCPDataAccessController,
         statusSource: BridgeStatusSource,
         attachmentReader: AttachmentTextReader?,
         mailSidecarConfiguration: MaterializedMailConfiguration?
@@ -112,6 +114,7 @@ final class BridgeRuntime {
         self.router = router
         self.policy = policy
         self.mailActionAccess = mailActionAccess
+        self.dataAccess = dataAccess
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
         self.mailSidecarConfiguration = mailSidecarConfiguration
@@ -126,7 +129,8 @@ final class BridgeRuntime {
     static func start(
         configuration: BridgeLaunchConfiguration,
         credentials: any CredentialStore = MigratingCredentialStore.mail(),
-        startup: BridgeRuntimeStartup? = nil
+        startup: BridgeRuntimeStartup? = nil,
+        dataAccess: MCPDataAccessController = MCPDataAccessController()
     ) async throws -> BridgeRuntime {
         let statusSource = BridgeStatusSource(
             status: .connected(
@@ -243,6 +247,7 @@ final class BridgeRuntime {
             router: router,
             policy: policy,
             mailActionAccess: mailActionAccess,
+            dataAccess: dataAccess,
             statusSource: statusSource,
             attachmentReader: attachmentStorage.map {
                 AttachmentTextReader(router: router, policy: policy, storage: $0)
@@ -262,7 +267,8 @@ final class BridgeRuntime {
             policy: policy,
             statusSource: statusSource,
             attachmentReader: attachmentReader,
-            mailActionAccess: mailActionAccess
+            mailActionAccess: mailActionAccess,
+            dataAccess: dataAccess
         )
     }
 
@@ -280,6 +286,7 @@ final class BridgeRuntime {
             statusSource: statusSource,
             attachmentReader: attachmentReader,
             mailActionAccess: mailActionAccess,
+            dataAccess: dataAccess,
             clientApprovalStore: clientApprovalStore,
             onClientApprovalChanged: onClientApprovalChanged
         )
@@ -371,6 +378,7 @@ final class BridgeRuntime {
         let policy = self.policy
         let statusSource = self.statusSource
         let supervisor = self.supervisor
+        let dataAccess = self.dataAccess
         return EventKitHealthProber(
             statusSource: statusSource,
             callTool: { publicName, arguments in
@@ -383,6 +391,9 @@ final class BridgeRuntime {
             onTimeout: {
                 await router.detach(sidecarID: ReaderPolicy.eventKitSidecarID)
                 try? await supervisor.stop(id: ReaderPolicy.eventKitSidecarID)
+            },
+            shouldProbe: { component in
+                await dataAccess.isEnabled(component.dataCategory)
             }
         )
     }

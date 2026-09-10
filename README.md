@@ -30,56 +30,68 @@ only` control is cleared. Drafts have no recipient fields and cannot be sent.
 
 ## Installation
 
-MacMCP has two installation paths: a signed Cask for normal use and a source
-installation for inspection and local builds.
+MacMCP has a normal, Homebrew-free installation. Homebrew is optional and is
+not needed on the Mac that will actually use the app.
 
-### Source Install
+### Recommended: download the release DMG
 
-Choose this path to inspect and build the runtime locally. It requires:
+Use the `MacMCP-<version>-macos.dmg` asset on the [latest GitHub
+Release](https://github.com/Dimentium/macmcp/releases). Do not download
+`Source code` and do not start with the ZIP unless you specifically want the
+Homebrew path.
 
-- macOS 14 or later;
-- Xcode Command Line Tools with Swift 6.1 or later (`xcode-select --install`);
-- Homebrew;
-- outbound access to GitHub, the Go module proxy, and the pinned Swift package
-  repositories during setup.
+Requirements: an Apple Silicon Mac running macOS 14 (Sonoma) or later. An
+administrator account and Homebrew are not required.
 
-The formula pulls Go and Python 3 as dependencies; `mail-mcp` requires Go
-1.25.4 or later. The setup then downloads this source package, checks out the
-pinned `mail-mcp` and `CheICalMCP` source commits, verifies their Go and Swift
-dependency graphs, and builds all three MacMCP executables locally. It does
-not download a prebuilt `mail-mcp` or EventKit runtime binary.
+1. Open the downloaded DMG.
+2. Drag `MacMCP.app` onto `Applications`. If macOS asks for an administrator
+   password, open your Home folder, create `Applications` there if needed, and
+   drag the app into that folder instead. `~/Applications` is fully supported.
+3. Open `MacMCP` from Applications. If macOS shows a first-launch warning,
+   right-click the app, choose `Open`, and confirm once.
+4. The MacMCP setup window appears. Mail and the ChatGPT tunnel are optional:
+   enable either section only if you need it. For mail, choose Gmail or iCloud
+   Mail, enter the address, and enter an app-specific password. The password is
+   saved in the macOS Keychain; it is not your normal Google or Apple Account
+   password. For ChatGPT, enter the tunnel ID and restricted runtime API key.
+5. Leave MacMCP running. Its menu-bar item shows the health of Mail, Calendar,
+   and Reminders. `Launch MacMCP at login` is enabled by default.
 
-Install and configure it with:
+If you closed the setup window, choose `MacMCP > Mail > Set Up Mail...` or
+`MacMCP > ChatGPT Tunnel > Set Up ChatGPT Tunnel...` from the menu-bar item. You
+can choose `Set Up Later` when you only need Calendar or Reminders.
+
+To pause personal-data access without stopping MacMCP, open the `Calendar` or
+`Reminders` status item and toggle `Allow MCP access`. The switch applies to
+local MCP clients and the ChatGPT tunnel immediately; disabled tools disappear
+from the next `tools/list` response and cached calls receive a fixed denial.
+
+The optional ChatGPT tunnel is configured later from the MacMCP menu. The
+release DMG includes a signed `tunnel-client`, so Homebrew is not needed for
+tunnel setup either. It is not needed for local MCP use and must not be a
+prerequisite for the first launch.
+
+### Connect a local MCP client
+
+Keep MacMCP running in the menu bar, then add this command to your MCP client.
+Replace the app path with `/Applications/MacMCP.app` if you installed it there:
 
 ```bash
-brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
-brew trust --tap Dimentium/macmcp
-brew install macmcp
-macmcp setup --gmail-address you@gmail.com
+app="$HOME/Applications/MacMCP.app"
+codex mcp add macmcp -- \
+  "$app/Contents/MacOS/macmcp-bridge" \
+  --stdio-proxy "$HOME/Library/Application Support/macmcp/mcp.sock"
 ```
 
-`macmcp setup` installs the app, prompts for the account app password, and
-starts first-run configuration. Use `--icloud-address` for iCloud Mail or
-`--mail-account` for a custom IMAP account; account options may be repeated.
-The implementation scripts remain internal. After installation, the MacMCP
-menu-bar item shows bridge, mail, Calendar, Reminders, client approvals,
-and the optional tunnel. Open `Mail > account` to keep an account read-only or
-allow its limited mail actions. The control applies immediately and persists
-across app restarts.
+On the first data request, choose `MacMCP > Clients > Approve` in the menu-bar
+menu. The app must remain running; the client connects to its private local
+socket and does not start the mail or EventKit sidecars itself.
 
-macOS may ask for Keychain, Calendar, or Reminders access on first use. Grant
-only the permissions needed for the features you enable.
+### Homebrew (optional)
 
-### Signed Cask
-
-The Cask downloads one prebuilt, Developer ID-signed and Apple-notarized
-`MacMCP.app` from GitHub Releases. It currently requires an
-Apple Silicon Mac running macOS 14 or later. It contains the bridge, mail
-sidecar, and EventKit sidecar, so it will not need Swift, Go, or source
-checkouts on the target Mac. The first launch will still need account setup and
-the macOS permissions required by the enabled features.
-
-Install it with:
+Homebrew is convenient for repeatable upgrades and for developers, but it is
+not required. The signed Cask contains the same prebuilt bridge, mail sidecar,
+and EventKit sidecar as the DMG:
 
 ```bash
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
@@ -87,13 +99,26 @@ brew install --cask macmcp
 macmcp setup --gmail-address you@gmail.com
 ```
 
-`macmcp setup` prompts for the app password, stores it in Keychain, registers
-the Login Item, and opens the app. It accepts repeatable `--gmail-address`,
-`--icloud-address`, and `--mail-account` options. Adding
-`--chatgpt-tunnel-id tunnel_YOUR_ID` installs `tunnel-client` when needed and
-prompts once for the restricted runtime API key. Cask upgrades use
-`macmcp upgrade` or `brew upgrade --cask macmcp` and retain configuration and
-Keychain secrets.
+The Cask also installs the `macmcp` command. Its setup accepts repeatable
+`--gmail-address`, `--icloud-address`, and `--mail-account` options. Cask
+upgrades retain configuration and Keychain secrets.
+
+### Advanced: source install
+
+Use this path only to inspect or build MacMCP locally. It requires macOS 14 or
+later, Xcode Command Line Tools with Swift 6.1 or later, Homebrew, Go 1.25.4 or
+later, and network access to the pinned GitHub and Swift package sources.
+
+```bash
+brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
+brew install macmcp
+macmcp setup --gmail-address you@gmail.com
+```
+
+The source formula builds the bridge and both sidecars locally; it does not
+download prebuilt runtime binaries. macOS may ask for Keychain, Calendar, or
+Reminders access on first use. Grant only the permissions needed for the
+features you enable.
 
 ## Connect ChatGPT
 
@@ -101,22 +126,22 @@ The default local setup works with local MCP clients. To use MacMCP from
 ChatGPT, configure the optional tunnel during setup or reconfiguration.
 
 1. Create a tunnel in the [OpenAI tunnel settings](https://platform.openai.com/settings/organization/tunnels).
-2. Create a restricted runtime API key in the [OpenAI API key settings](https://platform.openai.com/api-keys).
-3. Configure the tunnel. The Cask wrapper installs `tunnel-client` when needed:
+2. Create a restricted runtime API key in the [OpenAI Runtime API key settings](https://platform.openai.com/settings/organization/api-keys).
+3. Configure the tunnel. The MacMCP menu opens a setup window where you enter
+   the tunnel ID and restricted runtime API key. The release DMG already
+   includes the signed `tunnel-client`; Homebrew is optional.
 
    ```bash
-   # Source installation with an existing configured runtime
-   macmcp upgrade --chatgpt-tunnel-id tunnel_YOUR_ID
-
-   # Cask installation, including the configured account again
+   # Optional CLI equivalent for a Homebrew install
    macmcp configure --gmail-address you@gmail.com \
      --chatgpt-tunnel-id tunnel_YOUR_ID
    ```
 
+   For a DMG install, use `MacMCP > ChatGPT Tunnel > Set Up ChatGPT Tunnel...`.
    This requests the runtime key once and stores it in Keychain; the tunnel ID
    is stored in MacMCP configuration. The menu owns tunnel startup and offers
-   restart and key replacement controls.
-5. Add the resulting MacMCP connector in ChatGPT's Apps and Connectors
+   restart, reconfiguration, key replacement, and disable controls.
+4. Add the resulting MacMCP connector in ChatGPT's Apps and Connectors
    settings. ChatGPT Work is the currently validated client. The advertised
    mail-action tools use the same tunnel but return a clear disabled error
    until `Mail > account > Read only` is cleared locally.
@@ -127,16 +152,23 @@ is sufficient.
 ## Daily Use
 
 Use the menu-bar item to inspect component health, approve local MCP clients,
-manage account-level `Read only`, and manage the optional tunnel.
-For a Cask installation, `Updates` checks the latest GitHub Release at launch
-and every six hours. It enables `Update to <version>` only after a newer release
-is confirmed. That explicit command refreshes Homebrew, upgrades the Cask, and
-restarts MacMCP. Source installs continue to use their normal Homebrew upgrade.
+quickly enable or disable Calendar and Reminders MCP access, manage account-level
+`Read only`, and manage the optional tunnel.
+For a Homebrew installation, `Updates` checks the latest GitHub Release at
+launch and every six hours. It enables `Update to <version>` only after a newer
+release is confirmed. That command refreshes Homebrew, upgrades the Cask, and
+restarts MacMCP. For a DMG installation, download the next DMG, quit MacMCP,
+replace the app in the same Applications folder, and open it again; settings
+and Keychain secrets remain outside the app.
 
 For a privacy-safe support snapshot, run:
 
 ```bash
+# Homebrew installation
 macmcp diagnose
+
+# DMG installation (choose the path you used)
+"$HOME/Applications/MacMCP.app/Contents/Resources/macmcp" diagnose
 ```
 
 The report includes component states and restart counts, configuration counts,
@@ -172,13 +204,14 @@ IDs, or result content.
 
 ## Updates And Removal
 
-Update the source package and the installed runtime:
+Update a Homebrew installation:
 
 ```bash
 brew update
-brew upgrade macmcp
-macmcp upgrade
+brew upgrade --cask macmcp
 ```
+
+For the advanced source formula use `brew upgrade macmcp` instead.
 
 Remove MacMCP:
 
@@ -186,6 +219,10 @@ Remove MacMCP:
 macmcp uninstall
 brew uninstall macmcp
 ```
+
+For a DMG installation, quit MacMCP and move `MacMCP.app` from your
+Applications folder to the Trash. Its configuration and Keychain entries are
+left in place so a later reinstall can continue where you stopped.
 
 The source formula remains supported after the Cask is published. The Developer
 ID release pipeline is one numbered command, documented in
@@ -201,13 +238,14 @@ MacMCP directly uses the following upstream projects:
 | [che-ical-mcp](https://github.com/PsychQuant/che-ical-mcp) v1.16.1 | EventKit Calendar and Reminders sidecar | MIT | [upstream](https://github.com/PsychQuant/che-ical-mcp) |
 | [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) | Local MCP server implementation | MIT / Apache-2.0 | [upstream](https://github.com/modelcontextprotocol/swift-sdk) |
 | [Swift System](https://github.com/apple/swift-system) | Swift system interfaces | Apache-2.0 | [upstream](https://github.com/apple/swift-system) |
+| [OpenAI tunnel-client](https://github.com/openai/tunnel-client) | Optional ChatGPT Secure MCP Tunnel runtime | Apache-2.0 | [upstream](https://github.com/openai/tunnel-client) |
 
 The exact sidecar revisions are recorded in
 [UPSTREAMS.lock.json](UPSTREAMS.lock.json); direct and transitive Swift package
-revisions are pinned in [Package.resolved](Package.resolved). `tunnel-client`
-is an optional, separately installed OpenAI component and is not included in a
-MacMCP release. A signed app bundle includes the corresponding full license
-texts under `Contents/Resources/ThirdPartyNotices`.
+revisions are pinned in [Package.resolved](Package.resolved). The signed
+release app embeds the pinned OpenAI `tunnel-client` runtime and its companion
+files. A signed app bundle includes the corresponding full license texts under
+`Contents/Resources/ThirdPartyNotices`.
 
 ## Security Model
 

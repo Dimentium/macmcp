@@ -193,13 +193,14 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
     typealias IdentityProvider = @Sendable (Int32) throws -> LocalClientIdentity
 
     private let socketURL: URL
-    private let tools: [Tool]
+    private let allTools: [Tool]
     private let toolNames: Set<String>
     private let router: GatewayRouter
     private let policy: ReaderPolicy
     private let statusSource: BridgeStatusSource
     private let attachmentReader: AttachmentTextReader?
     private let mailActionAccess: MailActionAccessController?
+    private let dataAccess: MCPDataAccessController
     private let clientApprovalStore: ClientApprovalStore
     private let identityProvider: IdentityProvider
     private let onClientApprovalChanged: (@Sendable () -> Void)?
@@ -218,19 +219,21 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
         statusSource: BridgeStatusSource,
         attachmentReader: AttachmentTextReader? = nil,
         mailActionAccess: MailActionAccessController? = nil,
+        dataAccess: MCPDataAccessController = MCPDataAccessController(),
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         identityProvider: @escaping IdentityProvider = { try LocalClientIdentity.localPeer(fd: $0) },
         onClientApprovalChanged: (@Sendable () -> Void)? = nil,
         limits: LocalBridgeIPCLimits = LocalBridgeIPCLimits()
     ) {
         self.socketURL = socketURL
-        self.tools = tools
+        self.allTools = tools
         self.toolNames = Set(tools.map(\.name))
         self.router = router
         self.policy = policy
         self.statusSource = statusSource
         self.attachmentReader = attachmentReader
         self.mailActionAccess = mailActionAccess
+        self.dataAccess = dataAccess
         self.clientApprovalStore = clientApprovalStore
         self.identityProvider = identityProvider
         self.onClientApprovalChanged = onClientApprovalChanged
@@ -455,7 +458,7 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
         case "ping":
             return .object([:])
         case "tools/list":
-            return try Value(ListTools.Result(tools: tools))
+            return try Value(ListTools.Result(tools: await dataAccess.filterTools(allTools)))
         case "tools/call":
             let parameters = try decodeParams(CallTool.Parameters.self, from: params)
             let publicName = canonicalToolName(parameters.name)
@@ -473,6 +476,12 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
                     }
                     result = await attachmentReader.read(arguments: parameters.arguments)
                 } else {
+                    if let denial = await dataAccess.deniedMessage(forToolName: publicName) {
+                        return try Value(CallTool.Result(
+                            content: [.text(text: denial, annotations: nil, _meta: nil)],
+                            isError: true
+                        ))
+                    }
                     if ReaderPolicy.mailActionToolNames.contains(publicName) {
                         guard let mailActionAccess else {
                             return try Value(CallTool.Result(

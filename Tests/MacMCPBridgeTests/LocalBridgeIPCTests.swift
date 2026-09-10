@@ -466,6 +466,85 @@ final class LocalBridgeIPCTests: XCTestCase {
         XCTAssertEqual(callsAfterDisabling, ["create_managed_draft"])
     }
 
+    func testDataAccessToggleTakesEffectWithoutRestartingIPCServer() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let socketURL = directory.appendingPathComponent("mcp.sock")
+        let identity = LocalClientIdentity(
+            uid: 501,
+            pid: 123,
+            executablePath: "/Applications/Codex.app/Contents/MacOS/Codex",
+            executableSHA256: "abc123"
+        )
+        let approvalStore = ClientApprovalStore(
+            fileURL: directory.appendingPathComponent("approved-clients.json"),
+            expectedUID: 501
+        )
+        _ = try await approvalStore.authorize(identity)
+        _ = try await approvalStore.approvePending()
+
+        let dataAccess = MCPDataAccessController(
+            store: MCPDataAccessStore(fileURL: directory.appendingPathComponent("access.json"))
+        )
+        try await dataAccess.setEnabled(false, for: .calendar)
+        let router = GatewayRouter()
+        let sidecar = IPCFakeSidecarClient()
+        let policy = ReaderPolicy(rules: [
+            ReaderToolRule(
+                publicName: "calendar.list",
+                sidecarID: "mail",
+                upstreamName: "search_emails"
+            )
+        ])
+        try await router.attach(sidecarID: "mail", client: sidecar, policy: policy)
+        let server = LocalBridgeIPCServer(
+            socketURL: socketURL,
+            tools: BridgeServer.defineTools() + (await router.tools()),
+            router: router,
+            policy: policy,
+            statusSource: BridgeStatusSource(),
+            dataAccess: dataAccess,
+            clientApprovalStore: approvalStore,
+            identityProvider: { _ in identity }
+        )
+        try server.start()
+        defer { Task { await server.stop() } }
+
+        let fd = try connect(to: socketURL.path)
+        defer { close(fd) }
+        let hiddenTools = try request(fd: fd, id: 1, method: "tools/list", params: [:])
+        let hiddenNames = ((hiddenTools["result"] as? [String: Any])?["tools"] as? [[String: Any]])?
+            .compactMap { $0["name"] as? String }
+        XCTAssertEqual(hiddenNames, ["bridge_status"])
+
+        let blocked = try request(
+            fd: fd,
+            id: 2,
+            method: "tools/call",
+            params: ["name": "calendar.list", "arguments": [:]]
+        )
+        XCTAssertEqual(actionErrorText(blocked), MCPDataCategory.calendar.disabledMessage)
+        let callsWhileBlocked = await sidecar.calls
+        XCTAssertEqual(callsWhileBlocked, [])
+
+        try await dataAccess.setEnabled(true, for: .calendar)
+        let visibleTools = try request(fd: fd, id: 3, method: "tools/list", params: [:])
+        let visibleNames = ((visibleTools["result"] as? [String: Any])?["tools"] as? [[String: Any]])?
+            .compactMap { $0["name"] as? String }
+        XCTAssertEqual(visibleNames, ["bridge_status", "calendar.list"])
+        let allowed = try request(
+            fd: fd,
+            id: 4,
+            method: "tools/call",
+            params: ["name": "calendar.list", "arguments": [:]]
+        )
+        XCTAssertFalse((allowed["result"] as? [String: Any])?["isError"] as? Bool ?? true)
+        let callsAfterEnabling = await sidecar.calls
+        XCTAssertEqual(callsAfterEnabling, ["search_emails"])
+    }
+
     func testUnpublishedToolCannotBeCalledEvenWhenRouterKnowsIt() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

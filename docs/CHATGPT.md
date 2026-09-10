@@ -28,15 +28,22 @@ a reader query to the configured mailboxes.
 In the tested ChatGPT desktop client, ordinary `Chat` did not expose local MCP
 tools. Use `Work` for the local MacMCP workflow.
 
-1. Start `/Applications/MacMCP.app` for a Cask install, or the app installed by
-   the source formula.
+1. Start `/Applications/MacMCP.app` for a Cask install, or
+   `~/Applications/MacMCP.app` for a direct DMG install without admin rights.
+   The source formula also uses the app in `~/Applications`.
 2. In ChatGPT desktop, open Settings, then MCP servers.
 3. Add a server named `macmcp`.
 4. Choose STDIO.
-5. Command:
+5. Command (use the path matching your install):
 
    ```sh
-   ~/.local/bin/macmcp-bridge
+   /Applications/MacMCP.app/Contents/MacOS/macmcp-bridge
+   ```
+
+   For a DMG install in the user Applications folder, use:
+
+   ```sh
+   /Users/your-name/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge
    ```
 
 6. Arguments:
@@ -52,7 +59,7 @@ app over user-local IPC. If the app is not running, it fails closed. The
 approval. Reader-data tools require approving the pending local client in the
 MacMCP menu under `Clients`.
 
-The equivalent generated config lives at:
+For a Cask/source install, the equivalent generated config lives at:
 
 ```sh
 ~/.local/opt/macmcp/share/mcp.local.json
@@ -69,11 +76,11 @@ Before starting, obtain from OpenAI Platform:
 
 1. A `tunnel_id` associated with the target ChatGPT workspace from
    <https://platform.openai.com/settings/organization/tunnels>.
-2. A restricted runtime API key from <https://platform.openai.com/api-keys>.
+2. A restricted runtime API key from <https://platform.openai.com/settings/organization/api-keys>.
 3. ChatGPT developer-mode and Platform tunnel permissions for the account or
    workspace.
 
-For a new install, add the tunnel ID to the regular installer command:
+For a source install, add the tunnel ID to the regular installer command:
 
 ```sh
 scripts/install-local.sh \
@@ -98,12 +105,22 @@ runs `init --force`, `doctor`, and then `run`. It repeats this after login.
 No Terminal needs to remain open, and neither the key nor an inbound network
 listener is written to disk.
 
+For a direct DMG install, open `MacMCP > ChatGPT Tunnel > Set Up ChatGPT
+Tunnel...`. The release DMG includes the signed `tunnel-client`, so Homebrew
+and administrator access are not required. The setup window stores the
+runtime key in Keychain and the tunnel ID in MacMCP configuration.
+
+```sh
+open "$HOME/Applications/MacMCP.app"
+```
+
 The `MacMCP` menu shows `ChatGPT Tunnel: running` only after the managed client
 has completed a successful control-plane poll. Its submenu shows the latest
 redacted tunnel failure, if any, with an ISO timestamp, fixed phase, and fixed
 reason; `macmcp diagnose` retains the most recent 12 records. It also opens the
 `Restart Tunnel` command, `Replace Runtime API Key...`, and the two Platform
-setup URLs. If Keychain asks MacMCP to access an already stored runtime key,
+setup URLs. It also offers `Set Up ChatGPT Tunnel...`, `Reconfigure Tunnel...`,
+and `Disable ChatGPT Tunnel`. If Keychain asks MacMCP to access an already stored runtime key,
 choose `Allow`. `Always Allow` is not required.
 
 Then create the ChatGPT developer-mode app: open
@@ -119,6 +136,11 @@ current MacMCP local executable approval still applies to the proxy process.
 
 The tunnel path preserves the same account-gated contract as local MCP:
 
+- `Calendar > Allow MCP access` and `Reminders > Allow MCP access` gate the
+  corresponding reader tools for both local clients and this tunnel, without a
+  restart;
+- disabling a category removes its tools from `tools/list` and rejects stale
+  cached calls before the sidecar is reached;
 - the three narrow mail-action tools are advertised, but every account begins
   with `Read only` enabled;
 - clear `MacMCP > Mail > account > Read only` locally before a remote action;

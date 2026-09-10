@@ -1,6 +1,6 @@
 # MacMCP Handoff
 
-Last verified: 2026-09-09
+Last verified: 2026-09-10
 Repository: `Dimentium/macmcp`
 Working branch: `public-main`, pushed to `public/main`
 Current published and installed app: `MacMCP 0.2.24`
@@ -13,8 +13,9 @@ installation.
 ## Executive Summary
 
 MacMCP is a local macOS MCP bridge for Mail, Calendar, and Reminders. The
-normal distribution is a Developer ID-signed and Apple-notarized Homebrew Cask
-containing the bridge and both sidecars. The app owns the runtime, local IPC,
+normal distribution is a Developer ID-signed and Apple-notarized release DMG
+containing the bridge, both sidecars, and a signed OpenAI `tunnel-client`; the
+Homebrew Cask is optional. The app owns the runtime, local IPC,
 sidecars, Keychain access, EventKit access, Login Item, and optional OpenAI
 Secure MCP Tunnel.
 
@@ -26,9 +27,16 @@ The project is beyond MVP for local use:
   structured MCP output work through the local app-owned IPC path.
 - Mail actions are always published but are gated independently per account by
   `Read only`, which defaults to enabled and changes without a restart.
+- Calendar and Reminders have independent MCP access gates in the menu. They
+  default to enabled, persist per user, and gate local IPC, STDIO, and the
+  ChatGPT tunnel without a restart.
 - Managed drafts are recipient-free and protected by a Keychain-backed marker.
 - The signed Cask upgrade path, app restart, single-instance lock, diagnostics,
   log rotation, uninstall preservation, and local acceptance gate exist.
+- The release DMG is the Homebrew-free, administrator-free install path. A
+  first-launch setup window optionally configures mail and/or the ChatGPT
+  tunnel, storing secrets in Keychain; either or both can be left disabled.
+  The menu retains `Set Up Mail...` and `Set Up ChatGPT Tunnel...` actions.
 
 ## Verified State
 
@@ -46,6 +54,12 @@ configured mail accounts: 2
 approved local clients: 1
 tunnel: running
 ```
+
+The installed 0.2.24 app was temporarily stopped and restarted during the
+latest check. The existing tunnel profile, runtime-key reference, `healthz`,
+and `readyz` all passed; the app-owned tunnel then reported `running` again.
+The new Calendar/Reminders menu gate is source-level work pending the next
+signed release and was not installed over the published app during this check.
 
 Automated local acceptance passed:
 
@@ -84,6 +98,10 @@ user-local Unix socket
 MacMCP.app -> macmcp-bridge -> GatewayRouter
                                   |-> mail-mcp sidecar
                                   `-> CheICalMCP sidecar
+
+The menu's Calendar and Reminders access controller is shared by both server
+transports. It filters `tools/list`, rejects stale `tools/call` requests, and
+also suppresses background EventKit health reads while a category is disabled.
 
 optional ChatGPT remote path:
 OpenAI Secure MCP Tunnel -> app-owned tunnel-client
@@ -130,7 +148,15 @@ Mail action rules:
 
 ## Normal Operations
 
-Install the signed Cask on Apple Silicon macOS 14+:
+Install from the release DMG on Apple Silicon macOS 14+ (no Homebrew or admin
+rights required):
+
+1. Download `MacMCP-<version>-macos.dmg` from GitHub Releases.
+2. Open it and drag `MacMCP.app` to `/Applications`, or to `~/Applications`
+   when the user is not an administrator.
+3. Open the app and complete its setup window.
+
+The optional Homebrew Cask path is:
 
 ```sh
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
@@ -253,6 +279,7 @@ not a reason to change the local bridge without a reproduction.
 - `Sources/MacMCPBridge/ChatGPTTunnelSupervisor.swift`: app-owned tunnel.
 - `Sources/MacMCPBridge/ClientApprovalStore.swift`: local client approvals.
 - `Sources/MacMCPBridge/MailActionAccessStore.swift`: account read-only state.
+- `Sources/MacMCPBridge/MCPDataAccess.swift`: Calendar/Reminders MCP gates.
 - `Sources/MacMCPBridge/ManagedDraftKeyStore.swift`: draft marker key.
 - `Sources/MacMCPBridge/AttachmentTextReader.swift`: bounded text extraction.
 - `scripts/release.sh`: normal release entrypoint.

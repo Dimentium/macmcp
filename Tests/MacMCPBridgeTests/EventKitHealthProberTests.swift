@@ -140,11 +140,33 @@ final class EventKitHealthProberTests: XCTestCase {
         XCTAssertEqual(calls, ["calendar.list", "reminders.list"])
     }
 
+    func testDisabledComponentIsNotProbed() async {
+        let source = BridgeStatusSource(status: .connected(mail: false, eventKit: true))
+        let client = FakeEventKitProbeClient(behaviors: [
+            "calendar.list": .success("Private Calendar"),
+            "reminders.list": .success("Private Reminder")
+        ])
+        let prober = makeProber(
+            source: source,
+            client: client,
+            shouldProbe: { $0 == .reminders }
+        )
+
+        await prober.run()
+
+        let status = await source.snapshot()
+        let calls = await client.calls
+        XCTAssertEqual(calls, ["reminders.list"])
+        XCTAssertEqual(status.calendar, .connectedUnverified)
+        XCTAssertEqual(status.reminders, .ready)
+    }
+
     private func makeProber(
         source: BridgeStatusSource,
         client: FakeEventKitProbeClient,
         timeoutNanoseconds: UInt64 = 1_000_000_000,
-        onTimeout: @escaping @Sendable () async -> Void = {}
+        onTimeout: @escaping @Sendable () async -> Void = {},
+        shouldProbe: @escaping EventKitHealthProber.ShouldProbe = { _ in true }
     ) -> EventKitHealthProber {
         EventKitHealthProber(
             statusSource: source,
@@ -152,7 +174,8 @@ final class EventKitHealthProberTests: XCTestCase {
             callTool: { publicName, arguments in
                 try await client.call(publicName: publicName, arguments: arguments)
             },
-            onTimeout: onTimeout
+            onTimeout: onTimeout,
+            shouldProbe: shouldProbe
         )
     }
 

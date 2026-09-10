@@ -44,10 +44,38 @@ final class AppConfigurationSetupTests: XCTestCase {
         XCTAssertEqual(loginItem.registerCalls, 1)
     }
 
-    func testRejectsSetupWithoutMailAccount() throws {
-        XCTAssertThrowsError(try AppConfigurationSetup.parse(arguments: [])) { error in
-            XCTAssertEqual(error as? AppConfigurationSetupError, .missingMailAccount)
-        }
+    func testAllowsSetupWithoutMailAccountOrTunnel() throws {
+        XCTAssertEqual(
+            try AppConfigurationSetup.parse(arguments: []),
+            AppConfigurationSetup.Request(
+                launchArguments: [],
+                mailAccounts: [],
+                launchAtLogin: true,
+                chatGPTTunnel: nil
+            )
+        )
+    }
+
+    func testConfiguresTunnelWithoutMailAccount() throws {
+        let launchStore = AppLaunchConfigurationStore(fileURL: try temporaryFileURL())
+        let tunnelStore = InMemoryCredentialStore()
+
+        try AppConfigurationSetup.configure(
+            arguments: [
+                "--chatgpt-tunnel-id", "tunnel_0123456789abcdef0123456789abcdef",
+                "--chatgpt-tunnel-client", "/Applications/MacMCP.app/Contents/Resources/tunnel-client/tunnel-client"
+            ],
+            launchConfigurationStore: launchStore,
+            tunnelCredentialStore: tunnelStore,
+            readTunnelKey: { Data("tunnel-secret".utf8) }
+        )
+
+        XCTAssertEqual(try launchStore.readConfiguration()?.args, [])
+        XCTAssertEqual(try launchStore.readConfiguration()?.chatGPTTunnel?.tunnelID, "tunnel_0123456789abcdef0123456789abcdef")
+        XCTAssertEqual(
+            tunnelStore.secrets[KeychainCredentialStore.chatGPTTunnelAccount],
+            Data("tunnel-secret".utf8)
+        )
     }
 
     func testRejectsTunnelIDWithoutClient() throws {

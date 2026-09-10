@@ -1,14 +1,11 @@
 import Foundation
 
 enum AppConfigurationSetupError: LocalizedError, Equatable {
-    case missingMailAccount
     case tunnelIDRequiresClient
     case tunnelClientRequiresID
 
     var errorDescription: String? {
         switch self {
-        case .missingMailAccount:
-            return "At least one mail account is required for setup"
         case .tunnelIDRequiresClient:
             return "ChatGPT tunnel setup requires tunnel-client"
         case .tunnelClientRequiresID:
@@ -73,9 +70,6 @@ struct AppConfigurationSetup {
         let configuration = try CommandLineInterface.launchConfiguration(
             arguments: launchArguments
         )
-        guard !configuration.mailAccounts.isEmpty else {
-            throw AppConfigurationSetupError.missingMailAccount
-        }
         guard tunnelID != nil || tunnelClientPath == nil else {
             throw AppConfigurationSetupError.tunnelClientRequiresID
         }
@@ -151,5 +145,77 @@ struct AppConfigurationSetup {
         if request.launchAtLogin {
             try loginItemController.register()
         }
+    }
+
+    static func configureMail(
+        arguments: [String],
+        launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
+        mailCredentialStore: any CredentialStore = MigratingCredentialStore.mail(),
+        readMailPassword: () throws -> Data = CommandLineInterface.readNewPassword
+    ) throws {
+        let existing = try launchConfigurationStore.readConfiguration()
+        let request = try parse(arguments: arguments)
+        var secrets = request.mailAccounts.map {
+            PendingSecret(account: $0, value: Data())
+        }
+        defer {
+            for index in secrets.indices {
+                secrets[index].value.resetBytes(in: 0..<secrets[index].value.count)
+            }
+        }
+
+        for index in secrets.indices {
+            secrets[index].value = try readMailPassword()
+        }
+        for secret in secrets {
+            try mailCredentialStore.storeSecret(secret.value, account: secret.account)
+        }
+        try launchConfigurationStore.write(
+            arguments: request.launchArguments,
+            launchAtLogin: existing?.launchAtLogin ?? true,
+            chatGPTTunnel: existing?.chatGPTTunnel
+        )
+    }
+
+    static func configureTunnel(
+        tunnelID: String,
+        clientPath: String,
+        launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
+        tunnelCredentialStore: any CredentialStore = MigratingCredentialStore.chatGPTTunnel(),
+        readTunnelKey: () throws -> Data = CommandLineInterface.readNewChatGPTTunnelKey
+    ) throws {
+        let existing = try launchConfigurationStore.readConfiguration()
+        let request = try parse(arguments: [
+            "--chatgpt-tunnel-id", tunnelID,
+            "--chatgpt-tunnel-client", clientPath
+        ] + (existing?.args ?? []))
+        guard let tunnel = request.chatGPTTunnel else {
+            throw AppConfigurationSetupError.tunnelIDRequiresClient
+        }
+
+        var key = try readTunnelKey()
+        defer { key.resetBytes(in: 0..<key.count) }
+        try tunnelCredentialStore.storeSecret(
+            key,
+            account: KeychainCredentialStore.chatGPTTunnelAccount
+        )
+        try launchConfigurationStore.write(
+            arguments: existing?.args ?? [],
+            launchAtLogin: existing?.launchAtLogin ?? true,
+            chatGPTTunnel: tunnel
+        )
+    }
+
+    static func disableTunnel(
+        launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
+        tunnelCredentialStore: any CredentialStore = MigratingCredentialStore.chatGPTTunnel()
+    ) throws {
+        let existing = try launchConfigurationStore.readConfiguration()
+        try launchConfigurationStore.write(
+            arguments: existing?.args ?? [],
+            launchAtLogin: existing?.launchAtLogin ?? true,
+            chatGPTTunnel: nil
+        )
+        try tunnelCredentialStore.deleteSecret(account: KeychainCredentialStore.chatGPTTunnelAccount)
     }
 }

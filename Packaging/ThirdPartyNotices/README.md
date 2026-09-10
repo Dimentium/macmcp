@@ -13,6 +13,9 @@ This directory is copied unchanged into every distributed `MacMCP.app` under
 - `go/` contains the license and NOTICE files emitted by
   `go-licenses v1.6.0 save ./...` for the pinned `mail-mcp` source at
   `fefb9c4c4a548ec7e960880b96e268ffc0e6915b`.
+- `tunnel-client/` is added to release builds when the signed OpenAI
+  `tunnel-client` bundle is embedded; it contains the upstream LICENSE, NOTICE,
+  and SBOM files copied from the pinned release package.
 
 Regenerate the Go notices whenever the pinned mail sidecar revision or its Go
 module graph changes. Preserve all upstream texts when updating this directory.

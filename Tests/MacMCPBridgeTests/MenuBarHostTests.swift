@@ -69,11 +69,13 @@ final class MenuBarHostTests: XCTestCase {
         let applicationMenu = menu.items[7].submenu
         let quitItem = applicationMenu?.items.last
         XCTAssertTrue(menu.delegate === host)
-        XCTAssertEqual(menu.items.prefix(4).map(\.isEnabled), [false, true, false, false])
+        XCTAssertEqual(menu.items.prefix(4).map(\.isEnabled), [false, true, true, true])
         XCTAssertEqual(menu.items[0], statusItems.overall)
         XCTAssertEqual(menu.items[1], statusItems.mail)
         XCTAssertEqual(menu.items[2], statusItems.calendar)
         XCTAssertEqual(menu.items[3], statusItems.reminders)
+        XCTAssertNotNil(menu.items[2].submenu)
+        XCTAssertNotNil(menu.items[3].submenu)
         XCTAssertEqual(menu.items[4], statusItems.tunnel)
         XCTAssertEqual(menu.items[5], statusItems.clients)
         XCTAssertTrue(menu.items[4].isEnabled)
@@ -154,6 +156,60 @@ final class MenuBarHostTests: XCTestCase {
         XCTAssertEqual(item.submenu?.items[0].submenu?.items.first?.title, "Read only")
         XCTAssertEqual(item.submenu?.items[0].submenu?.items.first?.state, .on)
         XCTAssertEqual(item.submenu?.items[1].submenu?.items.first?.state, .off)
+    }
+
+    func testMailMenuOffersSetupWhenNoAccountsAreConfigured() {
+        let host = MenuBarHost(
+            configuration: BridgeLaunchConfiguration(
+                mailSidecarURL: nil,
+                eventKitSidecarURL: nil,
+                iCloudAddress: nil,
+                menuBar: true
+            )
+        )
+        let item = NSMenuItem(title: "Mail", action: nil, keyEquivalent: "")
+
+        host.updateMailAccountsMenu(item, writableAccountIDs: [])
+
+        XCTAssertEqual(item.submenu?.items.map(\.title), ["Accounts: none", "", "Set Up Mail..."])
+        XCTAssertEqual(item.submenu?.items.last?.action?.description, "openSetupAssistant")
+    }
+
+    func testCalendarAndRemindersMenusExposeMCPAccessToggles() {
+        let host = MenuBarHost(
+            configuration: BridgeLaunchConfiguration(
+                mailSidecarURL: nil,
+                eventKitSidecarURL: URL(fileURLWithPath: "/opt/CheICalMCP"),
+                iCloudAddress: nil,
+                menuBar: true
+            )
+        )
+        let calendar = NSMenuItem(title: "Calendar", action: nil, keyEquivalent: "")
+
+        host.updateDataAccessMenu(calendar, category: .calendar, enabled: false, configured: true)
+
+        let toggle = calendar.submenu?.items.first
+        XCTAssertEqual(toggle?.title, "Allow MCP access")
+        XCTAssertEqual(toggle?.state, .off)
+        XCTAssertEqual(toggle?.action?.description, "toggleMCPDataAccess:")
+        XCTAssertTrue(toggle?.isEnabled == true)
+    }
+
+    func testTunnelMenuOffersSetupWhenTunnelIsNotConfigured() {
+        let host = MenuBarHost(
+            configuration: BridgeLaunchConfiguration(
+                mailSidecarURL: nil,
+                eventKitSidecarURL: nil,
+                iCloudAddress: nil,
+                menuBar: true
+            )
+        )
+        let statusItems = MenuBarHost.StatusMenuItems()
+        let menu = host.makeMenu(statusItems: statusItems)
+
+        let tunnelSetup = menu.items[4].submenu?.items.first { $0.title == "Set Up ChatGPT Tunnel..." }
+        XCTAssertNotNil(tunnelSetup)
+        XCTAssertEqual(tunnelSetup?.action?.description, "openTunnelSetupAssistant")
     }
 
     func testChatGPTTunnelStatusTitlesUseCircles() {

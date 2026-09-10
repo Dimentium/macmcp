@@ -15,6 +15,8 @@ Installs MacMCP for the current macOS user:
 
 Re-run the same command to upgrade an existing local install. Use
 `--skip-password` during upgrades to keep existing Keychain passwords.
+Mail and ChatGPT tunnel configuration are both optional; the app can be
+installed with neither.
 
 Options:
   --icloud-address ADDRESS   iCloud preset; repeatable
@@ -236,11 +238,6 @@ if [[ -n "$chatgpt_tunnel_client" ]] && [[ ! "$chatgpt_tunnel_client" = /* ]]; t
 fi
 
 [[ "$(uname -s)" == "Darwin" ]] || { echo "macOS is required" >&2; exit 1; }
-[[ "$reuse_existing_configuration" -eq 1 || ${#password_accounts[@]} -gt 0 ]] || {
-  echo "at least one mail account is required" >&2
-  exit 2
-}
-
 for tool in git go plutil swift codesign python3 pgrep; do
   command -v "$tool" >/dev/null || {
     echo "missing required tool: $tool" >&2
@@ -538,7 +535,15 @@ mail_binary="$("$project_dir/scripts/build-pinned-mail-sidecar.sh" --build-root 
 che_binary="$("$project_dir/scripts/build-pinned-eventkit-sidecar.sh" --build-root "$build_root/eventkit")"
 
 echo "Building local app bundle"
-"$project_dir/scripts/build-local-app.sh" "$che_binary" --mail-sidecar "$mail_binary" >/dev/null
+build_app_arguments=(
+  "$project_dir/scripts/build-local-app.sh"
+  "$che_binary"
+  --mail-sidecar "$mail_binary"
+)
+if [[ -n "$chatgpt_tunnel_id" ]]; then
+  build_app_arguments+=(--tunnel-client "$chatgpt_tunnel_client")
+fi
+"${build_app_arguments[@]}" >/dev/null
 built_app="$project_dir/.build/local/MacMCP.app"
 [[ -d "$built_app" ]] || { echo "app bundle was not produced" >&2; exit 1; }
 
@@ -570,10 +575,15 @@ cat > "$stage_mcp_config" <<EOF
 EOF
 chmod 600 "$stage_mcp_config"
 
+config_tunnel_client="$chatgpt_tunnel_client"
+if [[ -n "$chatgpt_tunnel_id" ]]; then
+  config_tunnel_client="$target_app/Contents/Resources/tunnel-client/tunnel-client"
+fi
+
 python3 - \
   "$stage_app_config" \
   "$chatgpt_tunnel_id" \
-  "$chatgpt_tunnel_client" \
+  "$config_tunnel_client" \
   "$chatgpt_tunnel_profile" \
   "$existing_tunnel_json" \
   "${mail_args[@]}" <<'PY'

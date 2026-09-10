@@ -7,13 +7,16 @@ usage: scripts/notarize-local-app.sh --signing-identity "Developer ID Applicatio
 
 Builds a signed MacMCP.app from pinned sources, submits it to Apple for
 notarization, staples the accepted ticket, and produces a distributable ZIP.
-This script needs a Developer ID Application certificate and an existing
-notarytool Keychain profile. It never reads API-key files or stores secrets.
+It also produces a drag-and-drop DMG for users who do not have Homebrew or
+administrator access. This script needs a Developer ID Application certificate
+and an existing notarytool Keychain profile. It never reads API-key files or
+stores secrets.
 
 Options:
   --signing-identity ID  required unless MACMCP_SIGNING_IDENTITY is set
   --signing-keychain PATH optional Keychain containing the signing identity
   --notary-profile NAME  notarytool Keychain profile; default: macmcp-notarization
+  --tunnel-client PATH   tunnel-client executable to embed in the app; default: PATH lookup
   --dist-dir PATH        absolute final artifact directory; default: dist
   --build-root PATH      absolute temporary build directory; default: .build/notarization
   -h, --help             show this help
@@ -22,9 +25,11 @@ EOF
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
+tunnel_client_version_file="$project_dir/Packaging/tunnel-client.version"
 signing_identity="${MACMCP_SIGNING_IDENTITY:-}"
 signing_keychain="${MACMCP_SIGNING_KEYCHAIN:-}"
 notary_profile="${MACMCP_NOTARY_PROFILE:-macmcp-notarization}"
+tunnel_client="${MACMCP_TUNNEL_CLIENT:-}"
 dist_dir="${MACMCP_DIST_DIR:-$project_dir/dist}"
 build_root="${MACMCP_NOTARIZATION_BUILD_ROOT:-$project_dir/.build/notarization}"
 
@@ -43,6 +48,11 @@ while [[ $# -gt 0 ]]; do
     --notary-profile)
       [[ $# -ge 2 ]] || { echo "missing value for --notary-profile" >&2; exit 2; }
       notary_profile="$2"
+      shift 2
+      ;;
+    --tunnel-client)
+      [[ $# -ge 2 ]] || { echo "missing value for --tunnel-client" >&2; exit 2; }
+      tunnel_client="$2"
       shift 2
       ;;
     --dist-dir)
@@ -66,6 +76,29 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -z "$tunnel_client" ]]; then
+  tunnel_client="$(command -v tunnel-client || true)"
+fi
+[[ -n "$tunnel_client" && -x "$tunnel_client" ]] || {
+  echo "tunnel-client is required to build the distributable MacMCP app" >&2
+  echo "Install it with the OpenAI Homebrew tap or pass --tunnel-client PATH" >&2
+  exit 1
+}
+[[ "$(basename "$tunnel_client")" == "tunnel-client" ]] || {
+  echo "--tunnel-client must name tunnel-client" >&2
+  exit 2
+}
+[[ -f "$tunnel_client_version_file" ]] || {
+  echo "missing pinned tunnel-client version: $tunnel_client_version_file" >&2
+  exit 1
+}
+tunnel_client_version="$(<"$tunnel_client_version_file")"
+actual_tunnel_client_version="$($tunnel_client --version 2>/dev/null || true)"
+[[ "$actual_tunnel_client_version" == "$tunnel_client_version"* ]] || {
+  echo "tunnel-client version mismatch: expected $tunnel_client_version, got $actual_tunnel_client_version" >&2
+  exit 1
+}
 
 [[ -n "$signing_identity" ]] || {
   echo "--signing-identity is required" >&2
@@ -100,6 +133,7 @@ build_arguments=(
   "$script_dir/build-local-app.sh"
   "$eventkit_binary"
   --mail-sidecar "$mail_binary"
+  --tunnel-client "$tunnel_client"
   --signing-identity "$signing_identity"
   --output "$build_root/app"
 )
@@ -125,10 +159,15 @@ rm -f "$archive"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
 shasum -a 256 "$archive" > "$checksum"
 
-cat <<EOF
-Created signed and notarized app artifact:
-  $archive
+dmg="$dist_dir/MacMCP-$version-macos.dmg"
+dmg_checksum="$dmg.sha256"
+"$script_dir/create-release-dmg.sh" --app "$app" --output "$dmg" >/dev/null
+shasum -a 256 "$dmg" > "$dmg_checksum"
 
-Checksum:
+cat <<EOF
+Created signed and notarized app artifacts:
+  $archive
   $checksum
+  $dmg
+  $dmg_checksum
 EOF

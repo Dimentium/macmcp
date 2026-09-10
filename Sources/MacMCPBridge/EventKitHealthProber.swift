@@ -30,6 +30,15 @@ enum EventKitHealthComponent: CaseIterable, Sendable {
         }
     }
 
+    var dataCategory: MCPDataCategory {
+        switch self {
+        case .calendar:
+            return .calendar
+        case .reminders:
+            return .reminders
+        }
+    }
+
     var arguments: [String: Value]? {
         switch self {
         case .calendar:
@@ -42,26 +51,31 @@ enum EventKitHealthComponent: CaseIterable, Sendable {
 
 struct EventKitHealthProber: Sendable {
     typealias ToolCall = @Sendable (_ publicName: String, _ arguments: [String: Value]?) async throws -> CallTool.Result
+    typealias ShouldProbe = @Sendable (_ component: EventKitHealthComponent) async -> Bool
 
     let statusSource: BridgeStatusSource
     let timeoutNanoseconds: UInt64
     let callTool: ToolCall
     let onTimeout: @Sendable () async -> Void
+    let shouldProbe: ShouldProbe
 
     init(
         statusSource: BridgeStatusSource,
         timeoutNanoseconds: UInt64 = 10_000_000_000,
         callTool: @escaping ToolCall,
-        onTimeout: @escaping @Sendable () async -> Void
+        onTimeout: @escaping @Sendable () async -> Void,
+        shouldProbe: @escaping ShouldProbe = { _ in true }
     ) {
         self.statusSource = statusSource
         self.timeoutNanoseconds = timeoutNanoseconds
         self.callTool = callTool
         self.onTimeout = onTimeout
+        self.shouldProbe = shouldProbe
     }
 
     func run() async {
         for component in EventKitHealthComponent.allCases {
+            guard await shouldProbe(component) else { continue }
             await probe(component)
         }
     }

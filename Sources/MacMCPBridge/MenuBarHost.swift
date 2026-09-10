@@ -39,6 +39,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private let configuration: BridgeLaunchConfiguration
     private let launchConfigurationStore: AppLaunchConfigurationStore
+    private let dataAccess: MCPDataAccessController
     private let loginItemController: (any LoginItemControlling)?
     private let clientApprovalStore: ClientApprovalStore
     private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
@@ -62,6 +63,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var refreshTask: Task<Void, Never>?
     private var updateCheckTask: Task<Void, Never>?
     private var periodicUpdateTask: Task<Void, Never>?
+    private var setupAssistant: SetupAssistant?
     private var updateState: UpdateMenuState = .checking
     private var displayedWritableAccountIDs: Set<String>?
     private var displayedClientApprovalSnapshot: ClientApprovalSnapshot?
@@ -75,6 +77,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     init(
         configuration: BridgeLaunchConfiguration,
         launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
+        dataAccess: MCPDataAccessController = MCPDataAccessController(),
         loginItemController: (any LoginItemControlling)? = SMAppLoginItemController(),
         clientApprovalStore: ClientApprovalStore = ClientApprovalStore(),
         tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
@@ -84,6 +87,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     ) {
         self.configuration = configuration
         self.launchConfigurationStore = launchConfigurationStore
+        self.dataAccess = dataAccess
         self.loginItemController = loginItemController
         self.clientApprovalStore = clientApprovalStore
         self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
@@ -122,13 +126,19 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusMenuItems = statusItems
         clientsMenuItem = statusItems.clients
         Task { await refreshClientsMenu() }
+        Task { await refreshDataAccessMenus() }
         item.menu = makeMenu(statusItems: statusItems)
         statusItem = item
+        presentSetupAssistantIfNeeded()
         checkForUpdates()
         schedulePeriodicUpdateChecks()
 
         runtimeTask = Task {
-            try await BridgeRuntime.start(configuration: configuration, startup: startup)
+            try await BridgeRuntime.start(
+                configuration: configuration,
+                startup: startup,
+                dataAccess: dataAccess
+            )
         }
         startTask = Task { await startAndProbe(statusItems: statusItems) }
         refreshTask = Task { await refreshLoop() }
@@ -163,9 +173,19 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         for item in [statusItems.overall, statusItems.calendar, statusItems.reminders] {
-            item.isEnabled = false
+            item.isEnabled = item === statusItems.overall ? false : true
             menu.addItem(item)
         }
+        statusItems.calendar.submenu = makeDataAccessMenu(
+            category: .calendar,
+            enabled: true,
+            configured: configuration.eventKitSidecarURL != nil
+        )
+        statusItems.reminders.submenu = makeDataAccessMenu(
+            category: .reminders,
+            enabled: true,
+            configured: configuration.eventKitSidecarURL != nil
+        )
         statusItems.mail.isEnabled = true
         menu.insertItem(statusItems.mail, at: 1)
         statusItems.tunnel.isEnabled = true
@@ -275,6 +295,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func refreshMenuState() async {
         await refreshStatusMenu()
         await refreshMailAccountsMenu()
+        await refreshDataAccessMenus()
         await refreshClientsMenu()
         tunnelSupervisor?.refreshHealth()
         if let tunnelMenuItem {
@@ -286,6 +307,62 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let runtime, let statusMenuItems else { return }
         let snapshot = await runtime.statusSource.snapshot()
         updateStatusMenu(statusMenuItems, snapshot: snapshot)
+    }
+
+    func refreshDataAccessMenus() async {
+        guard let statusMenuItems else { return }
+        let enabled = await dataAccess.enabledCategories()
+        updateDataAccessMenu(
+            statusMenuItems.calendar,
+            category: .calendar,
+            enabled: enabled.contains(.calendar),
+            configured: configuration.eventKitSidecarURL != nil
+        )
+        updateDataAccessMenu(
+            statusMenuItems.reminders,
+            category: .reminders,
+            enabled: enabled.contains(.reminders),
+            configured: configuration.eventKitSidecarURL != nil
+        )
+    }
+
+    func updateDataAccessMenu(
+        _ item: NSMenuItem,
+        category: MCPDataCategory,
+        enabled: Bool,
+        configured: Bool
+    ) {
+        let submenu = makeDataAccessMenu(category: category, enabled: enabled, configured: configured)
+        item.submenu = submenu
+    }
+
+    private func makeDataAccessMenu(
+        category: MCPDataCategory,
+        enabled: Bool,
+        configured: Bool
+    ) -> NSMenu {
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        let toggle = NSMenuItem(
+            title: "Allow MCP access",
+            action: #selector(toggleMCPDataAccess),
+            keyEquivalent: ""
+        )
+        toggle.target = self
+        toggle.representedObject = category.rawValue
+        toggle.state = enabled ? .on : .off
+        toggle.isEnabled = configured
+        submenu.addItem(toggle)
+        if !configured {
+            let note = NSMenuItem(
+                title: "EventKit sidecar is not configured",
+                action: nil,
+                keyEquivalent: ""
+            )
+            note.isEnabled = false
+            submenu.addItem(note)
+        }
+        return submenu
     }
 
     func configureLaunchAtLogin(_ item: NSMenuItem) {
@@ -473,6 +550,14 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let empty = NSMenuItem(title: "Accounts: none", action: nil, keyEquivalent: "")
             empty.isEnabled = false
             submenu.addItem(empty)
+            submenu.addItem(.separator())
+            let setup = NSMenuItem(
+                title: "Set Up Mail...",
+                action: #selector(openSetupAssistant),
+                keyEquivalent: ""
+            )
+            setup.target = self
+            submenu.addItem(setup)
             item.submenu = submenu
             return
         }
@@ -495,6 +580,55 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.submenu = submenu
     }
 
+    private func presentSetupAssistantIfNeeded() {
+        guard (try? launchConfigurationStore.readConfiguration()) == nil,
+              !UserDefaults.standard.bool(forKey: SetupAssistant.dismissalDefaultsKey)
+        else { return }
+        presentSetupAssistant(mode: .initial)
+    }
+
+    private func presentSetupAssistant(
+        mode: SetupAssistant.Mode,
+        existingArguments: [String] = []
+    ) {
+        guard setupAssistant == nil else {
+            setupAssistant?.show()
+            return
+        }
+        let assistant = SetupAssistant(
+            mode: mode,
+            existingArguments: existingArguments
+        ) { [weak self] result in
+            guard let self else { return }
+            self.setupAssistant = nil
+            if case .configured = result {
+                self.restartMacMCP()
+            }
+        }
+        setupAssistant = assistant
+        DispatchQueue.main.async {
+            assistant.show()
+        }
+    }
+
+    @objc private func openSetupAssistant() {
+        let existing = try? launchConfigurationStore.readConfiguration()
+        presentSetupAssistant(
+            mode: existing == nil ? .initial : .mailOnly,
+            existingArguments: existing?.args ?? []
+        )
+        setupAssistant?.show()
+    }
+
+    @objc private func openTunnelSetupAssistant() {
+        let existing = try? launchConfigurationStore.readConfiguration()
+        presentSetupAssistant(
+            mode: .tunnelOnly,
+            existingArguments: existing?.args ?? []
+        )
+        setupAssistant?.show()
+    }
+
     private func makeTunnelActionsMenu(state: ChatGPTTunnelState? = nil) -> NSMenu {
         let submenu = NSMenu()
         let history = NSMenuItem(title: tunnelFailureHistoryTitle(state: state), action: nil, keyEquivalent: "")
@@ -515,7 +649,16 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         openProxyLog.target = self
         submenu.addItem(openProxyLog)
         submenu.addItem(.separator())
-        if tunnelSupervisor != nil {
+        if tunnelSupervisor == nil {
+            let setup = NSMenuItem(
+                title: "Set Up ChatGPT Tunnel...",
+                action: #selector(openTunnelSetupAssistant),
+                keyEquivalent: ""
+            )
+            setup.target = self
+            submenu.addItem(setup)
+            submenu.addItem(.separator())
+        } else {
             let restart = NSMenuItem(
                 title: "Restart Tunnel",
                 action: #selector(restartChatGPTTunnel),
@@ -530,6 +673,20 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             )
             replaceKey.target = self
             submenu.addItem(replaceKey)
+            let reconfigure = NSMenuItem(
+                title: "Reconfigure Tunnel...",
+                action: #selector(openTunnelSetupAssistant),
+                keyEquivalent: ""
+            )
+            reconfigure.target = self
+            submenu.addItem(reconfigure)
+            let disable = NSMenuItem(
+                title: "Disable ChatGPT Tunnel",
+                action: #selector(disableChatGPTTunnel),
+                keyEquivalent: ""
+            )
+            disable.target = self
+            submenu.addItem(disable)
             submenu.addItem(.separator())
         }
         let tunnelSettings = NSMenuItem(
@@ -742,8 +899,46 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc func toggleMCPDataAccess(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let category = MCPDataCategory(rawValue: rawValue)
+        else { return }
+        Task { @MainActor in
+            let enabled = await dataAccess.isEnabled(category)
+            do {
+                try await dataAccess.setEnabled(!enabled, for: category)
+                await refreshDataAccessMenus()
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Unable to change (category.title) access"
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
+        }
+    }
+
     @objc private func restartChatGPTTunnel() {
         Task { await tunnelSupervisor?.restart() }
+    }
+
+    @objc private func disableChatGPTTunnel() {
+        let alert = NSAlert()
+        alert.messageText = "Disable ChatGPT Tunnel?"
+        alert.informativeText = "MacMCP will stop the tunnel and remove its runtime key from the macOS Keychain."
+        alert.addButton(withTitle: "Disable")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try AppConfigurationSetup.disableTunnel(launchConfigurationStore: launchConfigurationStore)
+            restartMacMCP()
+        } catch {
+            let failure = NSAlert()
+            failure.messageText = "Unable to disable ChatGPT Tunnel"
+            failure.informativeText = error.localizedDescription
+            failure.addButton(withTitle: "OK")
+            failure.runModal()
+        }
     }
 
     @objc private func checkForUpdatesFromMenu() {
@@ -841,7 +1036,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openTunnelAPIKeys() {
-        NSWorkspace.shared.open(URL(string: "https://platform.openai.com/api-keys")!)
+        NSWorkspace.shared.open(URL(string: "https://platform.openai.com/settings/organization/api-keys")!)
     }
 
     @objc private func openTunnelLog() {
