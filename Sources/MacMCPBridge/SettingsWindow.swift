@@ -64,10 +64,13 @@ final class SettingsWindowModel: ObservableObject {
     @Published var remindersAccess = false
     @Published var remindersReadOnly = true
 
-    @Published var mailAccounts: [MailAccount] = []
+    @Published var mailAccounts: [MailAccount] = [] {
+        didSet { onMailAccountCountChanged?(mailAccounts.count) }
+    }
     @Published var updateState: SettingsUpdateState = .checking
     @Published var version = AppVersion.version
 
+    var onMailAccountCountChanged: ((Int) -> Void)?
     var onLaunchAtLoginChanged: ((Bool) -> Void)?
     var onLocalBridgeChanged: ((Bool) -> Void)?
     var onTunnelChanged: ((Bool) -> Void)?
@@ -112,6 +115,79 @@ final class SettingsWindowModel: ObservableObject {
         guard let index = mailAccounts.firstIndex(where: { $0.id == id }) else { return }
         mailAccounts[index].enabled = enabled
         onMailAccountChanged?(id, enabled)
+    }
+}
+
+@MainActor
+final class SettingsWindowController: NSObject {
+    private static let windowWidth: CGFloat = 520
+    private var window: NSWindow?
+    private let model: SettingsWindowModel
+
+    override init() {
+        self.model = SettingsWindowModel()
+        super.init()
+        wireModel()
+    }
+
+    init(model: SettingsWindowModel) {
+        self.model = model
+        super.init()
+        wireModel()
+    }
+
+    private func wireModel() {
+        model.onMailAccountCountChanged = { [weak self] count in
+            self?.resizeWindow(for: count, animated: true)
+        }
+    }
+
+    func show() {
+        if let window {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let hostingController = NSHostingController(
+            rootView: SettingsWindowView(model: model)
+        )
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "MacMCP Settings"
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.level = .floating
+        window.isReleasedWhenClosed = false
+        window.setContentSize(
+            NSSize(
+                width: Self.windowWidth,
+                height: Self.windowHeight(for: model.mailAccounts.count)
+            )
+        )
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        self.window = window
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private static func windowHeight(for accountCount: Int) -> CGFloat {
+        min(760, 568 + CGFloat(accountCount) * 34)
+    }
+
+    private func resizeWindow(for accountCount: Int, animated: Bool) {
+        guard let window else { return }
+        let contentSize = NSSize(
+            width: Self.windowWidth,
+            height: Self.windowHeight(for: accountCount)
+        )
+        let frameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize)).size
+        var frame = window.frame
+        frame.origin.y += frame.height - frameSize.height
+        frame.size = frameSize
+        if animated {
+            window.animator().setFrame(frame, display: true)
+        } else {
+            window.setFrame(frame, display: true)
+        }
     }
 }
 

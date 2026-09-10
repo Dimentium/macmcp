@@ -64,6 +64,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var updateCheckTask: Task<Void, Never>?
     private var periodicUpdateTask: Task<Void, Never>?
     private var setupAssistant: SetupAssistant?
+    private var settingsWindowController: SettingsWindowController?
     private var updateState: UpdateMenuState = .checking
     private var displayedWritableAccountIDs: Set<String>?
     private var displayedClientApprovalSnapshot: ClientApprovalSnapshot?
@@ -212,6 +213,13 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItemMenuItem = loginItem
         configureLaunchAtLogin(loginItem)
         menu.addItem(loginItem)
+        let settings = NSMenuItem(
+            title: "Open Settings...",
+            action: #selector(openSettings),
+            keyEquivalent: ","
+        )
+        settings.target = self
+        menu.addItem(settings)
         menu.addItem(.separator())
         let repository = NSMenuItem(
             title: "Open MacMCP Repository",
@@ -943,6 +951,13 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func checkForUpdatesFromMenu() {
         checkForUpdates()
+    }
+
+    @objc private func openSettings() {
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController()
+        }
+        settingsWindowController?.show()
     }
 
     @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {

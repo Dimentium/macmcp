@@ -1,6 +1,6 @@
 - [x] 1. Зафиксировать контракт окна настроек: какие состояния читаются из launch.json, Keychain, EventKit access store, mail action access store, tunnel supervisor, updater и логов; секреты не выводить и не сохранять в JSON.
 - [x] 2. Выделить из Prototypes/SettingsPrototype переиспользуемые SwiftUI-компоненты и модель представления, сохранив одностраничный UX, фиксированную ширину, always-on-top, адаптивную прокрутку и фиксированный футер.
-- [ ] 3. Добавить в основной target AppKit-хост SettingsWindowController с одним живущим экземпляром окна, корректной активацией, закрытием, повторным открытием и подключением к пункту MacMCP в status-bar меню.
+- [x] 3. Добавить в основной target AppKit-хост SettingsWindowController с одним живущим экземпляром окна, корректной активацией, закрытием, повторным открытием и подключением к пункту MacMCP в status-bar меню.
 - [ ] 4. Подключить реальные read-only состояния и статусы: Launch at Login, Local Bridge, ChatGPT Tunnel, Calendar, Reminders, mail accounts, update availability и version/repository/logs actions.
 - [ ] 5. Реализовать действия access control: безопасные toggle для EventKit и mail actions, lifecycle Local Bridge/Tunnel, restart, обработку ошибок и обновление меню без перезапуска там, где это уже поддержано.
 - [ ] 6. Перенести управление mail accounts: список из текущей конфигурации, add/edit/remove, provider validation, Keychain passwords, drafts creation allowed/read-only, сохранение совместимого launch.json и безопасный restart runtime.
