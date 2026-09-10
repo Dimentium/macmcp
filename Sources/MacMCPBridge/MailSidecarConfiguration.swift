@@ -6,6 +6,20 @@ enum MailConnectionSecurity: String, Equatable, Sendable {
     case plain
 }
 
+enum MailAccountProvider: String, CaseIterable, Equatable, Sendable {
+    case gmail = "Gmail"
+    case iCloud = "iCloud Mail"
+    case otherIMAP = "Other IMAP"
+
+    var idPrefix: String {
+        switch self {
+        case .gmail: return "gmail"
+        case .iCloud: return "icloud"
+        case .otherIMAP: return "imap"
+        }
+    }
+}
+
 struct MailAccountConfiguration: Equatable, Sendable {
     let id: String
     let username: String
@@ -91,7 +105,7 @@ struct MailAccountConfiguration: Equatable, Sendable {
     }
 
     private static func validateUsername(_ username: String) throws {
-        guard !username.isEmpty, username.utf8.count <= 254, username.contains("@"),
+        guard !username.isEmpty, username.utf8.count <= 254,
               !username.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
         else {
             throw MailSidecarConfigurationError.invalidUsername

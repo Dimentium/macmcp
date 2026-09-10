@@ -130,12 +130,32 @@ final class BridgeRuntime {
         configuration: BridgeLaunchConfiguration,
         credentials: any CredentialStore = MigratingCredentialStore.mail(),
         startup: BridgeRuntimeStartup? = nil,
-        dataAccess: MCPDataAccessController = MCPDataAccessController()
+        dataAccess: MCPDataAccessController = MCPDataAccessController(),
+        mailAccountAccess: MailAccountAccessStore = MailAccountAccessStore()
     ) async throws -> BridgeRuntime {
+        let configuredAccountIDs = Set(configuration.mailAccounts.map(\.id))
+        let enabledAccountIDs = await mailAccountAccess.enabledAccountIDs(
+            for: configuredAccountIDs
+        )
+        let enabledAccounts = configuration.mailAccounts.filter {
+            enabledAccountIDs.contains($0.id)
+        }
+        let effectiveMailSidecarURL: URL?
+        if configuration.menuBar, enabledAccounts.isEmpty {
+            effectiveMailSidecarURL = nil
+        } else {
+            effectiveMailSidecarURL = configuration.mailSidecarURL
+        }
+        let effectiveConfiguration = BridgeLaunchConfiguration(
+            mailSidecarURL: effectiveMailSidecarURL,
+            eventKitSidecarURL: configuration.eventKitSidecarURL,
+            mailAccounts: enabledAccounts,
+            menuBar: configuration.menuBar
+        )
         let statusSource = BridgeStatusSource(
             status: .connected(
-                mail: configuration.mailSidecarURL != nil,
-                eventKit: configuration.eventKitSidecarURL != nil
+                mail: effectiveConfiguration.mailSidecarURL != nil,
+                eventKit: effectiveConfiguration.eventKitSidecarURL != nil
             )
         )
         let statusObserver = SidecarStatusObserver(statusSource: statusSource)
@@ -145,7 +165,7 @@ final class BridgeRuntime {
         }
         let router = GatewayRouter()
         let policy = ReaderPolicy(rules: ReaderPolicy.allRules)
-        let mailActionAccess = MailActionAccessController(accounts: configuration.mailAccounts)
+        let mailActionAccess = MailActionAccessController(accounts: enabledAccounts)
         await statusSource.updateWriteCapabilitiesEnabled(
             !(await mailActionAccess.writableAccountIDs()).isEmpty
         )
@@ -154,7 +174,7 @@ final class BridgeRuntime {
         try await startup?.bind(supervisor: supervisor, router: router)
 
         let attachmentStorage: AttachmentStorage?
-        if configuration.mailSidecarURL != nil {
+        if effectiveConfiguration.mailSidecarURL != nil {
             let storage = AttachmentStorage()
             try storage.prepare()
             attachmentStorage = storage
@@ -166,8 +186,8 @@ final class BridgeRuntime {
         do {
             try Task.checkCancellation()
             try await startup?.checkRunning()
-            if let mailExecutable = configuration.mailSidecarURL {
-                guard !configuration.mailAccounts.isEmpty else {
+            if let mailExecutable = effectiveConfiguration.mailSidecarURL {
+                guard !enabledAccounts.isEmpty else {
                     throw BridgeRuntimeError.missingMailAccounts
                 }
 
@@ -176,7 +196,7 @@ final class BridgeRuntime {
                 defer {
                     managedDraftKey.resetBytes(in: 0..<managedDraftKey.count)
                 }
-                for account in configuration.mailAccounts {
+                for account in enabledAccounts {
                     let password = try credentials.readSecret(account: account.username)
                     accountSecrets.append(
                         MailAccountSecret(configuration: account, password: password)
@@ -218,7 +238,7 @@ final class BridgeRuntime {
 
             try Task.checkCancellation()
             try await startup?.checkRunning()
-            if let eventKitExecutable = configuration.eventKitSidecarURL {
+            if let eventKitExecutable = effectiveConfiguration.eventKitSidecarURL {
                 let io = try await supervisor.start(
                     SidecarSpec(
                         id: ReaderPolicy.eventKitSidecarID,
@@ -255,8 +275,8 @@ final class BridgeRuntime {
             mailSidecarConfiguration: materializedMailConfiguration
         )
         runtime.startHealthChecks(
-            mailConfigured: configuration.mailSidecarURL != nil,
-            eventKitConfigured: configuration.eventKitSidecarURL != nil
+            mailConfigured: effectiveConfiguration.mailSidecarURL != nil,
+            eventKitConfigured: effectiveConfiguration.eventKitSidecarURL != nil
         )
         return runtime
     }

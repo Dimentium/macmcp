@@ -45,6 +45,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let tunnelFailureHistoryStore: TunnelFailureHistoryStore
     private let tunnelLogStore: TunnelClientLogStore
     private let caskUpdater: HomebrewCaskUpdater
+    private let mailAccountConfigurationStore: MailAccountConfigurationStore
+    private let mailAccountAccessStore: MailAccountAccessStore
     // Retained for the complete lifetime of the menu-bar runtime.
     private let instanceLock: MacMCPInstanceLock?
     private let startup = BridgeRuntimeStartup()
@@ -85,6 +87,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tunnelFailureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
         tunnelLogStore: TunnelClientLogStore = TunnelClientLogStore(),
         caskUpdater: HomebrewCaskUpdater = HomebrewCaskUpdater(),
+        mailAccountConfigurationStore: MailAccountConfigurationStore = MailAccountConfigurationStore(),
+        mailAccountAccessStore: MailAccountAccessStore = MailAccountAccessStore(),
         instanceLock: MacMCPInstanceLock? = nil
     ) {
         self.configuration = configuration
@@ -95,6 +99,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.tunnelFailureHistoryStore = tunnelFailureHistoryStore
         self.tunnelLogStore = tunnelLogStore
         self.caskUpdater = caskUpdater
+        self.mailAccountConfigurationStore = mailAccountConfigurationStore
+        self.mailAccountAccessStore = mailAccountAccessStore
         self.instanceLock = instanceLock
     }
 
@@ -139,7 +145,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try await BridgeRuntime.start(
                 configuration: configuration,
                 startup: startup,
-                dataAccess: dataAccess
+                dataAccess: dataAccess,
+                mailAccountAccess: mailAccountAccessStore
             )
         }
         startTask = Task { await startAndProbe(statusItems: statusItems) }
@@ -969,6 +976,23 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowModel.onLaunchAtLoginChanged = { [weak self] enabled in
             self?.setLaunchAtLoginFromSettings(enabled)
         }
+        settingsWindowModel.onMailAccountChanged = { [weak self] accountID, enabled in
+            self?.setMailAccountEnabledFromSettings(accountID, enabled: enabled)
+        }
+        settingsWindowModel.onAddMailAccount = { [weak self] in
+            self?.settingsWindowModel.showingAddMailAccount = true
+        }
+        settingsWindowModel.onOpenMailAccountSettings = { [weak self] accountID in
+            guard let self else { return }
+            self.settingsWindowModel.selectedMailAccountID = accountID
+            self.settingsWindowModel.showingMailAccountSettings = true
+        }
+        settingsWindowModel.onSaveMailAccount = { [weak self] accountID, form in
+            self?.saveMailAccountFromSettings(accountID: accountID, form: form)
+        }
+        settingsWindowModel.onRemoveMailAccount = { [weak self] accountID in
+            self?.removeMailAccountFromSettings(accountID)
+        }
         settingsWindowModel.onTunnelRestart = { [weak self] in
             self?.restartChatGPTTunnel()
         }
@@ -1012,20 +1036,27 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 provider: settingsMailProvider(for: account),
                 address: account.username,
                 imapHost: account.imapHost,
+                imapPort: account.imapPort,
+                imapSecurity: account.imapSecurity,
                 enabled: true,
                 readOnly: true,
                 hasPassword: hasMailPassword(for: account)
             )
         }
+        settingsWindowModel.mailAccountToggleAvailable = !configuration.mailAccounts.isEmpty
 
         Task { [weak self] in
             guard let self else { return }
             let enabledCategories = await dataAccess.enabledCategories()
             let writableAccountIDs = await runtime?.mailActionAccess.writableAccountIDs() ?? []
+            let enabledAccountIDs = await mailAccountAccessStore.enabledAccountIDs(
+                for: Set(configuration.mailAccounts.map(\.id))
+            )
             settingsWindowModel.calendarAccess = enabledCategories.contains(.calendar)
             settingsWindowModel.remindersAccess = enabledCategories.contains(.reminders)
             settingsWindowModel.mailAccounts = settingsWindowModel.mailAccounts.map { account in
                 var updated = account
+                updated.enabled = enabledAccountIDs.contains(account.id)
                 updated.readOnly = !writableAccountIDs.contains(account.id)
                 return updated
             }
@@ -1087,6 +1118,89 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 refreshSettingsWindow()
             }
         }
+    }
+
+    private func setMailAccountEnabledFromSettings(_ accountID: String, enabled: Bool) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await mailAccountAccessStore.setEnabled(enabled, for: accountID)
+                restartMacMCP()
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Unable to change mail account access"
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+                refreshSettingsWindow()
+            }
+        }
+    }
+
+    private func saveMailAccountFromSettings(
+        accountID: String?,
+        form: SettingsMailAccountForm
+    ) {
+        do {
+            let password = form.password.isEmpty ? nil : Data(form.password.utf8)
+            let account = try mailAccountConfigurationStore.save(
+                accountID: accountID,
+                provider: form.provider,
+                username: form.username,
+                imapHost: form.imapHost,
+                imapPort: form.imapPort,
+                imapSecurity: form.imapSecurity,
+                password: password
+            )
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    try await MailActionAccessStore().setReadOnly(
+                        !form.draftsCreationAllowed,
+                        for: account.id
+                    )
+                    try await mailAccountAccessStore.setEnabled(true, for: account.id)
+                    restartMacMCP()
+                } catch {
+                    presentSettingsError(
+                        title: "Mail account was saved, but access was not updated",
+                        error: error
+                    )
+                    refreshSettingsWindow()
+                }
+            }
+        } catch {
+            presentSettingsError(title: "Unable to save mail account", error: error)
+        }
+    }
+
+    private func removeMailAccountFromSettings(_ accountID: String) {
+        do {
+            try mailAccountConfigurationStore.remove(accountID: accountID)
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    try await mailAccountAccessStore.remove(accountID: accountID)
+                    restartMacMCP()
+                } catch {
+                    presentSettingsError(
+                        title: "Mail account was removed, but access state was not cleaned up",
+                        error: error
+                    )
+                    restartMacMCP()
+                }
+            }
+        } catch {
+            presentSettingsError(title: "Unable to remove mail account", error: error)
+        }
+    }
+
+    private func presentSettingsError(title: String, error: Error) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = error.localizedDescription
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private func setLaunchAtLoginFromSettings(_ enabled: Bool) {

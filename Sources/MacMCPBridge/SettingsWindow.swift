@@ -33,6 +33,8 @@ final class SettingsWindowModel: ObservableObject {
         var provider: String
         var address: String
         var imapHost: String
+        var imapPort: Int
+        var imapSecurity: MailConnectionSecurity
         var enabled: Bool
         var readOnly: Bool
         var hasPassword: Bool
@@ -72,6 +74,9 @@ final class SettingsWindowModel: ObservableObject {
         didSet { onMailAccountCountChanged?(mailAccounts.count) }
     }
     @Published var mailAccountToggleAvailable = false
+    @Published var showingAddMailAccount = false
+    @Published var showingMailAccountSettings = false
+    @Published var selectedMailAccountID: String?
     @Published var updateState: SettingsUpdateState = .checking
     @Published var version = AppVersion.version
 
@@ -88,6 +93,8 @@ final class SettingsWindowModel: ObservableObject {
     var onMailAccountChanged: ((String, Bool) -> Void)?
     var onOpenMailAccountSettings: ((String) -> Void)?
     var onAddMailAccount: (() -> Void)?
+    var onSaveMailAccount: ((String?, SettingsMailAccountForm) -> Void)?
+    var onRemoveMailAccount: ((String) -> Void)?
     var onOpenLogs: (() -> Void)?
     var onUpdate: (() -> Void)?
 
@@ -226,6 +233,28 @@ struct SettingsWindowView: View {
             SettingsWindowFooter(model: model)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .sheet(isPresented: $model.showingAddMailAccount) {
+            SettingsMailAccountEditor(
+                account: nil,
+                onSave: { form in
+                    model.onSaveMailAccount?(nil, form)
+                }
+            )
+        }
+        .sheet(isPresented: $model.showingMailAccountSettings) {
+            if let accountID = model.selectedMailAccountID,
+               let account = model.mailAccounts.first(where: { $0.id == accountID }) {
+                SettingsMailAccountEditor(
+                    account: account,
+                    onSave: { form in
+                        model.onSaveMailAccount?(accountID, form)
+                    },
+                    onRemove: {
+                        model.onRemoveMailAccount?(accountID)
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -570,6 +599,179 @@ private struct SettingsReadOnlyChip: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(Color.secondary.opacity(0.12), in: Capsule())
+    }
+}
+
+struct SettingsMailAccountForm: Equatable {
+    var provider: MailAccountProvider
+    var username: String
+    var password: String
+    var imapHost: String
+    var imapPort: Int
+    var imapSecurity: MailConnectionSecurity
+    var draftsCreationAllowed: Bool
+}
+
+private struct SettingsMailAccountEditor: View {
+    let account: SettingsWindowModel.MailAccount?
+    let onSave: (SettingsMailAccountForm) -> Void
+    var onRemove: (() -> Void)?
+    @Environment(\.dismiss) private var dismiss
+    @State private var provider: MailAccountProvider
+    @State private var username: String
+    @State private var password = ""
+    @State private var imapHost: String
+    @State private var imapPort: String
+    @State private var imapSecurity: MailConnectionSecurity
+    @State private var draftsCreationAllowed: Bool
+
+    init(
+        account: SettingsWindowModel.MailAccount?,
+        onSave: @escaping (SettingsMailAccountForm) -> Void,
+        onRemove: (() -> Void)? = nil
+    ) {
+        self.account = account
+        self.onSave = onSave
+        self.onRemove = onRemove
+        _provider = State(initialValue: account.flatMap {
+            MailAccountProvider(rawValue: $0.provider)
+        } ?? .gmail)
+        _username = State(initialValue: account?.address ?? "")
+        _imapHost = State(initialValue: account?.imapHost ?? "")
+        _imapPort = State(initialValue: String(account?.imapPort ?? 993))
+        _imapSecurity = State(initialValue: account?.imapSecurity ?? .tls)
+        _draftsCreationAllowed = State(initialValue: account.map { !$0.readOnly } ?? false)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(account == nil ? "Add Mail Account" : "Mail Account")
+                .font(.title2.weight(.semibold))
+
+            if account == nil {
+                Text("Connect a provider and account. The app-specific password is stored in macOS Keychain.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Picker("Provider", selection: $provider) {
+                ForEach(MailAccountProvider.allCases, id: \.self) { provider in
+                    Text(provider.rawValue).tag(provider)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .disabled(account != nil)
+
+            TextField(
+                provider == .otherIMAP ? "Username" : "Email address",
+                text: $username
+            )
+            .textFieldStyle(.roundedBorder)
+            .disabled(account != nil)
+
+            if provider == .otherIMAP {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 12) {
+                        TextField("IMAP host", text: $imapHost)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Port", text: $imapPort)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 72)
+                    }
+                    Picker("Security", selection: $imapSecurity) {
+                        Text("TLS").tag(MailConnectionSecurity.tls)
+                        Text("STARTTLS").tag(MailConnectionSecurity.starttls)
+                        Text("Plain").tag(MailConnectionSecurity.plain)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+            }
+
+            SecureField(
+                account == nil ? "App-specific password" : "Password (leave blank to keep current)",
+                text: $password
+            )
+            .textFieldStyle(.roundedBorder)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Drafts creation allowed")
+                        .font(.body)
+                    Spacer()
+                    Toggle("", isOn: $draftsCreationAllowed)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                }
+                Text("Always read-only. Enable this to also allow creating and updating drafts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(validationMessage ?? " ")
+                .font(.caption)
+                .foregroundStyle(validationMessage == nil ? Color.clear : Color.red)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 16, alignment: .topLeading)
+
+            Spacer(minLength: 0)
+
+            HStack {
+                if let onRemove {
+                    Button("Remove account", role: .destructive) {
+                        onRemove()
+                        dismiss()
+                    }
+                    .foregroundStyle(.red)
+                }
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button(account == nil ? "Add account" : "Apply") {
+                    onSave(SettingsMailAccountForm(
+                        provider: provider,
+                        username: username.trimmingCharacters(in: .whitespacesAndNewlines),
+                        password: password,
+                        imapHost: imapHost.trimmingCharacters(in: .whitespacesAndNewlines),
+                        imapPort: Int(imapPort) ?? 0,
+                        imapSecurity: imapSecurity,
+                        draftsCreationAllowed: draftsCreationAllowed
+                    ))
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSave)
+            }
+        }
+        .padding(20)
+        .frame(width: 420, height: 410, alignment: .topLeading)
+    }
+
+    private var validationMessage: String? {
+        let normalizedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedUsername.isEmpty else { return "Enter a username or email address." }
+        if let message = MailAccountAddressValidator.message(
+            for: normalizedUsername,
+            provider: provider
+        ) {
+            return message
+        }
+        guard provider == .otherIMAP else { return nil }
+        guard !imapHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Enter an IMAP host."
+        }
+        guard Int(imapPort).map({ (1...65535).contains($0) }) == true else {
+            return "Enter a port from 1 to 65535."
+        }
+        return nil
+    }
+
+    private var canSave: Bool {
+        validationMessage == nil &&
+            (account != nil || !password.isEmpty)
     }
 }
 
