@@ -76,6 +76,9 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("app_cli=\"$app/Contents/Resources/macmcp\""))
         XCTAssertTrue(script.contains("app_tunnel_client=\"$app_tunnel_dir/tunnel-client\""))
         XCTAssertTrue(script.contains("cloudflared-manifest.json"))
+        XCTAssertTrue(script.contains("resolve_tunnel_client_path"))
+        XCTAssertTrue(script.contains("Homebrew's public bin entry can be a shell shim"))
+        XCTAssertTrue(script.contains("LC_ALL=C head -c 2"))
         XCTAssertTrue(script.contains("sign_target \"$app_tunnel_client\""))
         XCTAssertTrue(script.contains("cask_cli=\"$project_dir/Packaging/macmcp\""))
         XCTAssertTrue(script.contains("cp \"$cask_cli\" \"$app_cli\""))
@@ -313,9 +316,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.26\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.26</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.26</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.27\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.27</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.27</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

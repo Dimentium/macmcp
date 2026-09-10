@@ -157,13 +157,31 @@ fi
 if [[ -n "$tunnel_client_binary" ]]; then
   resolve_tunnel_client_path() {
     local path="$1"
-    while [[ -L "$path" ]]; do
-      local directory
-      directory="$(cd -P "$(dirname "$path")" && pwd)"
-      local link
-      link="$(readlink "$path")"
-      [[ "$link" == /* ]] || link="$directory/$link"
-      path="$link"
+    while true; do
+      while [[ -L "$path" ]]; do
+        local directory
+        directory="$(cd -P "$(dirname "$path")" && pwd)"
+        local link
+        link="$(readlink "$path")"
+        [[ "$link" == /* ]] || link="$directory/$link"
+        path="$link"
+      done
+
+      # Homebrew's public bin entry can be a shell shim which delegates to
+      # the real Mach-O executable in libexec. Copy the executable itself;
+      # otherwise the shipped app would retain the release machine's path.
+      local wrapped_path=""
+      if [[ "$(LC_ALL=C head -c 2 "$path" 2>/dev/null)" == "#!" ]]; then
+        wrapped_path="$(LC_ALL=C sed -nE 's/^[[:space:]]*exec[[:space:]]+"([^"]+)"[[:space:]]+"\$@"[[:space:]]*$/\1/p' "$path" | head -n 1)"
+      fi
+      if [[ -n "$wrapped_path" ]]; then
+        [[ "$wrapped_path" == /* ]] || wrapped_path="$(cd -P "$(dirname "$path")" && pwd)/$wrapped_path"
+        [[ "$wrapped_path" == "$path" ]] || {
+          path="$wrapped_path"
+          continue
+        }
+      fi
+      break
     done
     printf '%s\n' "$path"
   }
