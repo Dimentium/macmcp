@@ -1,7 +1,7 @@
 class Macmcp < Formula
   desc "Local macOS MCP bridge for mail, Calendar, and Reminders"
   homepage "https://github.com/Dimentium/macmcp"
-  url "https://github.com/Dimentium/macmcp.git", tag: "v0.2.25", revision: "82f9773cd912948d68d070b898c309f43c778695"
+  url "https://github.com/Dimentium/macmcp.git", tag: "v0.2.26", revision: "3ef9814e9dc607285157b80c5baaca755e95b6a1"
   license "MIT"
 
   depends_on "go"
