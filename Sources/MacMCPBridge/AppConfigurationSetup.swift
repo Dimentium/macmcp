@@ -184,6 +184,24 @@ struct AppConfigurationSetup {
         tunnelCredentialStore: any CredentialStore = MigratingCredentialStore.chatGPTTunnel(),
         readTunnelKey: () throws -> Data = CommandLineInterface.readNewChatGPTTunnelKey
     ) throws {
+        var key = try readTunnelKey()
+        defer { key.resetBytes(in: 0..<key.count) }
+        try configureTunnel(
+            tunnelID: tunnelID,
+            clientPath: clientPath,
+            runtimeKey: key,
+            launchConfigurationStore: launchConfigurationStore,
+            tunnelCredentialStore: tunnelCredentialStore
+        )
+    }
+
+    static func configureTunnel(
+        tunnelID: String,
+        clientPath: String,
+        runtimeKey: Data,
+        launchConfigurationStore: AppLaunchConfigurationStore = AppLaunchConfigurationStore(),
+        tunnelCredentialStore: any CredentialStore = MigratingCredentialStore.chatGPTTunnel()
+    ) throws {
         let existing = try launchConfigurationStore.readConfiguration()
         let request = try parse(arguments: [
             "--chatgpt-tunnel-id", tunnelID,
@@ -193,10 +211,8 @@ struct AppConfigurationSetup {
             throw AppConfigurationSetupError.tunnelIDRequiresClient
         }
 
-        var key = try readTunnelKey()
-        defer { key.resetBytes(in: 0..<key.count) }
         try tunnelCredentialStore.storeSecret(
-            key,
+            runtimeKey,
             account: KeychainCredentialStore.chatGPTTunnelAccount
         )
         try launchConfigurationStore.write(

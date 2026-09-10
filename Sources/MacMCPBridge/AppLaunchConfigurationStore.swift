@@ -75,6 +75,13 @@ struct AppLaunchConfigurationStore: Sendable {
         MacMCPPaths.legacyApplicationSupportFile("launch.json")
     }
 
+    static func isValidTunnelID(_ tunnelID: String) -> Bool {
+        tunnelID.range(
+            of: "^tunnel_[A-Za-z0-9_-]{16,128}$",
+            options: .regularExpression
+        ) != nil
+    }
+
     func readArguments() throws -> [String]? {
         try readConfiguration()?.args
     }
@@ -245,10 +252,7 @@ struct AppLaunchConfigurationStore: Sendable {
     }
 
     private func validate(_ tunnel: Payload.ChatGPTTunnel) throws -> ChatGPTTunnelConfiguration {
-        guard tunnel.tunnelID.range(
-            of: "^tunnel_[A-Za-z0-9_-]{16,128}$",
-            options: .regularExpression
-        ) != nil,
+        guard Self.isValidTunnelID(tunnel.tunnelID),
         tunnel.clientPath.hasPrefix("/"),
         URL(fileURLWithPath: tunnel.clientPath).lastPathComponent == "tunnel-client",
         isSafeValue(tunnel.clientPath),

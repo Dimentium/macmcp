@@ -47,6 +47,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let caskUpdater: HomebrewCaskUpdater
     private let mailAccountConfigurationStore: MailAccountConfigurationStore
     private let mailAccountAccessStore: MailAccountAccessStore
+    private let tunnelAccessStore: ChatGPTTunnelAccessStore
     // Retained for the complete lifetime of the menu-bar runtime.
     private let instanceLock: MacMCPInstanceLock?
     private let startup = BridgeRuntimeStartup()
@@ -89,6 +90,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         caskUpdater: HomebrewCaskUpdater = HomebrewCaskUpdater(),
         mailAccountConfigurationStore: MailAccountConfigurationStore = MailAccountConfigurationStore(),
         mailAccountAccessStore: MailAccountAccessStore = MailAccountAccessStore(),
+        tunnelAccessStore: ChatGPTTunnelAccessStore = ChatGPTTunnelAccessStore(),
         instanceLock: MacMCPInstanceLock? = nil
     ) {
         self.configuration = configuration
@@ -101,6 +103,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.caskUpdater = caskUpdater
         self.mailAccountConfigurationStore = mailAccountConfigurationStore
         self.mailAccountAccessStore = mailAccountAccessStore
+        self.tunnelAccessStore = tunnelAccessStore
         self.instanceLock = instanceLock
     }
 
@@ -282,7 +285,12 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 _ = try? await clientApprovalStore.approveAppOwnedTunnelProxy(identity)
                 await refreshClientsMenu()
             }
-            await tunnelSupervisor?.start()
+            if await tunnelAccessStore.isEnabled() {
+                await tunnelSupervisor?.start()
+            } else if let tunnelMenuItem {
+                tunnelState = nil
+                updateTunnelMenu(tunnelMenuItem, state: nil)
+            }
             await runtime.waitForInitialHealthChecks()
             let snapshot = await runtime.statusSource.snapshot()
             updateStatusMenu(statusItems, snapshot: snapshot)
@@ -949,7 +957,10 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
             try AppConfigurationSetup.disableTunnel(launchConfigurationStore: launchConfigurationStore)
-            restartMacMCP()
+            Task {
+                try? await tunnelAccessStore.reset()
+                restartMacMCP()
+            }
         } catch {
             let failure = NSAlert()
             failure.messageText = "Unable to disable ChatGPT Tunnel"
@@ -993,11 +1004,17 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowModel.onRemoveMailAccount = { [weak self] accountID in
             self?.removeMailAccountFromSettings(accountID)
         }
+        settingsWindowModel.onTunnelChanged = { [weak self] enabled in
+            self?.setTunnelEnabledFromSettings(enabled)
+        }
         settingsWindowModel.onTunnelRestart = { [weak self] in
             self?.restartChatGPTTunnel()
         }
         settingsWindowModel.onOpenTunnelSettings = { [weak self] in
-            self?.openTunnelSettings()
+            self?.settingsWindowModel.showingTunnelSettings = true
+        }
+        settingsWindowModel.onSaveTunnel = { [weak self] form in
+            self?.saveTunnelFromSettings(form)
         }
         settingsWindowModel.onCalendarChanged = { [weak self] enabled in
             self?.setSettingsDataAccess(enabled, category: .calendar)
@@ -1020,14 +1037,19 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if launch?.chatGPTTunnel != nil {
             settingsWindowModel.tunnelConfigured = true
-            settingsWindowModel.tunnelEnabled = tunnelSupervisor != nil
+            settingsWindowModel.tunnelEnabled = true
+            settingsWindowModel.tunnelID = launch?.chatGPTTunnel?.tunnelID ?? ""
+            settingsWindowModel.tunnelClientPath = launch?.chatGPTTunnel?.clientPath ?? ""
             settingsWindowModel.tunnelStatus = settingsTunnelStatus
         } else {
             settingsWindowModel.tunnelConfigured = false
             settingsWindowModel.tunnelEnabled = false
+            settingsWindowModel.tunnelID = ""
+            settingsWindowModel.tunnelClientPath = SetupAssistant.bundledTunnelClientURL?.path ?? ""
             settingsWindowModel.tunnelStatus = "Off"
         }
-        settingsWindowModel.tunnelToggleAvailable = false
+        settingsWindowModel.tunnelAPIKeyAvailable = hasTunnelKey()
+        settingsWindowModel.tunnelToggleAvailable = launch?.chatGPTTunnel != nil
         settingsWindowModel.eventKitConfigured = configuration.eventKitSidecarURL != nil
         syncSettingsUpdateState()
         settingsWindowModel.mailAccounts = configuration.mailAccounts.map { account in
@@ -1052,8 +1074,13 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let enabledAccountIDs = await mailAccountAccessStore.enabledAccountIDs(
                 for: Set(configuration.mailAccounts.map(\.id))
             )
+            let tunnelEnabled = await tunnelAccessStore.isEnabled()
             settingsWindowModel.calendarAccess = enabledCategories.contains(.calendar)
             settingsWindowModel.remindersAccess = enabledCategories.contains(.reminders)
+            settingsWindowModel.tunnelEnabled = tunnelEnabled && settingsWindowModel.tunnelConfigured
+            if !settingsWindowModel.tunnelEnabled {
+                settingsWindowModel.tunnelStatus = "Off"
+            }
             settingsWindowModel.mailAccounts = settingsWindowModel.mailAccounts.map { account in
                 var updated = account
                 updated.enabled = enabledAccountIDs.contains(account.id)
@@ -1090,6 +1117,16 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         defer { password.resetBytes(in: 0..<password.count) }
         return !password.isEmpty
+    }
+
+    private func hasTunnelKey() -> Bool {
+        guard var key = try? MigratingCredentialStore.chatGPTTunnel()
+            .readSecret(account: KeychainCredentialStore.chatGPTTunnelAccount)
+        else {
+            return false
+        }
+        defer { key.resetBytes(in: 0..<key.count) }
+        return !key.isEmpty
     }
 
     private func syncSettingsUpdateState() {
@@ -1133,6 +1170,79 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 alert.addButton(withTitle: "OK")
                 alert.runModal()
                 refreshSettingsWindow()
+            }
+        }
+    }
+
+    private func setTunnelEnabledFromSettings(_ enabled: Bool) {
+        guard (try? launchConfigurationStore.readConfiguration()?.chatGPTTunnel) != nil else {
+            refreshSettingsWindow()
+            return
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await tunnelAccessStore.setEnabled(enabled)
+                if enabled {
+                    await tunnelSupervisor?.start()
+                } else {
+                    await tunnelSupervisor?.stop()
+                    tunnelState = nil
+                    if let tunnelMenuItem {
+                        updateTunnelMenu(tunnelMenuItem, state: nil)
+                    }
+                }
+                refreshSettingsWindow()
+            } catch {
+                presentSettingsError(title: "Unable to change ChatGPT Tunnel access", error: error)
+                refreshSettingsWindow()
+            }
+        }
+    }
+
+    private func saveTunnelFromSettings(_ form: SettingsTunnelForm) {
+        let existing = try? launchConfigurationStore.readConfiguration()
+        let clientPath = existing?.chatGPTTunnel?.clientPath
+            ?? SetupAssistant.bundledTunnelClientURL?.path
+        guard let clientPath, FileManager.default.isExecutableFile(atPath: clientPath) else {
+            presentSettingsError(
+                title: "Unable to save ChatGPT Tunnel",
+                error: AppConfigurationSetupError.tunnelIDRequiresClient
+            )
+            return
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            var key: Data
+            if form.apiKey.isEmpty {
+                guard let storedKey = try? MigratingCredentialStore.chatGPTTunnel()
+                    .readSecret(account: KeychainCredentialStore.chatGPTTunnelAccount)
+                else {
+                    presentSettingsError(
+                        title: "Unable to save ChatGPT Tunnel",
+                        error: CredentialStoreError.notFound
+                    )
+                    return
+                }
+                key = storedKey
+            } else {
+                key = Data(form.apiKey.utf8)
+            }
+            defer { key.resetBytes(in: 0..<key.count) }
+
+            do {
+                try AppConfigurationSetup.configureTunnel(
+                    tunnelID: form.tunnelID,
+                    clientPath: clientPath,
+                    runtimeKey: key,
+                    launchConfigurationStore: launchConfigurationStore,
+                    tunnelCredentialStore: MigratingCredentialStore.chatGPTTunnel()
+                )
+                try await tunnelAccessStore.setEnabled(true)
+                restartMacMCP()
+            } catch {
+                presentSettingsError(title: "Unable to save ChatGPT Tunnel", error: error)
             }
         }
     }

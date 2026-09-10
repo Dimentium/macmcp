@@ -89,6 +89,29 @@ final class MailAccountSettingsTests: XCTestCase {
         XCTAssertNil(MailAccountAddressValidator.message(for: "alex", provider: .otherIMAP))
     }
 
+    func testTunnelConfigurationStoresKeySeparatelyFromLaunchJSON() throws {
+        let launchURL = try temporaryFileURL()
+        let launchStore = AppLaunchConfigurationStore(fileURL: launchURL)
+        let credentials = TestCredentialStore()
+        let tunnelID = "tunnel_0123456789abcdef0123456789abcdef"
+
+        try AppConfigurationSetup.configureTunnel(
+            tunnelID: tunnelID,
+            clientPath: "/opt/homebrew/bin/tunnel-client",
+            runtimeKey: Data("runtime-secret".utf8),
+            launchConfigurationStore: launchStore,
+            tunnelCredentialStore: credentials
+        )
+
+        let launchText = try String(contentsOf: launchURL, encoding: .utf8)
+        XCTAssertTrue(launchText.contains(tunnelID))
+        XCTAssertFalse(launchText.contains("runtime-secret"))
+        XCTAssertEqual(
+            credentials.secrets[KeychainCredentialStore.chatGPTTunnelAccount],
+            Data("runtime-secret".utf8)
+        )
+    }
+
     func testMailAccountAccessPersistsDisabledAccounts() async throws {
         let fileURL = try temporaryFileURL()
         let store = MailAccountAccessStore(fileURL: fileURL)

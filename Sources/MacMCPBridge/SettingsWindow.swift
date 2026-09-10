@@ -61,6 +61,10 @@ final class SettingsWindowModel: ObservableObject {
     @Published var tunnelEnabled = false
     @Published var tunnelStatus = "Off"
     @Published var tunnelToggleAvailable = false
+    @Published var tunnelID = ""
+    @Published var tunnelClientPath = ""
+    @Published var tunnelAPIKeyAvailable = false
+    @Published var showingTunnelSettings = false
 
     @Published var eventKitConfigured = false
     @Published var calendarAccess = false
@@ -86,6 +90,7 @@ final class SettingsWindowModel: ObservableObject {
     var onTunnelChanged: ((Bool) -> Void)?
     var onTunnelRestart: (() -> Void)?
     var onOpenTunnelSettings: (() -> Void)?
+    var onSaveTunnel: ((SettingsTunnelForm) -> Void)?
     var onCalendarChanged: ((Bool) -> Void)?
     var onRemindersChanged: ((Bool) -> Void)?
     var onOpenCalendarSettings: (() -> Void)?
@@ -254,6 +259,16 @@ struct SettingsWindowView: View {
                     }
                 )
             }
+        }
+        .sheet(isPresented: $model.showingTunnelSettings) {
+            SettingsTunnelEditor(
+                tunnelID: model.tunnelID,
+                apiKeyAvailable: model.tunnelAPIKeyAvailable,
+                clientPath: model.tunnelClientPath,
+                onSave: { form in
+                    model.onSaveTunnel?(form)
+                }
+            )
         }
     }
 }
@@ -772,6 +787,154 @@ private struct SettingsMailAccountEditor: View {
     private var canSave: Bool {
         validationMessage == nil &&
             (account != nil || !password.isEmpty)
+    }
+}
+
+struct SettingsTunnelForm: Equatable {
+    var tunnelID: String
+    var apiKey: String
+}
+
+private struct SettingsTunnelEditor: View {
+    let initialTunnelID: String
+    let apiKeyAvailable: Bool
+    let clientPath: String
+    let onSave: (SettingsTunnelForm) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var tunnelID: String
+    @State private var apiKey = ""
+    @State private var checkedTunnelID = ""
+    @State private var checkedAPIKey = ""
+    @State private var checkPassed = false
+
+    init(
+        tunnelID: String,
+        apiKeyAvailable: Bool,
+        clientPath: String,
+        onSave: @escaping (SettingsTunnelForm) -> Void
+    ) {
+        self.initialTunnelID = tunnelID
+        self.apiKeyAvailable = apiKeyAvailable
+        self.clientPath = clientPath
+        self.onSave = onSave
+        _tunnelID = State(initialValue: tunnelID)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("ChatGPT Tunnel")
+                    .font(.title2.weight(.semibold))
+                Text("Connect the local MCP server to ChatGPT.")
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Tunnel ID")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Link(
+                        "Create tunnel",
+                        destination: URL(string: "https://platform.openai.com/settings/organization/tunnels")!
+                    )
+                    .font(.caption)
+                }
+                TextField("tunnel_...", text: $tunnelID)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("API key")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Link(
+                        "Create API key",
+                        destination: URL(string: "https://platform.openai.com/settings/organization/api-keys")!
+                    )
+                    .font(.caption)
+                }
+                SecureField(
+                    apiKeyAvailable ? "Leave blank to keep current key" : "Restricted runtime API key",
+                    text: $apiKey
+                )
+                .textFieldStyle(.roundedBorder)
+            }
+
+            Text("Use a restricted key with Tunnel: Read and Use permissions.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                Button("Check configuration") {
+                    checkConfiguration()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!hasRequiredValues)
+                Text(checkStatus)
+                    .font(.caption)
+                    .foregroundStyle(checkPassed ? Color.green : Color.secondary)
+            }
+
+            Link(
+                "How to connect a custom MCP in ChatGPT",
+                destination: URL(string: "https://developers.openai.com/plugins/deploy/connect-chatgpt")!
+            )
+            .font(.caption)
+
+            Spacer(minLength: 0)
+
+            HStack {
+                Button("Cancel") { dismiss() }
+                Spacer()
+                Button("Apply") {
+                    onSave(SettingsTunnelForm(
+                        tunnelID: normalizedTunnelID,
+                        apiKey: apiKey
+                    ))
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!configurationIsChecked)
+            }
+        }
+        .padding(20)
+        .frame(width: 470, height: 390, alignment: .topLeading)
+    }
+
+    private var normalizedTunnelID: String {
+        tunnelID.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasRequiredValues: Bool {
+        !normalizedTunnelID.isEmpty && (apiKeyAvailable || !apiKey.isEmpty)
+    }
+
+    private var configurationIsChecked: Bool {
+        checkPassed && checkedTunnelID == normalizedTunnelID && checkedAPIKey == apiKey
+    }
+
+    private var checkStatus: String {
+        if configurationIsChecked { return "Configuration is ready to apply" }
+        if checkPassed { return "Run the check again after editing" }
+        return "Check both values before applying"
+    }
+
+    private func checkConfiguration() {
+        let hasExecutable = FileManager.default.isExecutableFile(atPath: clientPath)
+        guard hasRequiredValues, AppLaunchConfigurationStore.isValidTunnelID(normalizedTunnelID), hasExecutable else {
+            checkedTunnelID = ""
+            checkedAPIKey = ""
+            checkPassed = false
+            return
+        }
+        checkedTunnelID = normalizedTunnelID
+        checkedAPIKey = apiKey
+        checkPassed = true
     }
 }
 
