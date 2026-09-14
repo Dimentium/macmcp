@@ -1,6 +1,6 @@
 # MacMCP Handoff
 
-Last verified: 2026-09-14
+Last verified: 2026-09-15
 Repository: `Dimentium/macmcp`
 Working branch: `ux/settings-window` (local, not released)
 Current published and installed app: `MacMCP 0.2.31`
@@ -257,8 +257,9 @@ The 0.2.31 publication completed through Apple notarization, GitHub, and the
 Homebrew Cask. Apple initially returned a transient CloudKit ticket-validation
 error after accepting notarization; a subsequent validation succeeded and the
 normal release script completed. The post-install diagnostic, local MCP gate,
-and configured tunnel check pass. The release has one app process, one `tunnel-client`, and
-one app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong
+and configured tunnel check pass. The release has one app process, one
+`tunnel-client`, and one app-owned `macmcp-bridge --stdio-proxy` child; other
+proxy processes belong
 to external local MCP clients. The release helper retried one ordinary app
 launch after the first LaunchServices request was missed, without creating a
 duplicate app runtime.
