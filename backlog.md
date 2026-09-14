@@ -16,3 +16,4 @@
 - [x] Add installed-style regression coverage for mail permission-only Apply
 - [ ] Fix source installer reuse to bundle the existing ChatGPT tunnel client
 - [ ] Make release Cask restart recover when LaunchServices misses the first app launch
+- [x] Recover orphaned app-owned tunnel client after an interrupted app restart

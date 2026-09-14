@@ -263,6 +263,14 @@ one app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong
 to external local MCP clients. Follow up on the release helper's first-launch
 recovery is tracked in `backlog.md`.
 
+An interrupted 0.2.29 app restart can leave its `tunnel-client` orphaned: the
+new app then reports the tunnel unavailable even though an independent health
+check sees the orphan. The current branch records a private lease with the
+runtime PID, start time, executable path, and profile. It reclaims only an
+exact lease match, and fails closed before `init --force` if another process
+already runs the same client/profile. This source change passed the full test
+suite but is not yet installed or released.
+
 The 0.2.24 idle-CPU fix traced the remaining load to the pinned MCP Swift SDK:
 each empty non-blocking stdio pipe was retried every 10 ms. The release build
 now applies a reproducible 100 ms backoff to both the bridge and CheICalMCP
@@ -300,6 +308,7 @@ not a reason to change the local bridge without a reproduction.
 - `Sources/MacMCPBridge/MailAccountAccessStore.swift`: persisted per-account gates.
 - `Sources/MacMCPBridge/ChatGPTTunnelAccessStore.swift`: persisted tunnel gate.
 - `Sources/MacMCPBridge/ChatGPTTunnelSupervisor.swift`: app-owned tunnel.
+- `Sources/MacMCPBridge/TunnelRuntimeLease.swift`: exact-identity tunnel lease.
 - `Sources/MacMCPBridge/ClientApprovalStore.swift`: local client approvals.
 - `Sources/MacMCPBridge/MailActionAccessStore.swift`: account read-only state.
 - `Sources/MacMCPBridge/MCPDataAccess.swift`: Calendar/Reminders MCP gates.

@@ -50,7 +50,11 @@ Keychain-prompt caveat of the optional deep IMAP validator, are kept in
    Gmail, EventKit, approval, structured-output, and reader paths after
    installing the published Cask. Tunnel behavior remains outside this local
    gate. The menu-bar runtime now takes a per-user exclusive lock, so a
-   repeated launch cannot create another sidecar or tunnel tree. The source
+   repeated launch cannot create another sidecar or tunnel tree. Its tunnel
+   runtime lease records the exact PID, process start time, executable, and
+   profile; after an interrupted app exit, only that exact process may be
+   reclaimed. A same-profile runtime without that lease fails closed rather
+   than being reconfigured with `init --force`. The source
    formula remains
 supported for self-builds and may still require macOS permissions again after
 each ad-hoc-signed replacement.

@@ -26,6 +26,7 @@ enum ChatGPTTunnelState: Equatable, Sendable {
 final class ChatGPTTunnelSupervisor {
     typealias StateHandler = @MainActor @Sendable (ChatGPTTunnelState) -> Void
     typealias HealthProbe = (_ clientPath: String, _ runtimeKey: String) async -> Bool
+    typealias RunningClientPIDs = (_ clientPath: String, _ profile: String) -> [Int32]
 
     private enum Phase {
         case initialize
@@ -51,7 +52,9 @@ final class ChatGPTTunnelSupervisor {
     private let credentialStore: any CredentialStore
     private let failureHistoryStore: TunnelFailureHistoryStore
     private let tunnelLogStore: TunnelClientLogStore
+    private let runtimeLeaseStore: TunnelRuntimeLeaseStore
     private let healthProbe: HealthProbe
+    private let runningClientPIDs: RunningClientPIDs
     private let onStateChanged: StateHandler
     private var activeProcess: Process?
     private var activeLogCapture: TunnelClientLogCapture?
@@ -95,7 +98,9 @@ final class ChatGPTTunnelSupervisor {
         credentialStore: any CredentialStore = MigratingCredentialStore.chatGPTTunnel(),
         failureHistoryStore: TunnelFailureHistoryStore = TunnelFailureHistoryStore(),
         tunnelLogStore: TunnelClientLogStore = TunnelClientLogStore(),
+        runtimeLeaseStore: TunnelRuntimeLeaseStore = TunnelRuntimeLeaseStore(),
         healthProbe: @escaping HealthProbe = ChatGPTTunnelSupervisor.defaultHealthProbe,
+        runningClientPIDs: @escaping RunningClientPIDs = ChatGPTTunnelSupervisor.defaultRunningClientPIDs,
         healthProbeTimeoutNanoseconds: UInt64 = 10_000_000_000,
         doctorRetryDelayNanoseconds: UInt64 = 1_000_000_000,
         onStateChanged: @escaping StateHandler = { _ in }
@@ -107,7 +112,9 @@ final class ChatGPTTunnelSupervisor {
         self.credentialStore = credentialStore
         self.failureHistoryStore = failureHistoryStore
         self.tunnelLogStore = tunnelLogStore
+        self.runtimeLeaseStore = runtimeLeaseStore
         self.healthProbe = healthProbe
+        self.runningClientPIDs = runningClientPIDs
         self.healthProbeTimeoutNanoseconds = healthProbeTimeoutNanoseconds
         self.doctorRetryDelayNanoseconds = doctorRetryDelayNanoseconds
         self.onStateChanged = onStateChanged
@@ -118,7 +125,15 @@ final class ChatGPTTunnelSupervisor {
         let currentLifecycleGeneration = lifecycleGeneration
         let previousProcess = invalidateActiveRun()
         await terminate(previousProcess)
+        if let previousProcess {
+            runtimeLeaseStore.release(pid: previousProcess.processIdentifier)
+        }
         guard currentLifecycleGeneration == lifecycleGeneration else { return }
+
+        await runtimeLeaseStore.reclaimIfOwned(
+            executablePath: configuration.clientPath,
+            profile: configuration.profile
+        )
 
         stopped = false
         tunnelClientIsRunning = false
@@ -131,6 +146,10 @@ final class ChatGPTTunnelSupervisor {
 
         guard FileManager.default.isExecutableFile(atPath: configuration.clientPath) else {
             becomeUnavailable(phase: .prerequisites, reason: .clientUnavailable)
+            return
+        }
+        guard runningClientPIDs(configuration.clientPath, configuration.profile).isEmpty else {
+            becomeUnavailable(phase: .prerequisites, reason: .profileInUse)
             return
         }
         guard FileManager.default.fileExists(atPath: ipcSocketURL.path) else {
@@ -180,6 +199,9 @@ final class ChatGPTTunnelSupervisor {
         lifecycleGeneration += 1
         let process = invalidateActiveRun()
         await terminate(process)
+        if let process {
+            runtimeLeaseStore.release(pid: process.processIdentifier)
+        }
     }
 
     private func invalidateActiveRun() -> Process? {
@@ -225,6 +247,7 @@ final class ChatGPTTunnelSupervisor {
                 self?.didFinish(
                     phase: phase,
                     status: completed.terminationStatus,
+                    processID: completed.processIdentifier,
                     generation: generation
                 )
             }
@@ -235,6 +258,20 @@ final class ChatGPTTunnelSupervisor {
             logCapture.closeParentWriteHandles()
             activeProcess = process
             activeLogCapture = logCapture
+            if phase == .run {
+                do {
+                    try runtimeLeaseStore.claim(
+                        process,
+                        executablePath: configuration.clientPath,
+                        profile: configuration.profile
+                    )
+                } catch {
+                    Task { await self.terminate(process) }
+                    runtimeLeaseStore.release(pid: process.processIdentifier)
+                    becomeUnavailable(phase: .run, reason: .processLaunchFailed)
+                    return
+                }
+            }
             tunnelLogStore.recordLifecycle("tunnel-client \(phase.diagnosticPhase.rawValue) started")
             if phase == .run {
                 tunnelClientIsRunning = true
@@ -251,11 +288,14 @@ final class ChatGPTTunnelSupervisor {
         }
     }
 
-    private func didFinish(phase: Phase, status: Int32, generation: Int) {
+    private func didFinish(phase: Phase, status: Int32, processID: Int32, generation: Int) {
         // stop() and restart() invalidate the generation before terminating
         // the process, so expected exits never enter failure history.
         guard generation == self.generation, !stopped else { return }
         activeProcess = nil
+        if phase == .run {
+            runtimeLeaseStore.release(pid: processID)
+        }
         if phase == .run {
             tunnelClientIsRunning = false
             tunnelRunStartedAt = nil
@@ -431,6 +471,24 @@ final class ChatGPTTunnelSupervisor {
                 }
             }
         }
+    }
+
+    nonisolated static func defaultRunningClientPIDs(clientPath: String, profile: String) -> [Int32] {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+        process.arguments = ["-f", "-x", "\(clientPath) run --profile \(profile)"]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return []
+        }
+        guard process.terminationStatus == 0 else { return [] }
+        let pids = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        return pids.split(whereSeparator: \.isNewline).compactMap { Int32($0) }
     }
 
     private func terminate(_ process: Process?) async {

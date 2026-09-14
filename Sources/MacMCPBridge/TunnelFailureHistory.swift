@@ -32,6 +32,7 @@ enum ChatGPTTunnelFailureReason: String, Codable, Equatable, Sendable {
     case credentialUnavailable = "credential_unavailable"
     case credentialMissing = "credential_missing"
     case proxySetupFailed = "proxy_setup_failed"
+    case profileInUse = "profile_in_use"
     case processLaunchFailed = "process_launch_failed"
     case processExited = "process_exited"
     case healthTimedOut = "health_timed_out"
@@ -49,6 +50,8 @@ enum ChatGPTTunnelFailureReason: String, Codable, Equatable, Sendable {
             return "credential missing"
         case .proxySetupFailed:
             return "proxy setup failed"
+        case .profileInUse:
+            return "profile is already in use"
         case .processLaunchFailed:
             return "process launch failed"
         case .processExited:

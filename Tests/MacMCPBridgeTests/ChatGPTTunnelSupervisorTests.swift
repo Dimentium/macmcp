@@ -247,6 +247,47 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         XCTAssertEqual(failures.last?.reason, .clientUnavailable)
     }
 
+    func testForeignRuntimeWithSameProfileIsNotReconfigured() async throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let traceURL = directory.appendingPathComponent("trace")
+        let clientURL = directory.appendingPathComponent("tunnel-client")
+        let socketURL = directory.appendingPathComponent("mcp.sock")
+        let failureHistoryStore = TunnelFailureHistoryStore(
+            fileURL: directory.appendingPathComponent("tunnel-failures.json")
+        )
+        try Data().write(to: socketURL)
+        try "#!/bin/bash\nprintf '%s\\n' \"$1\" >> '\(traceURL.path)'\n".write(
+            to: clientURL,
+            atomically: true,
+            encoding: .utf8
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: clientURL.path
+        )
+
+        let supervisor = ChatGPTTunnelSupervisor(
+            configuration: ChatGPTTunnelConfiguration(
+                tunnelID: "tunnel_0123456789abcdef0123456789abcdef",
+                clientPath: clientURL.path,
+                profile: "macmcp-local"
+            ),
+            bridgeExecutableURL: directory.appendingPathComponent("macmcp-bridge"),
+            ipcSocketURL: socketURL,
+            proxyWrapperURL: directory.appendingPathComponent("chatgpt-tunnel-proxy"),
+            credentialStore: FixedTunnelCredentialStore(),
+            failureHistoryStore: failureHistoryStore,
+            runningClientPIDs: { _, _ in [12345] }
+        )
+
+        await supervisor.start()
+
+        XCTAssertEqual(supervisor.state, .unavailable)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: traceURL.path))
+        XCTAssertEqual(try failureHistoryStore.read().last?.reason, .profileInUse)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

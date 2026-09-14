@@ -6,6 +6,11 @@ personal data.
 
 ## Deferred Verification
 
+- `0.2.29` can leave an app-owned `tunnel-client` orphaned when the app is
+  interrupted during restart. The current branch has exact-identity lease
+  recovery and a fail-closed same-profile conflict check, both covered by
+  tests; it remains unreleased and needs an installed-runtime verification.
+
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
   `reminders.list` response with the old default of 100 items occupied about
   125 KiB because the untrusted-data envelope is intentionally present in both
