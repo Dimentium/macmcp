@@ -271,6 +271,12 @@ exact lease match, and fails closed before `init --force` if another process
 already runs the same client/profile. This source change passed the full test
 suite but is not yet installed or released.
 
+The source installer now also preserves a configured tunnel on
+`--reuse-existing-configuration`: it validates and embeds the existing client
+in the replacement app, then rewrites the stored client path to that bundle.
+Its isolated deployment acceptance covers this path; the change is likewise
+not yet installed or released.
+
 The 0.2.24 idle-CPU fix traced the remaining load to the pinned MCP Swift SDK:
 each empty non-blocking stdio pipe was retried every 10 ms. The release build
 now applies a reproducible 100 ms backoff to both the bridge and CheICalMCP

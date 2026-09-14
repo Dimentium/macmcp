@@ -214,19 +214,25 @@ PY
     exit 2
   }
   if [[ -n "$existing_tunnel_json" ]]; then
-    chatgpt_tunnel_profile="$(printf '%s' "$existing_tunnel_json" | python3 -c '
+    existing_tunnel_fields="$(printf '%s' "$existing_tunnel_json" | python3 -c '
 import json
 import sys
 
 tunnel = json.load(sys.stdin)
 profile = tunnel.get("profile")
-if not isinstance(profile, str) or not profile:
+client_path = tunnel.get("clientPath")
+if not isinstance(profile, str) or not profile or not isinstance(client_path, str) or not client_path:
+    sys.exit(1)
+if "\n" in profile or "\r" in profile or "\n" in client_path or "\r" in client_path:
     sys.exit(1)
 print(profile)
+print(client_path)
 ')" || {
-      echo "existing ChatGPT tunnel profile is unreadable" >&2
+      echo "existing ChatGPT tunnel configuration is unreadable" >&2
       exit 2
     }
+    chatgpt_tunnel_profile="$(sed -n '1p' <<< "$existing_tunnel_fields")"
+    chatgpt_tunnel_client="$(sed -n '2p' <<< "$existing_tunnel_fields")"
   fi
 fi
 
@@ -526,7 +532,7 @@ activate_staged_install() {
     "$legacy_install_backup_parent" "$legacy_app_backup_parent"
 }
 
-if [[ -n "$chatgpt_tunnel_id" ]]; then
+if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
   ensure_chatgpt_tunnel_client
 fi
 
@@ -542,7 +548,7 @@ build_app_arguments=(
   "$che_binary"
   --mail-sidecar "$mail_binary"
 )
-if [[ -n "$chatgpt_tunnel_id" ]]; then
+if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
   build_app_arguments+=(--tunnel-client "$chatgpt_tunnel_client")
 fi
 "${build_app_arguments[@]}" >/dev/null
@@ -588,7 +594,7 @@ EOF
 chmod 600 "$stage_mcp_config"
 
 config_tunnel_client="$chatgpt_tunnel_client"
-if [[ -n "$chatgpt_tunnel_id" ]]; then
+if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
   config_tunnel_client="$target_app/Contents/Resources/tunnel-client/tunnel-client"
 fi
 
@@ -622,6 +628,7 @@ if tunnel_id:
     }
 elif existing_tunnel:
     payload["chatGPTTunnel"] = json.loads(existing_tunnel)
+    payload["chatGPTTunnel"]["clientPath"] = tunnel_client
 
 target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
 fd, temporary_path = tempfile.mkstemp(prefix="launch.", dir=target.parent)

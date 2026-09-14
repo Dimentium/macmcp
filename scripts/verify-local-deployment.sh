@@ -122,12 +122,32 @@ assert report["tunnel"] == "not_configured"
 assert address not in output
 PY
 
+phase="prepare-tunnel-reuse"
+source_tunnel_client="$test_root/tunnel-client"
+cp /usr/bin/true "$source_tunnel_client"
+chmod 700 "$source_tunnel_client"
+python3 - "$launch_config" "$source_tunnel_client" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+payload = json.loads(path.read_text())
+payload["chatGPTTunnel"] = {
+    "tunnelID": "tunnel_0123456789abcdef0123456789abcdef",
+    "clientPath": sys.argv[2],
+    "profile": "macmcp-local",
+}
+path.write_text(json.dumps(payload))
+PY
+
 phase="upgrade"
 run_installer --reuse-existing-configuration
 phase="upgrade-contract"
 [[ -x "$runtime_cli" ]]
 [[ -f "$launch_config" ]]
-python3 - "$launch_config" "$fixture_address" <<'PY'
+[[ -x "$app_dir/MacMCP.app/Contents/Resources/tunnel-client/tunnel-client" ]]
+python3 - "$launch_config" "$fixture_address" "$app_dir/MacMCP.app/Contents/Resources/tunnel-client/tunnel-client" <<'PY'
 import json
 import pathlib
 import sys
@@ -137,6 +157,7 @@ assert payload["args"].count("--gmail-address") == 1
 index = payload["args"].index("--gmail-address")
 assert payload["args"][index + 1] == sys.argv[2]
 assert "--eventkit-sidecar" not in payload["args"]
+assert payload["chatGPTTunnel"]["clientPath"] == sys.argv[3]
 PY
 
 phase="uninstall"
