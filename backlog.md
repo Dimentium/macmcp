@@ -14,3 +14,5 @@
 - [x] Fix mail permission-only Apply and synchronize Settings runtime status chips
 - [x] Harden tunnel recovery after an interrupted MacMCP restart
 - [x] Add installed-style regression coverage for mail permission-only Apply
+- [ ] Fix source installer reuse to bundle the existing ChatGPT tunnel client
+- [ ] Make release Cask restart recover when LaunchServices misses the first app launch

@@ -3,7 +3,7 @@
 Last verified: 2026-09-14
 Repository: `Dimentium/macmcp`
 Working branch: `ux/settings-window` (local, not released)
-Current published and installed app: `MacMCP 0.2.28`
+Current published and installed app: `MacMCP 0.2.29`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -54,7 +54,7 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.28
+app version: 0.2.29
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
@@ -62,9 +62,11 @@ approved local clients: 4
 tunnel: running
 ```
 
-The installed 0.2.28 app was upgraded and restarted through the Cask during
-the latest check. The existing tunnel profile and runtime-key reference were
-preserved; the app-owned tunnel reported `running` again.
+The installed 0.2.29 app was upgraded through the Cask during the latest
+check. The existing tunnel profile and runtime-key reference were preserved;
+the app-owned tunnel reported `running` again. A forced app-process restart
+recovered in four seconds with one tunnel client and one app-owned proxy,
+without adding a tunnel failure record.
 The Calendar/Reminders menu gate is included in the installed release and was
 validated through the local MCP path.
 
@@ -252,12 +254,14 @@ and the actual `SMAppService.mainApp.status`. On the installed 0.2.24 runtime
 both the diagnostic and direct Login Item query report `enabled`; no Login
 Item behavior change is needed.
 
-The 0.2.28 publication completed through Apple notarization, GitHub, and the
-Homebrew Cask. The Cask upgrade and app restart produced a healthy 0.2.28
-runtime; the post-install diagnostic, local MCP gate, and configured tunnel
-check pass. The release has one app process, one `tunnel-client`, and one
-app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong to
-external local MCP clients.
+The 0.2.29 publication completed through Apple notarization, GitHub, and the
+Homebrew Cask. The Cask upgrade's first automatic launch was missed by
+LaunchServices, but an explicit reopen produced a healthy 0.2.29 runtime; the
+post-install diagnostic, local MCP gate, configured tunnel check, and forced
+restart check pass. The release has one app process, one `tunnel-client`, and
+one app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong
+to external local MCP clients. Follow up on the release helper's first-launch
+recovery is tracked in `backlog.md`.
 
 The 0.2.24 idle-CPU fix traced the remaining load to the pinned MCP Swift SDK:
 each empty non-blocking stdio pipe was retried every 10 ms. The release build
