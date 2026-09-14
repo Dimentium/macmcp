@@ -4,6 +4,28 @@ import XCTest
 
 @MainActor
 final class SettingsWindowTests: XCTestCase {
+    func testTunnelStateUpdatesVisibleStatus() {
+        let model = SettingsWindowModel()
+
+        model.updateTunnelState(.starting)
+        XCTAssertEqual(model.tunnelStatus, "Starting")
+        model.updateTunnelState(.running)
+        XCTAssertEqual(model.tunnelStatus, "Connected")
+        model.updateTunnelState(.unavailable)
+        XCTAssertEqual(model.tunnelStatus, "Unavailable")
+    }
+
+    func testLocalBridgeStateUpdatesVisibleStatus() {
+        let model = SettingsWindowModel()
+
+        model.updateLocalBridgeState(isRunning: false)
+        XCTAssertEqual(model.localBridgeStatus, "Starting")
+        XCTAssertFalse(model.localBridgeEnabled)
+        model.updateLocalBridgeState(isRunning: true)
+        XCTAssertEqual(model.localBridgeStatus, "Running")
+        XCTAssertTrue(model.localBridgeEnabled)
+    }
+
     func testMailAccountDisplayNameAddsHostOnlyForUsernameWithoutAt() {
         let model = SettingsWindowModel()
         model.mailAccounts = [

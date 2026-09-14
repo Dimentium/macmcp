@@ -47,6 +47,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let caskUpdater: HomebrewCaskUpdater
     private let mailAccountConfigurationStore: MailAccountConfigurationStore
     private let mailAccountAccessStore: MailAccountAccessStore
+    private let mailActionAccessStore: MailActionAccessStore
     private let tunnelAccessStore: ChatGPTTunnelAccessStore
     // Retained for the complete lifetime of the menu-bar runtime.
     private let instanceLock: MacMCPInstanceLock?
@@ -90,6 +91,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         caskUpdater: HomebrewCaskUpdater = HomebrewCaskUpdater(),
         mailAccountConfigurationStore: MailAccountConfigurationStore = MailAccountConfigurationStore(),
         mailAccountAccessStore: MailAccountAccessStore = MailAccountAccessStore(),
+        mailActionAccessStore: MailActionAccessStore = MailActionAccessStore(),
         tunnelAccessStore: ChatGPTTunnelAccessStore = ChatGPTTunnelAccessStore(),
         instanceLock: MacMCPInstanceLock? = nil
     ) {
@@ -103,6 +105,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.caskUpdater = caskUpdater
         self.mailAccountConfigurationStore = mailAccountConfigurationStore
         self.mailAccountAccessStore = mailAccountAccessStore
+        self.mailActionAccessStore = mailActionAccessStore
         self.tunnelAccessStore = tunnelAccessStore
         self.instanceLock = instanceLock
     }
@@ -256,6 +259,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 return
             }
             self.runtime = runtime
+            settingsWindowModel.updateLocalBridgeState(isRunning: true)
             let ipcServer = await runtime.makeLocalIPCServer(
                 clientApprovalStore: clientApprovalStore,
                 onClientApprovalChanged: { [weak self] in
@@ -432,6 +436,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 tunnelLogStore: tunnelLogStore,
                 onStateChanged: { [weak self] state in
                     self?.tunnelState = state
+                    self?.settingsWindowModel.updateTunnelState(state)
                     if let item = self?.tunnelMenuItem {
                         self?.updateTunnelMenu(item, state: state)
                         self?.refreshTunnelActionsMenu(item)
@@ -979,9 +984,18 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.settingsWindowModel.showingAddMailAccount = true
         }
         settingsWindowModel.onOpenMailAccountSettings = { [weak self] accountID in
-            guard let self else { return }
-            self.settingsWindowModel.selectedMailAccountID = accountID
-            self.settingsWindowModel.showingMailAccountSettings = true
+            Task { [weak self] in
+                guard let self else { return }
+                let writableAccountIDs = await self.mailActionAccessStore.writableAccountIDs()
+                guard let index = self.settingsWindowModel.mailAccounts.firstIndex(where: {
+                    $0.id == accountID
+                }) else {
+                    return
+                }
+                self.settingsWindowModel.mailAccounts[index].readOnly = !writableAccountIDs.contains(accountID)
+                self.settingsWindowModel.selectedMailAccountID = accountID
+                self.settingsWindowModel.showingMailAccountSettings = true
+            }
         }
         settingsWindowModel.onSaveMailAccount = { [weak self] accountID, form in
             self?.saveMailAccountFromSettings(accountID: accountID, form: form)
@@ -1020,18 +1034,14 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowModel.launchAtLogin = launch?.launchAtLogin == true
         settingsWindowModel.launchAtLoginAvailable = loginItemController?.status != .unavailable
 
-        let bridgeIsRunning = runtime != nil
-        settingsWindowModel.localBridgeConfigured = true
-        settingsWindowModel.localBridgeEnabled = bridgeIsRunning
-        settingsWindowModel.localBridgeStatus = bridgeIsRunning ? "Running" : "Starting"
-        settingsWindowModel.localBridgeToggleAvailable = false
+        settingsWindowModel.updateLocalBridgeState(isRunning: runtime != nil)
 
         if launch?.chatGPTTunnel != nil {
             settingsWindowModel.tunnelConfigured = true
             settingsWindowModel.tunnelEnabled = true
             settingsWindowModel.tunnelID = launch?.chatGPTTunnel?.tunnelID ?? ""
             settingsWindowModel.tunnelClientPath = launch?.chatGPTTunnel?.clientPath ?? ""
-            settingsWindowModel.tunnelStatus = settingsTunnelStatus
+            settingsWindowModel.updateTunnelState(tunnelState)
         } else {
             settingsWindowModel.tunnelConfigured = false
             settingsWindowModel.tunnelEnabled = false
@@ -1053,7 +1063,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 imapSecurity: account.imapSecurity,
                 enabled: true,
                 readOnly: true,
-                hasPassword: hasMailPassword(for: account)
+                hasPassword: false
             )
         }
         settingsWindowModel.mailAccountToggleAvailable = !configuration.mailAccounts.isEmpty
@@ -1061,7 +1071,11 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Task { [weak self] in
             guard let self else { return }
             let enabledCategories = await dataAccess.enabledCategories()
-            let writableAccountIDs = await runtime?.mailActionAccess.writableAccountIDs() ?? []
+            let writableAccountIDs = if let runtime {
+                await runtime.mailActionAccess.writableAccountIDs()
+            } else {
+                await mailActionAccessStore.writableAccountIDs()
+            }
             let enabledAccountIDs = await mailAccountAccessStore.enabledAccountIDs(
                 for: Set(configuration.mailAccounts.map(\.id))
             )
@@ -1081,33 +1095,12 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private var settingsTunnelStatus: String {
-        switch tunnelState {
-        case .none:
-            return "Off"
-        case .some(.starting):
-            return "Starting"
-        case .some(.running):
-            return "Connected"
-        case .some(.unavailable):
-            return "Unavailable"
-        }
-    }
-
     private func settingsMailProvider(for account: MailAccountConfiguration) -> String {
         switch account.id.split(separator: "-").first.map(String.init) {
         case "icloud": return "iCloud Mail"
         case "gmail": return "Gmail"
         default: return "Other IMAP"
         }
-    }
-
-    private func hasMailPassword(for account: MailAccountConfiguration) -> Bool {
-        guard var password = try? MigratingCredentialStore.mail().readSecret(account: account.username) else {
-            return false
-        }
-        defer { password.resetBytes(in: 0..<password.count) }
-        return !password.isEmpty
     }
 
     private func hasTunnelKey() -> Bool {
@@ -1242,36 +1235,36 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         accountID: String?,
         form: SettingsMailAccountForm
     ) {
-        do {
-            let password = form.password.isEmpty ? nil : Data(form.password.utf8)
-            let account = try mailAccountConfigurationStore.save(
-                accountID: accountID,
-                provider: form.provider,
-                username: form.username,
-                imapHost: form.imapHost,
-                imapPort: form.imapPort,
-                imapSecurity: form.imapSecurity,
-                password: password
-            )
-            Task { [weak self] in
-                guard let self else { return }
-                do {
-                    try await MailActionAccessStore().setReadOnly(
-                        !form.draftsCreationAllowed,
-                        for: account.id
-                    )
-                    try await mailAccountAccessStore.setEnabled(true, for: account.id)
-                    restartMacMCP()
-                } catch {
-                    presentSettingsError(
-                        title: "Mail account was saved, but access was not updated",
-                        error: error
-                    )
-                    refreshSettingsWindow()
+        let existingAccount = accountID.flatMap { accountID in
+            configuration.mailAccounts.first(where: { $0.id == accountID })
+        }
+        let updater = MailAccountSettingsUpdater(
+            configurationStore: mailAccountConfigurationStore,
+            actionAccessStore: mailActionAccessStore,
+            accountAccessStore: mailAccountAccessStore
+        )
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await updater.save(
+                    accountID: accountID,
+                    existingAccount: existingAccount,
+                    form: form
+                )
+                let writableAccountIDs = await mailActionAccessStore.writableAccountIDs()
+                await runtime?.statusSource.updateWriteCapabilitiesEnabled(!writableAccountIDs.isEmpty)
+                if let index = settingsWindowModel.mailAccounts.firstIndex(where: {
+                    $0.id == result.accountID
+                }) {
+                    settingsWindowModel.mailAccounts[index].readOnly = !form.draftsCreationAllowed
                 }
+                if result.requiresRestart {
+                    restartMacMCP()
+                }
+            } catch {
+                presentSettingsError(title: "Unable to save mail account", error: error)
+                refreshSettingsWindow()
             }
-        } catch {
-            presentSettingsError(title: "Unable to save mail account", error: error)
         }
     }
 

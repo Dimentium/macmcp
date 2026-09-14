@@ -3,6 +3,148 @@ import XCTest
 @testable import MacMCPBridge
 
 final class MailAccountSettingsTests: XCTestCase {
+    func testPermissionOnlyUpdateDoesNotReadCredentialsOrRewriteLaunchConfiguration() async throws {
+        let launchURL = try temporaryFileURL()
+        let launchStore = AppLaunchConfigurationStore(fileURL: launchURL)
+        try launchStore.write(
+            arguments: ["--gmail-address", "reader@gmail.com"],
+            launchAtLogin: true
+        )
+        let originalLaunchData = try Data(contentsOf: launchURL)
+        let accessStore = MailActionAccessStore(
+            fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-actions.json")
+        )
+        let accountAccessStore = MailAccountAccessStore(
+            fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-accounts.json")
+        )
+        let updater = MailAccountSettingsUpdater(
+            configurationStore: MailAccountConfigurationStore(
+                launchConfigurationStore: launchStore,
+                credentialStore: FailingCredentialStore()
+            ),
+            actionAccessStore: accessStore,
+            accountAccessStore: accountAccessStore
+        )
+        let existing = try MailAccountConfiguration.gmail(address: "reader@gmail.com")
+
+        let result = try await updater.save(
+            accountID: existing.id,
+            existingAccount: existing,
+            form: SettingsMailAccountForm(
+                provider: .gmail,
+                username: existing.username,
+                password: "",
+                imapHost: existing.imapHost,
+                imapPort: existing.imapPort,
+                imapSecurity: existing.imapSecurity,
+                draftsCreationAllowed: true
+            )
+        )
+
+        XCTAssertEqual(result.accountID, "gmail")
+        XCTAssertFalse(result.requiresRestart)
+        XCTAssertEqual(try Data(contentsOf: launchURL), originalLaunchData)
+        let gmailIsWritable = await accessStore.isWritable(accountID: "gmail")
+        XCTAssertTrue(gmailIsWritable)
+    }
+
+    func testPermissionOnlyUpdatePreservesOtherAccountsAccess() async throws {
+        let launchURL = try temporaryFileURL()
+        let launchStore = AppLaunchConfigurationStore(fileURL: launchURL)
+        try launchStore.write(
+            arguments: [
+                "--gmail-address", "reader@gmail.com",
+                "--icloud-address", "reader@icloud.com"
+            ],
+            launchAtLogin: true
+        )
+        let accessStore = MailActionAccessStore(
+            fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-actions.json")
+        )
+        try await accessStore.setReadOnly(false, for: "gmail")
+        try await accessStore.setReadOnly(false, for: "icloud")
+        let updater = MailAccountSettingsUpdater(
+            configurationStore: MailAccountConfigurationStore(
+                launchConfigurationStore: launchStore,
+                credentialStore: FailingCredentialStore()
+            ),
+            actionAccessStore: accessStore,
+            accountAccessStore: MailAccountAccessStore(
+                fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-accounts.json")
+            )
+        )
+        let existing = try MailAccountConfiguration.gmail(address: "reader@gmail.com")
+
+        _ = try await updater.save(
+            accountID: existing.id,
+            existingAccount: existing,
+            form: SettingsMailAccountForm(
+                provider: .gmail,
+                username: existing.username,
+                password: "",
+                imapHost: existing.imapHost,
+                imapPort: existing.imapPort,
+                imapSecurity: existing.imapSecurity,
+                draftsCreationAllowed: false
+            )
+        )
+
+        let gmailIsWritable = await accessStore.isWritable(accountID: "gmail")
+        let iCloudIsWritable = await accessStore.isWritable(accountID: "icloud")
+        XCTAssertFalse(gmailIsWritable)
+        XCTAssertTrue(iCloudIsWritable)
+    }
+
+    func testSignificantUpdatePersistsConfigurationAndRequiresRestart() async throws {
+        let launchURL = try temporaryFileURL()
+        let launchStore = AppLaunchConfigurationStore(fileURL: launchURL)
+        try launchStore.write(
+            arguments: ["--mail-account", "imap=alex,imap.old.example,993,tls"],
+            launchAtLogin: true
+        )
+        let credentials = TestCredentialStore()
+        try credentials.storeSecret(Data("current-password".utf8), account: "alex")
+        let updater = MailAccountSettingsUpdater(
+            configurationStore: MailAccountConfigurationStore(
+                launchConfigurationStore: launchStore,
+                credentialStore: credentials
+            ),
+            actionAccessStore: MailActionAccessStore(
+                fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-actions.json")
+            ),
+            accountAccessStore: MailAccountAccessStore(
+                fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-accounts.json")
+            )
+        )
+        let existing = try MailAccountConfiguration(
+            id: "imap",
+            username: "alex",
+            imapHost: "imap.old.example",
+            imapPort: 993,
+            imapSecurity: .tls
+        )
+
+        let result = try await updater.save(
+            accountID: existing.id,
+            existingAccount: existing,
+            form: SettingsMailAccountForm(
+                provider: .otherIMAP,
+                username: "alex",
+                password: "",
+                imapHost: "imap.new.example",
+                imapPort: 993,
+                imapSecurity: .tls,
+                draftsCreationAllowed: false
+            )
+        )
+
+        XCTAssertTrue(result.requiresRestart)
+        XCTAssertEqual(
+            try launchStore.readConfiguration()?.args,
+            ["--mail-account", "imap=alex,imap.new.example,993,tls"]
+        )
+    }
+
     func testAddUpdateAndRemoveMultipleAccountsWithoutIDCollision() throws {
         let launchStore = AppLaunchConfigurationStore(fileURL: try temporaryFileURL())
         let credentials = TestCredentialStore()
@@ -137,6 +279,18 @@ final class MailAccountSettingsTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.appendingPathComponent("state.json")
     }
+}
+
+private struct FailingCredentialStore: CredentialStore {
+    func readSecret(account: String) throws -> Data {
+        throw CredentialStoreError.notFound
+    }
+
+    func storeSecret(_ secret: Data, account: String) throws {
+        throw CredentialStoreError.notFound
+    }
+
+    func deleteSecret(account: String) throws {}
 }
 
 private final class TestCredentialStore: CredentialStore, @unchecked Sendable {

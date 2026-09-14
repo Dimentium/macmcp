@@ -133,6 +133,22 @@ final class SettingsWindowModel: ObservableObject {
         mailAccounts[index].enabled = enabled
         onMailAccountChanged?(id, enabled)
     }
+
+    func updateTunnelState(_ state: ChatGPTTunnelState?) {
+        tunnelStatus = switch state {
+        case .none: "Off"
+        case .some(.starting): "Starting"
+        case .some(.running): "Connected"
+        case .some(.unavailable): "Unavailable"
+        }
+    }
+
+    func updateLocalBridgeState(isRunning: Bool) {
+        localBridgeConfigured = true
+        localBridgeEnabled = isRunning
+        localBridgeStatus = isRunning ? "Running" : "Starting"
+        localBridgeToggleAvailable = false
+    }
 }
 
 @MainActor
@@ -258,6 +274,7 @@ struct SettingsWindowView: View {
                         model.onRemoveMailAccount?(accountID)
                     }
                 )
+                .id(accountID)
             }
         }
         .sheet(isPresented: $model.showingTunnelSettings) {
