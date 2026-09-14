@@ -64,6 +64,8 @@ final class ChatGPTTunnelSupervisor {
     private var healthProbeToken: UUID?
     private var healthProbeTimeoutTask: Task<Void, Never>?
     private var lastHealthProbeAt: Date?
+    private var doctorRetryTask: Task<Void, Never>?
+    private var doctorRetryCount = 0
 
     // The tunnel client itself owns the long-lived control-plane connection.
     // This probe is only a fallback liveness check, so spawning a new
@@ -72,6 +74,8 @@ final class ChatGPTTunnelSupervisor {
     private let healthProbeInterval: TimeInterval = 30
     private let initialHealthProbeGracePeriod: TimeInterval = 60
     private let healthProbeTimeoutNanoseconds: UInt64
+    private let doctorRetryDelayNanoseconds: UInt64
+    private let maximumDoctorRetries = 5
     private var lifecycleGeneration = 0
 
     private(set) var state: ChatGPTTunnelState = .starting {
@@ -93,6 +97,7 @@ final class ChatGPTTunnelSupervisor {
         tunnelLogStore: TunnelClientLogStore = TunnelClientLogStore(),
         healthProbe: @escaping HealthProbe = ChatGPTTunnelSupervisor.defaultHealthProbe,
         healthProbeTimeoutNanoseconds: UInt64 = 10_000_000_000,
+        doctorRetryDelayNanoseconds: UInt64 = 1_000_000_000,
         onStateChanged: @escaping StateHandler = { _ in }
     ) {
         self.configuration = configuration
@@ -104,6 +109,7 @@ final class ChatGPTTunnelSupervisor {
         self.tunnelLogStore = tunnelLogStore
         self.healthProbe = healthProbe
         self.healthProbeTimeoutNanoseconds = healthProbeTimeoutNanoseconds
+        self.doctorRetryDelayNanoseconds = doctorRetryDelayNanoseconds
         self.onStateChanged = onStateChanged
     }
 
@@ -118,6 +124,7 @@ final class ChatGPTTunnelSupervisor {
         tunnelClientIsRunning = false
         tunnelRunStartedAt = nil
         hasCompletedControlPlanePoll = false
+        doctorRetryCount = 0
         generation += 1
         let currentGeneration = generation
         state = .starting
@@ -184,6 +191,8 @@ final class ChatGPTTunnelSupervisor {
         healthProbeToken = nil
         healthProbeTimeoutTask?.cancel()
         healthProbeTimeoutTask = nil
+        doctorRetryTask?.cancel()
+        doctorRetryTask = nil
         lastHealthProbeAt = nil
         let process = activeProcess
         activeProcess = nil
@@ -252,6 +261,9 @@ final class ChatGPTTunnelSupervisor {
             tunnelRunStartedAt = nil
             hasCompletedControlPlanePoll = false
         }
+        if phase == .doctor, status != 0, scheduleDoctorRetry(generation: generation) {
+            return
+        }
         guard status == 0 else {
             runtimeKey = nil
             becomeUnavailable(phase: phase.diagnosticPhase, reason: .processExited)
@@ -260,11 +272,7 @@ final class ChatGPTTunnelSupervisor {
 
         switch phase {
         case .initialize:
-            launch(
-                phase: .doctor,
-                arguments: ["doctor", "--profile", configuration.profile, "--explain"],
-                generation: generation
-            )
+            launchDoctor(generation: generation)
         case .doctor:
             launch(
                 phase: .run,
@@ -275,6 +283,34 @@ final class ChatGPTTunnelSupervisor {
             runtimeKey = nil
             becomeUnavailable(phase: .run, reason: .processExited)
         }
+    }
+
+    private func launchDoctor(generation: Int) {
+        launch(
+            phase: .doctor,
+            arguments: ["doctor", "--profile", configuration.profile, "--explain"],
+            generation: generation
+        )
+    }
+
+    private func scheduleDoctorRetry(generation: Int) -> Bool {
+        guard doctorRetryCount < maximumDoctorRetries else { return false }
+        doctorRetryCount += 1
+        let attempt = doctorRetryCount
+        tunnelLogStore.recordLifecycle("tunnel-client doctor retry \(attempt) scheduled")
+        doctorRetryTask?.cancel()
+        doctorRetryTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(nanoseconds: self.doctorRetryDelayNanoseconds)
+            } catch {
+                return
+            }
+            guard generation == self.generation, !self.stopped else { return }
+            self.doctorRetryTask = nil
+            self.launchDoctor(generation: generation)
+        }
+        return true
     }
 
     func refreshHealth(force: Bool = false) {

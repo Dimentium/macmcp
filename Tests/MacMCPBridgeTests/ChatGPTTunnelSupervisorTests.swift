@@ -157,6 +157,69 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
         await supervisor.stop()
     }
 
+    func testRetriesDoctorWhileForcedInitializationReleasesPreviousRuntime() async throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let traceURL = directory.appendingPathComponent("trace")
+        let doctorAttemptsURL = directory.appendingPathComponent("doctor-attempts")
+        let clientURL = directory.appendingPathComponent("tunnel-client")
+        let socketURL = directory.appendingPathComponent("mcp.sock")
+        let bridgeURL = directory.appendingPathComponent("macmcp-bridge")
+        let proxyURL = directory.appendingPathComponent("chatgpt-tunnel-proxy")
+        let failureHistoryStore = TunnelFailureHistoryStore(
+            fileURL: directory.appendingPathComponent("tunnel-failures.json")
+        )
+
+        try Data().write(to: socketURL)
+        try "#!/bin/bash\nexit 0\n".write(to: bridgeURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: bridgeURL.path)
+        try """
+        #!/bin/bash
+        printf '%s\\n' "$1" >> '\(traceURL.path)'
+        if [[ "$1" == "doctor" ]]; then
+          attempts=0
+          [[ -f '\(doctorAttemptsURL.path)' ]] && attempts="$(cat '\(doctorAttemptsURL.path)')"
+          attempts=$((attempts + 1))
+          printf '%s' "$attempts" > '\(doctorAttemptsURL.path)'
+          [[ "$attempts" -lt 3 ]] && exit 2
+        fi
+        if [[ "$1" == "run" ]]; then
+          while true; do sleep 1; done
+        fi
+        """.write(to: clientURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: clientURL.path)
+
+        let running = expectation(description: "tunnel becomes running after doctor retries")
+        let supervisor = ChatGPTTunnelSupervisor(
+            configuration: ChatGPTTunnelConfiguration(
+                tunnelID: "tunnel_0123456789abcdef0123456789abcdef",
+                clientPath: clientURL.path,
+                profile: "macmcp-local"
+            ),
+            bridgeExecutableURL: bridgeURL,
+            ipcSocketURL: socketURL,
+            proxyWrapperURL: proxyURL,
+            credentialStore: FixedTunnelCredentialStore(),
+            failureHistoryStore: failureHistoryStore,
+            healthProbe: { _, _ in true },
+            doctorRetryDelayNanoseconds: 10_000_000,
+            onStateChanged: { state in
+                if state == .running { running.fulfill() }
+            }
+        )
+
+        await supervisor.start()
+        await fulfillment(of: [running], timeout: 2)
+        try await waitForTraceEntry("run", in: traceURL)
+        await supervisor.stop()
+
+        XCTAssertEqual(
+            try String(contentsOf: traceURL, encoding: .utf8).split(separator: "\n"),
+            ["init", "doctor", "doctor", "doctor", "run"]
+        )
+        XCTAssertTrue(try failureHistoryStore.read().isEmpty)
+    }
+
     func testMissingClientPersistsPrerequisiteFailure() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -200,5 +263,14 @@ final class ChatGPTTunnelSupervisorTests: XCTestCase {
             try await Task.sleep(nanoseconds: 50_000_000)
         }
         throw NSError(domain: "ChatGPTTunnelSupervisorTests", code: 1)
+    }
+
+    private func waitForTraceEntry(_ entry: String, in url: URL) async throws {
+        for _ in 0..<20 {
+            let lines = (try? String(contentsOf: url, encoding: .utf8))?.split(separator: "\n") ?? []
+            if lines.contains(Substring(entry)) { return }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw NSError(domain: "ChatGPTTunnelSupervisorTests", code: 2)
     }
 }

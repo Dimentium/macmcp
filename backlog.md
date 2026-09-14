@@ -12,3 +12,5 @@
 - [x] 12. Упростить status-bar меню до двух действий: Open Settings и Quit; обновить parity-тесты и локально установить проверенную сборку.
 - [x] 13. Синхронизировать подпись локального CLI с подписью app, чтобы Keychain не видел ad-hoc CLI как отдельного клиента.
 - [x] Fix mail permission-only Apply and synchronize Settings runtime status chips
+- [x] Harden tunnel recovery after an interrupted MacMCP restart
+- [ ] Add installed-style regression coverage for mail permission-only Apply
