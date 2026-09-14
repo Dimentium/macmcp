@@ -32,3 +32,9 @@ release, regenerates the Cask and source formula, upgrades the local Cask, and
 restarts MacMCP. Review the private `dist/release-*.log` and final
 `macmcp diagnose --json`; verify one app process, one tunnel client, and one
 tunnel proxy before reporting success.
+
+## Backlog
+
+Use `bl` to manage the local backlog in `backlog.md`. Run `bl help` for
+available commands. Before reviewing or implementing a task, run `bl` to see
+the current backlog.
