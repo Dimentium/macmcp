@@ -18,3 +18,5 @@
 - [x] Make release Cask restart recover when LaunchServices misses the first app launch
 - [x] Recover orphaned app-owned tunnel client after an interrupted app restart
 - [x] Make source install and uninstall refuse foreign ChatGPT tunnel runtimes
+- [x] Add isolated source-script regression coverage for a foreign same-profile tunnel runtime
+- [x] Retry transient Git clone and fetch failures while building pinned sidecars

@@ -273,7 +273,11 @@ in the replacement app, then rewrites the stored client path to that bundle.
 Neither source install nor source uninstall selects or signals a tunnel by
 profile alone. A surviving exact configured client blocks replacement or
 deletion, while a foreign same-profile tunnel is left untouched. Its isolated
-deployment acceptance covers the reuse path.
+deployment acceptance runs a live foreign same-profile client across both
+replacement and deletion and verifies that its PID survives. The pinned
+sidecar builders retry `git clone` and `git fetch` up to three times for
+transient runner/network failures; origin, revision, dependency, and checksum
+checks remain fail-closed.
 
 The 0.2.24 idle-CPU fix traced the remaining load to the pinned MCP Swift SDK:
 each empty non-blocking stdio pipe was retried every 10 ms. The release build

@@ -13,6 +13,14 @@ fixture_address="deployment-check@example.invalid"
 legacy_install_root="$test_home/.local/opt/mac-agent-bridge"
 legacy_config_dir="$test_home/Library/Application Support/mac-agent-bridge"
 legacy_bin_link="$bin_dir/mac-agent-bridge"
+foreign_tunnel_pid=""
+
+stop_foreign_tunnel() {
+  [[ -n "$foreign_tunnel_pid" ]] || return 0
+  kill "$foreign_tunnel_pid" >/dev/null 2>&1 || true
+  wait "$foreign_tunnel_pid" >/dev/null 2>&1 || true
+  foreign_tunnel_pid=""
+}
 
 remove_test_root() {
   # Go owns the read-only permissions in its module cache.
@@ -21,6 +29,7 @@ remove_test_root() {
 }
 
 cleanup() {
+  stop_foreign_tunnel
   HOME="$test_home" "$script_dir/uninstall-local.sh" \
     --install-root "$install_root" \
     --bin-dir "$bin_dir" \
@@ -141,9 +150,20 @@ payload["chatGPTTunnel"] = {
 path.write_text(json.dumps(payload))
 PY
 
+# This has the same profile but is not the client recorded in launch.json. The
+# installer and uninstaller must never select it by profile alone.
+foreign_tunnel_client="$test_root/foreign-tunnel-client"
+printf '%s\n' '#!/bin/bash' 'while true; do sleep 1; done' > "$foreign_tunnel_client"
+chmod 700 "$foreign_tunnel_client"
+"$foreign_tunnel_client" run --profile macmcp-local &
+foreign_tunnel_pid=$!
+sleep 0.1
+kill -0 "$foreign_tunnel_pid"
+
 phase="upgrade"
 run_installer --reuse-existing-configuration
 phase="upgrade-contract"
+kill -0 "$foreign_tunnel_pid"
 [[ -x "$runtime_cli" ]]
 [[ -f "$launch_config" ]]
 [[ -x "$app_dir/MacMCP.app/Contents/Resources/tunnel-client/tunnel-client" ]]
@@ -173,8 +193,10 @@ HOME="$test_home" "$script_dir/uninstall-local.sh" \
 [[ ! -e "$legacy_install_root" ]]
 [[ ! -e "$legacy_config_dir" ]]
 [[ ! -e "$legacy_bin_link" ]]
+kill -0 "$foreign_tunnel_pid"
 
 phase="complete"
+stop_foreign_tunnel
 trap - EXIT
 remove_test_root
 printf 'MacMCP local deployment acceptance passed\n'

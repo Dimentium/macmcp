@@ -55,6 +55,24 @@ for tool in git shasum swift; do
   }
 done
 
+retry_git_network() {
+  local operation="$1"
+  shift
+  local attempt exit_code
+  for attempt in 1 2 3; do
+    if "$@"; then
+      return 0
+    else
+      exit_code=$?
+    fi
+    if [[ "$attempt" -eq 3 ]]; then
+      return "$exit_code"
+    fi
+    echo "$operation failed; retrying in ${attempt}s ($attempt/3)" >&2
+    sleep "$attempt"
+  done
+}
+
 che_src="$build_root/che-ical-mcp"
 che_resolution="$project_dir/Packaging/CheICalMCP.Package.resolved"
 che_binary="$che_src/.build/release/CheICalMCP"
@@ -67,7 +85,7 @@ fi
 
 if [[ ! -d "$che_src/.git" ]]; then
   echo "Cloning pinned CheICalMCP source" >&2
-  git clone "$CHE_REPO" "$che_src" >&2
+  retry_git_network "CheICalMCP clone" git clone "$CHE_REPO" "$che_src" >&2
 fi
 
 actual_remote="$(git -C "$che_src" remote get-url origin)"
@@ -87,7 +105,7 @@ if [[ "$actual_che_resolution_sha256" != "$CHE_RESOLUTION_SHA256" ]]; then
 fi
 
 echo "Building pinned CheICalMCP from $CHE_COMMIT" >&2
-git -C "$che_src" fetch --tags origin >&2
+retry_git_network "CheICalMCP fetch" git -C "$che_src" fetch --tags origin >&2
 git -C "$che_src" checkout --detach "$CHE_COMMIT" >&2
 cp "$che_resolution" "$che_src/Package.resolved"
 "$project_dir/scripts/patch-mcp-sdk-stdio.sh" --package-path "$che_src" >&2

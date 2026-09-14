@@ -45,7 +45,12 @@ personal data.
 - The source installer preserves and embeds a configured tunnel client when
   reusing its existing launch configuration. Source install and uninstall do
   not signal a runtime matched only by profile; a surviving exact configured
-  client fails closed, and a foreign same-profile client is untouched.
+  client fails closed, and a foreign same-profile client is untouched. The
+  isolated deployment acceptance verifies both operations against a live
+  foreign client.
+- Transient GitHub runner DNS failures while cloning/fetching pinned sidecar
+  repositories retry twice before surfacing the original Git failure. The
+  pinned origin, revision, and checksums are still independently verified.
 - The release helper retries one ordinary app launch after a Cask upgrade when
   LaunchServices misses the initial request; the 0.2.30 local upgrade verified
   this recovery path.

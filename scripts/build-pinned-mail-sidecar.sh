@@ -81,6 +81,24 @@ go_version_at_least() {
   done
 }
 
+retry_git_network() {
+  local operation="$1"
+  shift
+  local attempt exit_code
+  for attempt in 1 2 3; do
+    if "$@"; then
+      return 0
+    else
+      exit_code=$?
+    fi
+    if [[ "$attempt" -eq 3 ]]; then
+      return "$exit_code"
+    fi
+    echo "$operation failed; retrying in ${attempt}s ($attempt/3)" >&2
+    sleep "$attempt"
+  done
+}
+
 go_version="$(go env GOVERSION)"
 go_version="${go_version#go}"
 if ! go_version_at_least "$go_version" "$MAIL_MINIMUM_GO_VERSION"; then
@@ -99,7 +117,7 @@ fi
 
 if [[ ! -d "$mail_src/.git" ]]; then
   echo "Cloning pinned mail-mcp source" >&2
-  git clone "$MAIL_REPO" "$mail_src" >&2
+  retry_git_network "mail-mcp clone" git clone "$MAIL_REPO" "$mail_src" >&2
 fi
 
 actual_remote="$(git -C "$mail_src" remote get-url origin)"
@@ -109,7 +127,7 @@ if [[ "$actual_remote" != "$MAIL_REPO" ]]; then
 fi
 
 echo "Building pinned mail-mcp $MAIL_VERSION from $MAIL_COMMIT" >&2
-git -C "$mail_src" fetch --tags origin >&2
+retry_git_network "mail-mcp fetch" git -C "$mail_src" fetch --tags origin >&2
 git -C "$mail_src" checkout --detach "$MAIL_COMMIT" >&2
 for spec in "go.mod:$MAIL_GO_MOD_SHA256" "go.sum:$MAIL_GO_SUM_SHA256"; do
   filename="${spec%%:*}"

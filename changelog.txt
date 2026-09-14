@@ -13,6 +13,9 @@ Unreleased
 - Make source installation and uninstallation fail closed around a surviving
   configured tunnel-client, without ever stopping a tunnel selected only by
   its profile.
+- Cover that source-script rule with an isolated live foreign same-profile
+  tunnel process, and retry transient Git clone/fetch failures while building
+  pinned sidecars.
 
 0.2.30 - 2026-09-14
 -------------------
