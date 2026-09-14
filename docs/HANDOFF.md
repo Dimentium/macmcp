@@ -3,7 +3,7 @@
 Last verified: 2026-09-14
 Repository: `Dimentium/macmcp`
 Working branch: `ux/settings-window` (local, not released)
-Current published and installed app: `MacMCP 0.2.30`
+Current published and installed app: `MacMCP 0.2.31`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -54,7 +54,7 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.30
+app version: 0.2.31
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
@@ -62,11 +62,10 @@ approved local clients: 4
 tunnel: running
 ```
 
-The installed 0.2.30 app was upgraded through the Cask during the latest
+The installed 0.2.31 app was upgraded through the Cask during the latest
 check. The existing tunnel profile and runtime-key reference were preserved;
-the app-owned tunnel reported `running` again. The first LaunchServices request
-was missed, the release helper retried its ordinary app launch after ten
-seconds, and the bridge and tunnel became ready after 42 seconds.
+the app-owned tunnel reported `running` again. The bridge and tunnel became
+ready after 28 seconds.
 The Calendar/Reminders menu gate is included in the installed release and was
 validated through the local MCP path.
 
@@ -254,9 +253,11 @@ and the actual `SMAppService.mainApp.status`. On the installed 0.2.24 runtime
 both the diagnostic and direct Login Item query report `enabled`; no Login
 Item behavior change is needed.
 
-The 0.2.30 publication completed through Apple notarization, GitHub, and the
-Homebrew Cask. The post-install diagnostic, local MCP gate, and configured
-tunnel check pass. The release has one app process, one `tunnel-client`, and
+The 0.2.31 publication completed through Apple notarization, GitHub, and the
+Homebrew Cask. Apple initially returned a transient CloudKit ticket-validation
+error after accepting notarization; a subsequent validation succeeded and the
+normal release script completed. The post-install diagnostic, local MCP gate,
+and configured tunnel check pass. The release has one app process, one `tunnel-client`, and
 one app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong
 to external local MCP clients. The release helper retried one ordinary app
 launch after the first LaunchServices request was missed, without creating a
@@ -349,3 +350,5 @@ not a reason to change the local bridge without a reproduction.
 - `b5b019b` Make deep IMAP validation opt in
 - `f52c749` Prepare MacMCP 0.2.30
 - `97f9402` Publish MacMCP 0.2.30 Cask
+- `4f1aaad` Prepare MacMCP 0.2.31
+- `0a51018` Publish MacMCP 0.2.31 Cask

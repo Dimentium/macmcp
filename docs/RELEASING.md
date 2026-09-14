@@ -137,11 +137,12 @@ configured mail accounts, Calendar, and Reminders. It does not start
 
 The same gate runs automatically as the final step of
 `scripts/release.sh --install-local`. The current published and installed
-runtime is `MacMCP 0.2.30`; changes to these scripts and docs do not require a
-new binary release by themselves. The 0.2.30 publication completed through
-Apple notarization, GitHub, and Cask installation. Its first local launch was
-missed by LaunchServices, then the helper's one ordinary retry recovered the
-app, tunnel, and local MCP acceptance path. The installed runtime passes
+runtime is `MacMCP 0.2.31`; changes to these scripts and docs do not require a
+new binary release by themselves. The 0.2.31 publication completed through
+Apple notarization, GitHub, and Cask installation. A transient CloudKit ticket
+validation error immediately after notarization acceptance resolved on retry;
+the normal release script then completed the Cask upgrade, tunnel startup, and
+local MCP acceptance path. The installed runtime passes
 `macmcp diagnose --json` and `scripts/validate-local-mcp.sh`.
 
 The 0.2.24 build also patches the pinned MCP Swift SDK's empty-pipe retry from
