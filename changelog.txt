@@ -12,6 +12,17 @@ Unreleased
 
 No unreleased changes.
 
+0.2.30 - 2026-09-14
+-------------------
+
+- Recover only an exact app-owned tunnel-client lease after an interrupted
+  MacMCP restart; a conflicting same-profile runtime is left untouched and
+  reported as unavailable.
+- Preserve the bundled tunnel-client when the source installer reuses an
+  existing configuration.
+- Retry one ordinary app launch after a Cask upgrade when LaunchServices misses
+  the initial request.
+
 0.2.29 - 2026-09-14
 -------------------
 
