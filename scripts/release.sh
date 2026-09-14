@@ -154,6 +154,15 @@ restart_local_app() {
   wait_for_local_runtime
 }
 
+retry_local_app_launch() {
+  # A Cask replacement can occasionally make LaunchServices drop the first
+  # launch request. Do not force a second instance: retry only while the app
+  # process is still absent, using the normal open path.
+  app_runtime_running && return 0
+  echo "MacMCP was not launched by LaunchServices; retrying the app launch once"
+  open /Applications/MacMCP.app
+}
+
 app_runtime_running() {
   pgrep -f -x '/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge' >/dev/null
 }
@@ -171,11 +180,16 @@ local_runtime_ready() {
 
 wait_for_local_runtime() {
   local max_attempts=30
+  local did_retry_launch=0
   echo "Waiting for MacMCP bridge and configured tunnel to become ready (up to 60s)"
   for attempt in $(seq 1 "$max_attempts"); do
     if app_runtime_running && local_runtime_ready; then
       echo "MacMCP runtime is ready after $(((attempt - 1) * 2))s"
       return 0
+    fi
+    if [[ "$attempt" -eq 6 && "$did_retry_launch" -eq 0 ]] && ! app_runtime_running; then
+      retry_local_app_launch
+      did_retry_launch=1
     fi
     if [[ "$attempt" -eq 1 || $((attempt % 5)) -eq 0 ]]; then
       echo "MacMCP is still starting (${attempt}/${max_attempts})"

@@ -104,7 +104,9 @@ scripts/release.sh \
 
 `--install-local` is optional. It refreshes Homebrew, installs or upgrades the
 published Cask, verifies its bundled version, performs a single-instance
-MacMCP restart, prints `macmcp diagnose --json`, and runs the privacy-safe
+MacMCP restart, retries the launch once when LaunchServices has not created an
+app process after ten seconds, prints `macmcp diagnose --json`, and runs the
+privacy-safe
 local MCP acceptance test. That final test covers the local bridge, published
 tools and structured output, Mail folder/search/read calls, Calendar, and
 Reminders. It intentionally does not start or test the ChatGPT tunnel. Omit

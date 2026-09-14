@@ -260,8 +260,9 @@ LaunchServices, but an explicit reopen produced a healthy 0.2.29 runtime; the
 post-install diagnostic, local MCP gate, configured tunnel check, and forced
 restart check pass. The release has one app process, one `tunnel-client`, and
 one app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong
-to external local MCP clients. Follow up on the release helper's first-launch
-recovery is tracked in `backlog.md`.
+to external local MCP clients. The release helper now retries the ordinary app
+launch once when no app process appears after ten seconds, avoiding a duplicate
+instance if the first LaunchServices request was merely slow.
 
 An interrupted 0.2.29 app restart can leave its `tunnel-client` orphaned: the
 new app then reports the tunnel unavailable even though an independent health
