@@ -12,6 +12,14 @@ Unreleased
 
 No unreleased changes.
 
+0.2.29 - 2026-09-14
+-------------------
+
+- Retry ChatGPT tunnel `doctor` after forced initialization, allowing an
+  interrupted app restart to release its prior tunnel runtime cleanly.
+- Cover permission-only mail-account Apply, including immediate write-capability
+  status updates without Keychain access or a mail-sidecar restart.
+
 0.2.28 - 2026-09-14
 -------------------
 
