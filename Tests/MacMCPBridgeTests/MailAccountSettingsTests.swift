@@ -95,6 +95,51 @@ final class MailAccountSettingsTests: XCTestCase {
         XCTAssertTrue(iCloudIsWritable)
     }
 
+    func testPermissionOnlyUpdateRefreshesWriteCapabilityWithoutRestart() async throws {
+        let launchURL = try temporaryFileURL()
+        let launchStore = AppLaunchConfigurationStore(fileURL: launchURL)
+        try launchStore.write(
+            arguments: ["--gmail-address", "reader@gmail.com"],
+            launchAtLogin: true
+        )
+        let accessStore = MailActionAccessStore(
+            fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-actions.json")
+        )
+        let updater = MailAccountSettingsUpdater(
+            configurationStore: MailAccountConfigurationStore(
+                launchConfigurationStore: launchStore,
+                credentialStore: FailingCredentialStore()
+            ),
+            actionAccessStore: accessStore,
+            accountAccessStore: MailAccountAccessStore(
+                fileURL: launchURL.deletingLastPathComponent().appendingPathComponent("mail-accounts.json")
+            )
+        )
+        let existing = try MailAccountConfiguration.gmail(address: "reader@gmail.com")
+        let statusSource = BridgeStatusSource(status: .connected(mail: true, eventKit: false))
+
+        let result = try await updater.save(
+            accountID: existing.id,
+            existingAccount: existing,
+            form: SettingsMailAccountForm(
+                provider: .gmail,
+                username: existing.username,
+                password: "",
+                imapHost: existing.imapHost,
+                imapPort: existing.imapPort,
+                imapSecurity: existing.imapSecurity,
+                draftsCreationAllowed: true
+            )
+        )
+        let writableAccountIDs = await accessStore.writableAccountIDs()
+        await statusSource.updateWriteCapabilitiesEnabled(!writableAccountIDs.isEmpty)
+        let status = await statusSource.snapshot()
+
+        XCTAssertFalse(result.requiresRestart)
+        XCTAssertTrue(status.writeCapabilitiesEnabled)
+        XCTAssertEqual(try launchStore.readConfiguration()?.args, ["--gmail-address", "reader@gmail.com"])
+    }
+
     func testSignificantUpdatePersistsConfigurationAndRequiresRestart() async throws {
         let launchURL = try temporaryFileURL()
         let launchStore = AppLaunchConfigurationStore(fileURL: launchURL)
