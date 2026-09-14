@@ -1,9 +1,9 @@
 # MacMCP Handoff
 
-Last verified: 2026-09-10
+Last verified: 2026-09-14
 Repository: `Dimentium/macmcp`
 Working branch: `ux/settings-window` (local, not released)
-Current published and installed app: `MacMCP 0.2.27`
+Current published and installed app: `MacMCP 0.2.28`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -54,17 +54,17 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.27
+app version: 0.2.28
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
-approved local clients: 1
+approved local clients: 4
 tunnel: running
 ```
 
-The installed 0.2.27 app was temporarily stopped and restarted during the
-latest check. The existing tunnel profile, runtime-key reference, `healthz`,
-and `readyz` all passed; the app-owned tunnel then reported `running` again.
+The installed 0.2.28 app was upgraded and restarted through the Cask during
+the latest check. The existing tunnel profile and runtime-key reference were
+preserved; the app-owned tunnel reported `running` again.
 The Calendar/Reminders menu gate is included in the installed release and was
 validated through the local MCP path.
 
@@ -252,11 +252,12 @@ and the actual `SMAppService.mainApp.status`. On the installed 0.2.24 runtime
 both the diagnostic and direct Login Item query report `enabled`; no Login
 Item behavior change is needed.
 
-The 0.2.27 publication completed through Apple notarization, GitHub, and the
-Homebrew Cask. The Cask upgrade and app restart produced a healthy 0.2.27
+The 0.2.28 publication completed through Apple notarization, GitHub, and the
+Homebrew Cask. The Cask upgrade and app restart produced a healthy 0.2.28
 runtime; the post-install diagnostic, local MCP gate, and configured tunnel
-check pass. The release helper now distinguishes the app process from external
-Codex `--stdio-proxy` clients during its restart wait.
+check pass. The release has one app process, one `tunnel-client`, and one
+app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong to
+external local MCP clients.
 
 The 0.2.24 idle-CPU fix traced the remaining load to the pinned MCP Swift SDK:
 each empty non-blocking stdio pipe was retried every 10 ms. The release build
