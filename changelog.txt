@@ -10,7 +10,9 @@ before publication.
 Unreleased
 ----------
 
-No unreleased changes.
+- Make source installation and uninstallation fail closed around a surviving
+  configured tunnel-client, without ever stopping a tunnel selected only by
+  its profile.
 
 0.2.30 - 2026-09-14
 -------------------

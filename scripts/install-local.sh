@@ -343,8 +343,11 @@ existing_runtime_is_running() {
     "$legacy_install_root/libexec/mail-mcp"; do
     pgrep -f "$pattern" >/dev/null 2>&1 && return 0
   done
-  if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
-    pgrep -f "tunnel-client run --profile $chatgpt_tunnel_profile" >/dev/null 2>&1 && return 0
+  # The app owns its client process.  Never select a tunnel by profile alone:
+  # another MacMCP install or an unrelated user process may use that profile.
+  # If this exact configured client survives app shutdown, fail closed below.
+  if [[ -n "$existing_tunnel_json" && -n "$chatgpt_tunnel_client" ]]; then
+    pgrep -f -x "$chatgpt_tunnel_client run --profile $chatgpt_tunnel_profile" >/dev/null 2>&1 && return 0
   fi
   return 1
 }
@@ -370,9 +373,6 @@ stop_existing_runtime() {
   terminate_matching_command "$libexec_dir/mail-mcp" TERM
   terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" TERM
   terminate_matching_command "$legacy_install_root/libexec/mail-mcp" TERM
-  if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
-    terminate_matching_command "tunnel-client run --profile $chatgpt_tunnel_profile" TERM
-  fi
   if wait_for_existing_runtime_exit 3; then
     return 0
   fi
@@ -384,9 +384,6 @@ stop_existing_runtime() {
   terminate_matching_command "$libexec_dir/mail-mcp" KILL
   terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" KILL
   terminate_matching_command "$legacy_install_root/libexec/mail-mcp" KILL
-  if [[ -n "$chatgpt_tunnel_id" || -n "$existing_tunnel_json" ]]; then
-    terminate_matching_command "tunnel-client run --profile $chatgpt_tunnel_profile" KILL
-  fi
   wait_for_existing_runtime_exit 2 || {
     echo "existing runtime did not stop; leaving the installed version unchanged" >&2
     return 1

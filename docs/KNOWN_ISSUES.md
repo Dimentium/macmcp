@@ -6,11 +6,6 @@ personal data.
 
 ## Deferred Verification
 
-- `0.2.29` can leave an app-owned `tunnel-client` orphaned when the app is
-  interrupted during restart. The current branch has exact-identity lease
-  recovery and a fail-closed same-profile conflict check, both covered by
-  tests; it remains unreleased and needs an installed-runtime verification.
-
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
   `reminders.list` response with the old default of 100 items occupied about
   125 KiB because the untrusted-data envelope is intentionally present in both
@@ -43,6 +38,17 @@ personal data.
   source or ad-hoc install must be updated through its normal source workflow.
 
 ## Resolved Since The 2026-09-05 Audit
+
+- MacMCP 0.2.30 records an exact tunnel runtime lease and only reclaims a
+  matching app-owned process after an interrupted restart. A same-profile
+  process without that lease is left untouched and reported as unavailable.
+- The source installer preserves and embeds a configured tunnel client when
+  reusing its existing launch configuration. Source install and uninstall do
+  not signal a runtime matched only by profile; a surviving exact configured
+  client fails closed, and a foreign same-profile client is untouched.
+- The release helper retries one ordinary app launch after a Cask upgrade when
+  LaunchServices misses the initial request; the 0.2.30 local upgrade verified
+  this recovery path.
 
 - Reader sidecars cannot start through the direct production CLI path; data
   clients use the app-owned IPC/proxy path and per-client approval.

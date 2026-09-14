@@ -87,8 +87,7 @@ legacy_bin_link="$bin_dir/mac-agent-bridge"
 legacy_tunnel_setup_link="$bin_dir/mac-agent-bridge-tunnel-setup"
 app_config="$config_dir/launch.json"
 
-managed_tunnel_profile() {
-  [[ -f "$app_config" ]] || return 0
+managed_tunnel_fields() {
   python3 - "$app_config" <<'PY'
 import json
 import pathlib
@@ -103,16 +102,33 @@ except Exception:
 if tunnel is None:
     sys.exit(0)
 profile = tunnel.get("profile") if isinstance(tunnel, dict) else None
-if not isinstance(profile, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", profile):
+client_path = tunnel.get("clientPath") if isinstance(tunnel, dict) else None
+if (
+    not isinstance(profile, str)
+    or not re.fullmatch(r"[A-Za-z0-9._-]+", profile)
+    or not isinstance(client_path, str)
+    or not pathlib.PurePath(client_path).is_absolute()
+    or "\n" in client_path
+    or "\r" in client_path
+):
     sys.exit(1)
 print(profile)
+print(client_path)
 PY
 }
 
-tunnel_profile="$(managed_tunnel_profile)" || {
-  echo "unable to validate the configured tunnel profile; leaving tunnel-client untouched" >&2
-  tunnel_profile=""
-}
+tunnel_profile=""
+tunnel_client_path=""
+if [[ -f "$app_config" ]]; then
+  tunnel_fields="$(managed_tunnel_fields)" || {
+    echo "unable to validate the configured tunnel runtime; leaving tunnel-client untouched" >&2
+    tunnel_fields=""
+  }
+  if [[ -n "$tunnel_fields" ]]; then
+    tunnel_profile="$(sed -n '1p' <<< "$tunnel_fields")"
+    tunnel_client_path="$(sed -n '2p' <<< "$tunnel_fields")"
+  fi
+fi
 
 terminate_matching_command() {
   local pattern="$1"
@@ -140,8 +156,11 @@ existing_runtime_is_running() {
     "$legacy_install_root/libexec/mail-mcp"; do
     pgrep -f "$pattern" >/dev/null 2>&1 && return 0
   done
-  if [[ -n "$tunnel_profile" ]]; then
-    pgrep -f "tunnel-client run --profile $tunnel_profile" >/dev/null 2>&1 && return 0
+  # A profile is not process ownership.  Never stop a client selected solely by
+  # profile; an exact configured client that survived app shutdown blocks
+  # deletion instead.
+  if [[ -n "$tunnel_client_path" ]]; then
+    pgrep -f -x "$tunnel_client_path run --profile $tunnel_profile" >/dev/null 2>&1 && return 0
   fi
   return 1
 }
@@ -175,9 +194,6 @@ terminate_matching_command "$libexec_dir/CheICalMCP" TERM
 terminate_matching_command "$libexec_dir/mail-mcp" TERM
 terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" TERM
 terminate_matching_command "$legacy_install_root/libexec/mail-mcp" TERM
-if [[ -n "$tunnel_profile" ]]; then
-  terminate_matching_command "tunnel-client run --profile $tunnel_profile" TERM
-fi
 if ! wait_for_existing_runtime_exit 3; then
   terminate_matching_command "$target_app/Contents/MacOS/macmcp-bridge" KILL
   terminate_matching_command "$target_app/Contents/Resources/mail-mcp" KILL
@@ -187,9 +203,6 @@ if ! wait_for_existing_runtime_exit 3; then
   terminate_matching_command "$libexec_dir/mail-mcp" KILL
   terminate_matching_command "$legacy_install_root/libexec/CheICalMCP" KILL
   terminate_matching_command "$legacy_install_root/libexec/mail-mcp" KILL
-  if [[ -n "$tunnel_profile" ]]; then
-    terminate_matching_command "tunnel-client run --profile $tunnel_profile" KILL
-  fi
   wait_for_existing_runtime_exit 2 || {
     echo "installed runtime did not stop; refusing to delete its files" >&2
     exit 1

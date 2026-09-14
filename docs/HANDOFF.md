@@ -3,7 +3,7 @@
 Last verified: 2026-09-14
 Repository: `Dimentium/macmcp`
 Working branch: `ux/settings-window` (local, not released)
-Current published and installed app: `MacMCP 0.2.29`
+Current published and installed app: `MacMCP 0.2.30`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -54,7 +54,7 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.29
+app version: 0.2.30
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
@@ -62,11 +62,11 @@ approved local clients: 4
 tunnel: running
 ```
 
-The installed 0.2.29 app was upgraded through the Cask during the latest
+The installed 0.2.30 app was upgraded through the Cask during the latest
 check. The existing tunnel profile and runtime-key reference were preserved;
-the app-owned tunnel reported `running` again. A forced app-process restart
-recovered in four seconds with one tunnel client and one app-owned proxy,
-without adding a tunnel failure record.
+the app-owned tunnel reported `running` again. The first LaunchServices request
+was missed, the release helper retried its ordinary app launch after ten
+seconds, and the bridge and tunnel became ready after 42 seconds.
 The Calendar/Reminders menu gate is included in the installed release and was
 validated through the local MCP path.
 
@@ -254,29 +254,26 @@ and the actual `SMAppService.mainApp.status`. On the installed 0.2.24 runtime
 both the diagnostic and direct Login Item query report `enabled`; no Login
 Item behavior change is needed.
 
-The 0.2.29 publication completed through Apple notarization, GitHub, and the
-Homebrew Cask. The Cask upgrade's first automatic launch was missed by
-LaunchServices, but an explicit reopen produced a healthy 0.2.29 runtime; the
-post-install diagnostic, local MCP gate, configured tunnel check, and forced
-restart check pass. The release has one app process, one `tunnel-client`, and
+The 0.2.30 publication completed through Apple notarization, GitHub, and the
+Homebrew Cask. The post-install diagnostic, local MCP gate, and configured
+tunnel check pass. The release has one app process, one `tunnel-client`, and
 one app-owned `macmcp-bridge --stdio-proxy` child; other proxy processes belong
-to external local MCP clients. The release helper now retries the ordinary app
-launch once when no app process appears after ten seconds, avoiding a duplicate
-instance if the first LaunchServices request was merely slow.
+to external local MCP clients. The release helper retried one ordinary app
+launch after the first LaunchServices request was missed, without creating a
+duplicate app runtime.
 
-An interrupted 0.2.29 app restart can leave its `tunnel-client` orphaned: the
-new app then reports the tunnel unavailable even though an independent health
-check sees the orphan. The current branch records a private lease with the
-runtime PID, start time, executable path, and profile. It reclaims only an
-exact lease match, and fails closed before `init --force` if another process
-already runs the same client/profile. This source change passed the full test
-suite but is not yet installed or released.
+MacMCP 0.2.30 records a private lease with the tunnel runtime PID, start time,
+executable path, and profile. It reclaims only an exact lease match after an
+interrupted app restart, and fails closed before `init --force` if another
+process already runs the same client/profile.
 
-The source installer now also preserves a configured tunnel on
+The source installer also preserves a configured tunnel on
 `--reuse-existing-configuration`: it validates and embeds the existing client
 in the replacement app, then rewrites the stored client path to that bundle.
-Its isolated deployment acceptance covers this path; the change is likewise
-not yet installed or released.
+Neither source install nor source uninstall selects or signals a tunnel by
+profile alone. A surviving exact configured client blocks replacement or
+deletion, while a foreign same-profile tunnel is left untouched. Its isolated
+deployment acceptance covers the reuse path.
 
 The 0.2.24 idle-CPU fix traced the remaining load to the pinned MCP Swift SDK:
 each empty non-blocking stdio pipe was retried every 10 ms. The release build
@@ -346,6 +343,5 @@ not a reason to change the local bridge without a reproduction.
 - `ac73a60` Record mail action acceptance
 - `90774bd` Record stable ChatGPT updates
 - `b5b019b` Make deep IMAP validation opt in
-
-The settings migration branch intentionally has not been released or deployed.
-The user-local `AGENTS.md` modification is not part of this work.
+- `f52c749` Prepare MacMCP 0.2.30
+- `97f9402` Publish MacMCP 0.2.30 Cask

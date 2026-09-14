@@ -54,10 +54,11 @@ Keychain-prompt caveat of the optional deep IMAP validator, are kept in
    runtime lease records the exact PID, process start time, executable, and
    profile; after an interrupted app exit, only that exact process may be
    reclaimed. A same-profile runtime without that lease fails closed rather
-   than being reconfigured with `init --force`. The source
-   formula remains
-supported for self-builds and may still require macOS permissions again after
-each ad-hoc-signed replacement.
+   than being reconfigured with `init --force`. The source installer and
+   uninstaller likewise never select or signal a client by profile alone: a
+   surviving exact configured client blocks replacement or deletion. The source
+   formula remains supported for self-builds and may still require macOS
+   permissions again after each ad-hoc-signed replacement.
 
 2. Validate the app-managed ChatGPT tunnel beyond the validated local Work path.
    ChatGPT Work on the desktop app is the primary client target and has now
