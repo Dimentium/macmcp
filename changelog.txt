@@ -12,6 +12,14 @@ Unreleased
 
 No unreleased changes.
 
+0.2.28 - 2026-09-14
+-------------------
+
+- Fix applying an existing mail account's read-only/drafts permission without
+  touching its Keychain password or restarting the mail sidecar.
+- Keep Settings access and tunnel status indicators synchronized with runtime
+  changes.
+
 0.2.27 - 2026-09-10
 -------------------
 
