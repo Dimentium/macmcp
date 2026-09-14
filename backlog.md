@@ -20,3 +20,4 @@
 - [x] Make source install and uninstall refuse foreign ChatGPT tunnel runtimes
 - [x] Add isolated source-script regression coverage for a foreign same-profile tunnel runtime
 - [x] Retry transient Git clone and fetch failures while building pinned sidecars
+- [x] Release MacMCP 0.2.31
