@@ -84,55 +84,6 @@ Keychain-prompt caveat of the optional deep IMAP validator, are kept in
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
-## Settings Window Migration Contract
-
-The approved single-page SwiftUI settings UX is now integrated into the
-menu-bar app on the `ux/settings-window` branch. `SettingsWindowController`
-owns one fixed-width, always-on-top window and `MenuBarHost` remains responsible
-for runtime ownership and lifecycle; the SwiftUI model is an adapter, not a
-second configuration store. The standalone prototype is no longer part of the
-runtime path.
-
-State ownership during migration:
-
-- `AppLaunchConfigurationStore` remains the source of truth for launch
-  arguments, Login Item preference, and the non-secret ChatGPT tunnel
-  configuration (`tunnelID`, client path, and profile).
-- `MigratingCredentialStore.chatGPTTunnel()` remains the source of truth for
-  the tunnel runtime key. It must never be written to `launch.json`, logs, or
-  diagnostic snapshots. Mail passwords continue to use the account username as
-  their Keychain account.
-- `MCPDataAccessController` owns Calendar and Reminders MCP access, including
-  separate default-off write access. The existing `MailActionAccessController`
-  owns per-account read-only/draft permissions. Both must continue to gate
-  local IPC, STDIO, and tunnel calls.
-- `MenuBarHost` and `ChatGPTTunnelSupervisor` remain the source of live bridge
-  and tunnel status. Settings actions must use their existing lifecycle paths
-  rather than starting an independent runtime or tunnel client.
-- `HomebrewCaskUpdater` remains the source of update state and installation;
-  logs open from `MacMCPPaths.logsDirectory(homeDirectory:)`, without exposing
-  their contents in settings.
-
-The migration wires the real Login Item, mail-account access, EventKit access,
-tunnel access/restart/configuration, Keychain-backed credentials, update, log,
-repository, and account CRUD paths. Mail-account changes deliberately restart
-the app-owned runtime so every transport observes the same account set.
-
-The Local Bridge switch remains intentionally conservative: it is status-only
-and disabled until a safe app-owned stop/start path exists. Calendar and
-Reminders gears edit their persisted write gate; each category stays read-only
-unless the user explicitly enables its narrow write surface. Recurrence,
-Calendar alerts, and Reminder location triggers are separate default-off
-controls and are enforced for every call.
-
-The status-bar menu intentionally exposes only `Open Settings...` and `Quit`.
-Detailed controls live in the settings window. The integration has automated
-parity coverage and has been manually reviewed through the approved UX
-prototype; a signed production bundle was also launched in a
-no-sidecar/tunnel-unavailable check without modifying the installed runtime. A
-release should still include a visual pass on a clean Mac with Assistive Access
-or direct user interaction available.
-
 ## Per-Account Mail Actions
 
 The standard MacMCP endpoint always advertises the three narrow mail-action
@@ -142,8 +93,9 @@ The account toggle in `MacMCP > Open Settings...` enables or disables new action
 calls for that specific account immediately and persists across app restarts.
 
 It exposes only recipient-free managed drafts and one-message `read`, `unread`,
-`flagged`, or `unflagged` operations. SMTP, send, delete, move, archive,
-calendar, and reminder writes remain unavailable.
+`flagged`, or `unflagged` operations. SMTP, send, delete, move, and archive
+remain unavailable. Calendar and Reminder writes use their separate,
+default-off EventKit gates described above.
 
 Each managed draft has an HMAC marker created from a persistent Keychain key
 and held only in the private runtime sidecar config. Updating requires the

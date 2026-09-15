@@ -17,12 +17,6 @@ personal data.
   disabled its connector; a branch may help because it creates a new chat, but
   is not a reliable repair for an already disabled tool session.
 
-- The production settings window was compiled, integration-tested, and launched
-  from a Developer ID-signed local bundle. The final visual click-through on a
-  clean Mac remains a release check because the current terminal session does
-  not have macOS Assistive Access. The approved UX was manually reviewed during
-  the standalone prototype iterations.
-
 ## Settings Window
 
 - Local Bridge is shown as a live status row, but its switch is disabled. The

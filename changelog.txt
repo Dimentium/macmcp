@@ -13,7 +13,8 @@ Unreleased
 - Clarify the current one-page Settings workflow, optional tunnel setup, and
   default-off EventKit write controls. Add a Settings-window screenshot,
   remove obsolete status-bar-menu instructions, and make the Cask the primary
-  documented install/update path when Homebrew is available.
+  documented install/update path when Homebrew is available. Remove completed
+  Settings UX verification from the active plan.
 
 0.2.32 - 2026-09-15
 -------------------

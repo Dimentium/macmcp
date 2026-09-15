@@ -101,13 +101,12 @@ evidence that MacMCP is down. Restart the `macmcp` MCP server from the Codex /
 ChatGPT desktop MCP settings and start a new Codex session if necessary. Do not
 reinstall MacMCP for this condition.
 
-The settings migration was verified with a production Swift build, the full
-XCTest suite, and a locally launched Developer ID-signed bundle. The local
-bundle was run with no embedded sidecars, so it exercised the empty local state
-and unavailable tunnel path without replacing the installed app. The visual
-prototype had already been reviewed interactively through the UX iterations;
-the remaining clean-host visual click-through is a release check because this
-terminal session lacks Assistive Access.
+The Settings window is a completed, released part of the app. It was verified
+with a production Swift build, the full XCTest suite, a locally launched
+Developer ID-signed bundle, and interactive UX review. The signed local bundle
+also exercised the empty local state and unavailable-tunnel path without
+replacing the installed app. `docs/images/settings-window.png` is the current
+framed visual reference; there is no remaining Settings-specific release gate.
 
 ## Architecture
 
@@ -262,9 +261,11 @@ Do not manually replace the Cask unless diagnosing a failed release step.
    remote ChatGPT/tunnel product surface. Local attachment text extraction has
    already passed; the current local gate checks the tool surface but does not
    call an attachment.
-3. Consider adding a privacy-safe local attachment call to the acceptance gate
-   if a deterministic attachment fixture can be used without modifying a real
-   mailbox.
+3. A user-provided Gmail draft titled `MacMCP attachment validation fixture —
+   do not send` is now a read-only local attachment fixture. It contains one
+   non-inline `text/plain` attachment, `5091-2_2-test.txt` (39 bytes), whose
+   bounded text read succeeded. Use this existing draft for acceptance
+   coverage; never send, update, or delete it.
 
 The earlier `launchAtLogin=true` / `loginItem=not_registered` observation was
 confirmed to be two distinct states: the persisted preference in `launch.json`
