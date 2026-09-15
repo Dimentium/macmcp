@@ -10,7 +10,9 @@ before publication.
 Unreleased
 ----------
 
-No unreleased changes.
+- Clarify the current one-page Settings workflow, optional tunnel setup, and
+  default-off EventKit write controls. Add a Settings-window screenshot and
+  remove obsolete status-bar-menu instructions.
 
 0.2.32 - 2026-09-15
 -------------------

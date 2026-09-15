@@ -26,7 +26,8 @@ The project is beyond MVP for local use:
 - Mail reader tools, Calendar, Reminders, attachment text extraction, and
   structured MCP output work through the local app-owned IPC path.
 - Mail actions are always published but are gated independently per account by
-  `Read only`, which defaults to enabled and changes without a restart.
+  `Draft creation allowed`, which defaults to disabled and changes without a
+  restart.
 - Calendar and Reminders have independent MCP access gates in the menu. They
   default to enabled, persist per user, and gate local IPC, STDIO, and the
   ChatGPT tunnel without a restart.
@@ -89,7 +90,7 @@ result=PASS
 The local check does not start the tunnel, create drafts, or modify mail.
 
 Manual ChatGPT acceptance also passed for both account types: recipient-free
-managed drafts were created and updated, and turning `Read only` back on
+managed drafts were created and updated, and disabling `Draft creation allowed`
 blocked a later update immediately without restarting MacMCP. Routine signed
 Cask updates did not break existing ChatGPT chats.
 
@@ -171,7 +172,7 @@ filesystem, browser, or arbitrary attachment-download tools.
 
 Mail action rules:
 
-- Each account starts in `Read only` mode.
+- Each account starts with `Draft creation allowed` disabled.
 - The account control is in `MacMCP > Open Settings...`.
 - The control gates local MCP, STDIO, and ChatGPT tunnel calls immediately.
 - Managed drafts have no `To`, `Cc`, `Bcc`, `Reply-To`, or `Resent-*` headers.

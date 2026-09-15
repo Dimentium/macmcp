@@ -15,7 +15,7 @@ with verified `go.mod` and `go.sum` hashes and built with `-mod=readonly`;
 CheICalMCP is built from its pinned source commit and reviewed Swift package
 resolution because the published CheICalMCP binary failed strict signature
 validation on the target Mac. Current artifact hashes are recorded in
-`docs/MAC_VALIDATION.md` and `docs/DEPLOYMENT.md`.
+`docs/HANDOFF.md` and `docs/DEPLOYMENT.md`.
 
 ## Mail MCP Fork
 

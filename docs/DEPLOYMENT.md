@@ -127,7 +127,13 @@ codex mcp add macmcp -- \
 Use `/Applications/MacMCP.app` in that command if you installed there.
 
 Keep the menu-bar app running. On the first reader-data request, approve the
-pending local MCP client with `macmcp-bridge --approve-pending-client`.
+pending local MCP client with the app-owned bridge:
+
+```bash
+"/Applications/MacMCP.app/Contents/MacOS/macmcp-bridge" --approve-pending-client
+```
+
+Use the corresponding `~/Applications` path for a direct DMG installation.
 `bridge_status` remains available before approval.
 
 ## ChatGPT Tunnel
@@ -138,6 +144,9 @@ Platform:
 
 - <https://platform.openai.com/settings/organization/tunnels>
 - <https://platform.openai.com/settings/organization/api-keys>
+
+The runtime key must be a restricted key with Tunnel Read and Tunnel Use
+permissions. MacMCP checks the tunnel configuration before it can be applied.
 
 For a Homebrew Cask installation, run:
 
@@ -155,7 +164,7 @@ brew install openai/tools/tunnel-client
 ```
 
 For a direct DMG installation, open `MacMCP > Open Settings...` and use the
-ChatGPT Tunnel settings gear. The release DMG includes a signed
+gear beside ChatGPT Tunnel. The release DMG includes a signed
 `tunnel-client`, so neither Homebrew nor administrator access is needed:
 
 ```bash
@@ -163,8 +172,8 @@ open "$HOME/Applications/MacMCP.app"
 ```
 
 The setup window stores the runtime key in Keychain and the tunnel ID in the
-MacMCP configuration. The MacMCP menu owns the bundled `tunnel-client` process
-and shows its status, restart, reconfiguration, disable control, and the two
+MacMCP configuration. Settings owns the bundled `tunnel-client` process and
+shows its status, restart, reconfiguration, disable control, and the two
 Platform setup links. See [CHATGPT.md](CHATGPT.md) for the ChatGPT-side steps.
 
 ## Verification

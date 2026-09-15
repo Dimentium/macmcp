@@ -121,5 +121,5 @@ non-interactive and skips both requests.
 
 The adopted path is the installed GUI/menu-bar app. App-owned restart validation
 has passed; reboot/Login Item persistence with unchanged app and sidecar hashes
-remains open. See `MAC_VALIDATION.md` for recorded evidence and `PLAN.md` for
+remains open. See `HANDOFF.md` for recorded evidence and `PLAN.md` for
 the forward plan.

@@ -115,11 +115,13 @@ configuration.
 open "$HOME/Applications/MacMCP.app"
 ```
 
-The settings window shows `ChatGPT Tunnel: running` only after the managed
-client has completed a successful control-plane poll. It provides the tunnel
-restart and configuration controls, including the two Platform setup URLs and
-the redacted failure state. `macmcp diagnose` retains the most recent 12
-records. If Keychain asks MacMCP to access an already stored runtime key,
+The settings window shows `ChatGPT Tunnel: Connected` only after the managed
+client has completed a successful control-plane poll. Its gear opens the tunnel
+configuration, which requires a successful **Check configuration** before
+**Apply** is enabled. Use a restricted runtime key with Tunnel Read and Tunnel
+Use permissions. The window also provides restart, disable, the Platform setup
+URLs, and a redacted failure state. `macmcp diagnose` retains the most recent
+12 records. If Keychain asks MacMCP to access an already stored runtime key,
 choose `Allow`; `Always Allow` is not required.
 
 Then create the ChatGPT developer-mode app: open
@@ -135,16 +137,19 @@ current MacMCP local executable approval still applies to the proxy process.
 
 The tunnel path preserves the same account-gated contract as local MCP:
 
-- `Calendar > Allow MCP access` and `Reminders > Allow MCP access` gate the
-  corresponding reader tools for both local clients and this tunnel, without a
-  restart;
+- Calendar and Reminders Settings switches gate the corresponding reader tools
+  for both local clients and this tunnel, without a restart;
 - disabling a category removes its tools from `tools/list` and rejects stale
   cached calls before the sidecar is reached;
+- Calendar `create`/`update` and Reminder `create`/`complete` actions require
+  their category's separate default-off write switch. Recurrence, Calendar
+  alerts, and Reminder location triggers require their own default-off switch;
 - the three narrow mail-action tools are advertised, but every account begins
-  with `Read only` enabled;
-- clear the account's `Read only` control in `MacMCP > Open Settings...` before
-  a remote action;
-- re-enable `Read only` to block new local and remote action calls immediately;
+  with Draft creation allowed disabled;
+- enable Draft creation allowed for the account in `MacMCP > Open Settings...`
+  before a remote action;
+- disable Draft creation allowed to block new local and remote action calls
+  immediately;
 - same argument filtering and untrusted-data wrapping;
 - same privacy-safe status and errors;
 - no credentials, subjects, senders, folder names, bodies, event text, or
@@ -156,8 +161,8 @@ The tunnel path preserves the same account-gated contract as local MCP:
 
 MacMCP can create recipient-free managed drafts and change `read`, `unread`,
 `flagged`, or `unflagged` state. It cannot send email. These tools are available
-to the tunnel only when the relevant account's local `Read only` control has
-been cleared; every new account is blocked by default.
+to the tunnel only when Draft creation allowed is enabled locally for the
+relevant account; every new account is blocked by default.
 
 ## Validation Gate
 
@@ -174,15 +179,15 @@ server entry and lists `bridge_status`.
 
 The remote developer-mode validation gate is:
 
-1. `MacMCP > Open Settings...` reports `ChatGPT Tunnel: running`.
+1. `MacMCP > Open Settings...` reports `ChatGPT Tunnel: Connected`.
 2. ChatGPT lists the developer-mode app backed by the selected tunnel.
 3. Tool listing exposes reader tools and the three account-gated mail actions.
 4. `bridge_status` works before approval.
 5. `mail.search` and `mail.read` pass the same no-mutation validation.
-6. A mail action returns the fixed `Read only` error before the local control is
-   cleared, then works only for that account.
+6. A mail action returns the fixed read-only error before Draft creation
+   allowed is enabled, then works only for that account.
 
-After restarting the tunnel from the MacMCP menu, run:
+After restarting the tunnel from Settings, run:
 
 ```sh
 scripts/validate-live-acceptance.sh --phase tunnel-reconnect --require-tunnel

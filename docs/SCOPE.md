@@ -5,8 +5,8 @@
 Run a small local macOS bridge that lets a constrained agent inspect IMAP mail,
 Calendar, and Reminders without modifying source data by default.
 
-The bridge may later expose narrowly scoped interactive write operations
-through a separate capability profile.
+The bridge exposes narrowly scoped interactive write operations only through
+separate default-off capability controls.
 
 ## Version 1
 
@@ -29,7 +29,8 @@ Version 1 includes:
 - persistent downloading or saving of attachments;
 - attachment formats other than PDF and UTF-8 text, CSV, JSON, or XML;
 - OCR, image analysis, or document conversion;
-- creating, updating, completing, or deleting calendar/reminder items;
+- deleting or moving Calendar/Reminder items, invitations, Reminder reopening,
+  or broad Calendar/Reminder automation;
 - Notes, Contacts, Messages, or generic filesystem access;
 - direct reads from Apple Mail's private SQLite databases;
 - remote administration or a network-listening MCP endpoint.
@@ -41,14 +42,16 @@ Version 1 includes:
 - Credentials remain inside the local bridge/sidecar process boundary.
 - Local MCP clients must connect through the app-owned IPC proxy and receive a
   per-client grant before reader-data tools are served.
-- Mail actions remain disabled per account until `Read only` is cleared in the
-  local menu.
+- Mail actions remain disabled per account until Draft creation allowed is
+  enabled in Settings. EventKit write actions remain disabled until their
+  category's Settings control is enabled.
 
 ## Version 1 acceptance criteria
 
 1. Mail can be searched and read without changing flags or mailbox state.
 2. Calendar and Reminders can be queried through EventKit without write tools
-   appearing in the reader MCP tool list.
+   appearing in the reader MCP tool list by default. When explicitly enabled,
+   the only actions are Calendar create/update and Reminder create/complete.
 3. A malicious message cannot cause an MCP write call, shell command, file
    access, a caller-selected attachment path, or arbitrary network request.
 4. Logs contain no message bodies, credentials, or attachment data.
@@ -58,6 +61,7 @@ Version 1 includes:
 ## Later milestones
 
 - ChatGPT integration through a supported app, remote MCP, or tunnel path.
-- Interactive Calendar, Reminders, and mail-triage actions form version 3.
+- Additional Calendar, Reminders, and mail-triage actions require a separate
+  security review.
 - Sending, replying, and deletion require a separate security review and form
   version 4 at the earliest.

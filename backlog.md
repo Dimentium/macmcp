@@ -28,3 +28,4 @@
 - [x] Add individually gated EventKit recurrence, alerts, and location triggers
 - [x] Release MacMCP 0.2.32 with EventKit write controls
 - [x] Stabilize tunnel runtime lease reclamation test in macOS CI
+- [x] Align user documentation and README with MacMCP 0.2.32 settings and EventKit controls

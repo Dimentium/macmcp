@@ -137,7 +137,7 @@ or direct user interaction available.
 
 The standard MacMCP endpoint always advertises the three narrow mail-action
 tools and applies the same policy through local IPC, stdio, and the ChatGPT
-tunnel. Every configured account begins with `Read only` enabled. The
+tunnel. Every configured account begins with Draft creation allowed disabled.
 The account toggle in `MacMCP > Open Settings...` enables or disables new action
 calls for that specific account immediately and persists across app restarts.
 

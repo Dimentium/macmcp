@@ -2,9 +2,9 @@
 
 MacMCP is a local MCP bridge for macOS. It gives an approved MCP client access
 to configured mail accounts, Calendar, and Reminders without placing mail
-passwords in the client configuration. Mail is read-only by default for every
-account. The menu can explicitly enable a narrow, recipient-free draft and
-message-flag action surface per account.
+passwords in the client configuration. Mail, Calendar, and Reminders start
+read-only. Settings can explicitly enable narrowly scoped mail drafts/message
+flags and EventKit actions when you need them.
 
 The app owns the local runtime, stores secrets in macOS Keychain, and exposes a
 MCP endpoint. An optional OpenAI tunnel makes the same endpoint available to
@@ -21,12 +21,17 @@ see [docs/HANDOFF.md](docs/HANDOFF.md).
 - Read Calendar events and Reminders through EventKit.
 - Provide structured MCP responses for reliable client use.
 - Create recipient-free managed drafts and change one message's read/unread or
-  flagged/unflagged state after `Read only` is cleared for that account.
+  flagged/unflagged state after **Draft creation allowed** is enabled for that
+  account.
+- When separately enabled in Settings, create/update Calendar events and
+  create/complete Reminders. Repeating events, alerts, and location triggers
+  each need their own additional switch.
 
-MacMCP cannot send, delete, move, or modify calendar events or reminders.
-Its only mail mutations are recipient-free managed drafts and the four
-per-message state changes, and they remain blocked until the account's `Read
-only` control is cleared. Drafts have no recipient fields and cannot be sent.
+MacMCP cannot send, delete, move, archive, or modify recipients. It cannot
+delete or move Calendar events or Reminders, manage invitations, reopen a
+Reminder, or create arbitrary automation. Mail mutations remain blocked until
+**Draft creation allowed** is enabled for that account. Drafts have no recipient
+fields and cannot be sent.
 
 ## Installation
 
@@ -51,20 +56,32 @@ administrator account and Homebrew are not required.
    right-click the app, choose `Open`, and confirm once.
 4. The MacMCP setup window appears. Mail and the ChatGPT tunnel are optional:
    enable either section only if you need it. For mail, choose Gmail or iCloud
-   Mail, enter the address, and enter an app-specific password. The password is
-   saved in the macOS Keychain; it is not your normal Google or Apple Account
-   password. For ChatGPT, enter the tunnel ID and restricted runtime API key.
-5. Leave MacMCP running. Its menu-bar item shows the health of Mail, Calendar,
-   and Reminders. `Launch MacMCP at login` is enabled by default.
+   Mail and enter an app-specific password. The password is saved in the macOS
+   Keychain; it is not your normal Google or Apple Account password. Add an
+   Other IMAP account later from Settings. For ChatGPT, enter the tunnel ID and
+   restricted runtime API key.
+5. Leave MacMCP running. `Launch MacMCP at login` is enabled by default.
 
-If you closed the setup window, choose `MacMCP > Mail > Set Up Mail...` or
-`MacMCP > ChatGPT Tunnel > Set Up ChatGPT Tunnel...` from the menu-bar item. You
-can choose `Set Up Later` when you only need Calendar or Reminders.
+If you closed the setup window, click the MacMCP menu-bar icon and choose
+**Open Settings…**. You can configure Mail, Calendar, Reminders, and the
+optional ChatGPT tunnel in one place; you can also leave mail and/or the tunnel
+off completely.
 
-To pause personal-data access without stopping MacMCP, open the `Calendar` or
-`Reminders` status item and toggle `Allow MCP access`. The switch applies to
-local MCP clients and the ChatGPT tunnel immediately; disabled tools disappear
-from the next `tools/list` response and cached calls receive a fixed denial.
+To pause personal-data access without stopping MacMCP, turn off **Calendar** or
+**Reminders** in Settings. The switch applies to local MCP clients and the
+ChatGPT tunnel immediately; disabled tools disappear from the next `tools/list`
+response and cached calls receive a fixed denial. Use the gear next to either
+row to allow its narrow write actions; both categories remain read-only by
+default.
+
+### Settings at a glance
+
+The one-page Settings window is the control surface for local access, the
+optional tunnel, EventKit, mail accounts, updates, logs, and Login Item.
+Settings are live where possible; only changing mail connection details needs a
+runtime restart.
+
+![MacMCP Settings window with demonstration account names](docs/images/settings-window.png)
 
 The optional ChatGPT tunnel is configured later from the MacMCP menu. The
 release DMG includes a signed `tunnel-client`, so Homebrew is not needed for
@@ -83,9 +100,13 @@ codex mcp add macmcp -- \
   --stdio-proxy "$HOME/Library/Application Support/macmcp/mcp.sock"
 ```
 
-On the first data request, choose `MacMCP > Clients > Approve` in the menu-bar
-menu. The app must remain running; the client connects to its private local
-socket and does not start the mail or EventKit sidecars itself.
+On the first data request, approve the pending client from Terminal. The app
+must remain running; the client connects to its private local socket and does
+not start the mail or EventKit sidecars itself.
+
+```bash
+"$app/Contents/MacOS/macmcp-bridge" --approve-pending-client
+```
 
 ### Homebrew (optional)
 
@@ -137,23 +158,25 @@ ChatGPT, configure the optional tunnel during setup or reconfiguration.
      --chatgpt-tunnel-id tunnel_YOUR_ID
    ```
 
-   For a DMG install, use `MacMCP > ChatGPT Tunnel > Set Up ChatGPT Tunnel...`.
-   This requests the runtime key once and stores it in Keychain; the tunnel ID
-   is stored in MacMCP configuration. The menu owns tunnel startup and offers
-   restart, reconfiguration, key replacement, and disable controls.
+   For a DMG install, open the MacMCP menu-bar icon, choose **Open Settings…**,
+   then use the gear beside **ChatGPT Tunnel**. This requests the runtime key
+   once and stores it in Keychain; the tunnel ID is stored in MacMCP
+   configuration. Settings owns tunnel startup and offers restart,
+   reconfiguration, key replacement, and disable controls.
 4. Add the resulting MacMCP connector in ChatGPT's Apps and Connectors
    settings. ChatGPT Work is the currently validated client. The advertised
    mail-action tools use the same tunnel but return a clear disabled error
-   until `Mail > account > Read only` is cleared locally.
+   until **Draft creation allowed** is enabled for that account locally.
 
 The tunnel is optional. Do not create or configure it when local-only MCP use
 is sufficient.
 
 ## Daily Use
 
-Use the menu-bar item to inspect component health, approve local MCP clients,
-quickly enable or disable Calendar and Reminders MCP access, manage account-level
-`Read only`, and manage the optional tunnel.
+Use the menu-bar item only to open Settings or quit MacMCP. Settings shows
+component health, lets you enable or disable Calendar and Reminders access,
+manage account-level **Draft creation allowed**, configure the optional tunnel,
+open logs, and check for updates.
 For a Homebrew installation, `Updates` checks the latest GitHub Release at
 launch and every six hours. It enables `Update to <version>` only after a newer
 release is confirmed. That command refreshes Homebrew, upgrades the Cask, and
@@ -187,8 +210,8 @@ It checks the installed app-owned bridge, all published tools and output
 schemas, Mail folder/search/read access, Calendar, and Reminders. It
 deliberately skips the ChatGPT tunnel and does not create or modify mail data.
 
-When the ChatGPT tunnel is configured, `ChatGPT Tunnel > Open Tunnel Log` opens
-`~/Library/Logs/MacMCP/chatgpt-tunnel.log`. The app keeps the active log and up
+When the ChatGPT tunnel is configured, **Logs** in Settings opens
+`~/Library/Logs/MacMCP/`, including `chatgpt-tunnel.log`. The app keeps the active log and up
 to four rotated files; each file is capped at 10 MiB. Its one-line records are
 readable in Console and include timestamp, level, source, component, message,
 and safe status fields. Routine startup noise is omitted. MacMCP records only
@@ -196,8 +219,7 @@ valid structured tunnel events and its own lifecycle messages; it discards all
 unstructured tunnel output. The log never contains MCP payloads, mail data,
 headers, tunnel IDs, or credentials.
 
-`ChatGPT Tunnel > Open Tunnel Proxy Log` opens
-`~/Library/Logs/MacMCP/chatgpt-tunnel-proxy.log`. It records only each remote
+`chatgpt-tunnel-proxy.log` in that folder records only each remote
 tool category (`mail`, `calendar`, `reminders`, or `bridge_status`) and whether
 the local proxy sent back an MCP result. It never records arguments, request
 IDs, or result content.
@@ -252,9 +274,12 @@ files. A signed app bundle includes the corresponding full license texts under
 - Mail passwords and tunnel keys are stored in Keychain, not in the repository
   or MCP-client configuration.
 - Each local MCP client needs approval from MacMCP before it can use data tools.
-- A per-account `Read only` control fails closed. It gates mail actions for all
-  transports, including local MCP clients and the ChatGPT tunnel, and can be
-  turned on again immediately without restarting MacMCP.
+- A per-account **Draft creation allowed** control fails closed. It gates mail
+  actions for all transports, including local MCP clients and the ChatGPT
+  tunnel, and can be turned off again immediately without restarting MacMCP.
+- Calendar and Reminders actions are separate, default-off Settings controls.
+  They allow only the documented narrow actions; additional recurrence, alert,
+  and location-trigger controls are independently default-off.
 - Managed drafts carry an HMAC marker derived from a Keychain key. Drafts with
   recipients, an invalid marker, or a stale revision cannot be edited.
 - The bridge does not expose arbitrary shell, file-system, or automation tools.

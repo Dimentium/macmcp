@@ -28,9 +28,10 @@ personal data.
 - Local Bridge is shown as a live status row, but its switch is disabled. The
   menu-bar app does not yet expose an independent stop/start lifecycle that can
   be safely controlled from settings.
-- Calendar and Reminders access switches are live. Their settings gears now
-  control a separate default-off write gate; a final visual click-through of
-  those sheets on a configured production host remains part of release QA.
+- Calendar and Reminders access switches are live. Their settings gears control
+  separate default-off write gates and advanced recurrence/alert/location
+  controls; the 0.2.32 release was visually verified on the configured
+  production host.
 - Saving mail-account configuration restarts the app-owned runtime so local
   IPC, STDIO, and the ChatGPT tunnel receive the same account set. This is
   intentional, but it is not an in-place account reload.
@@ -85,8 +86,8 @@ personal data.
   already-open chats; discovery and normal tool calls did not regress after
   updates.
 - ChatGPT validation covered both Gmail and iCloud: recipient-free managed
-  drafts were created and updated, and re-enabling `Read only` blocked a later
-  update immediately without restarting MacMCP.
+  drafts were created and updated, and disabling Draft creation allowed blocked
+  a later update immediately without restarting MacMCP.
 - Public sidecar outputs are bounded after JSON escaping and structured-output
   duplication, rather than only at their raw source-text size. This prevents a
   large Calendar, Reminders, mail, or attachment response from producing an
