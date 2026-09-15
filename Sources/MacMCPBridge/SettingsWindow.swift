@@ -775,12 +775,13 @@ private struct SettingsEventKitAccessEditor: View {
                         .disabled(!writeAccess)
                 }
             }
-            Spacer()
+            Spacer(minLength: 0)
             HStack {
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
+            .padding(.bottom, 24)
         }
         .padding(20)
         .frame(width: 440, height: 340, alignment: .topLeading)

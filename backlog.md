@@ -26,3 +26,4 @@
 - [x] Add EventKit write controls to Settings and runtime wiring
 - [x] Cover EventKit write tools and gates with tests and update docs
 - [x] Add individually gated EventKit recurrence, alerts, and location triggers
+- [>] Release MacMCP 0.2.32 with EventKit write controls

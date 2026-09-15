@@ -10,6 +10,11 @@ before publication.
 Unreleased
 ----------
 
+No unreleased changes.
+
+0.2.32 - 2026-09-15
+-------------------
+
 - Add separately gated, default-off EventKit write access. Calendar can create
   and update a single event; Reminders can create and complete a reminder.
   Recurrence, Calendar alerts, and Reminder location triggers have their own
