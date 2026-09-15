@@ -53,6 +53,10 @@ final class TunnelRuntimeLeaseTests: XCTestCase {
         try leaseStore.claim(process, executablePath: "/bin/sleep", profile: "macmcp-local")
         await leaseStore.reclaimIfOwned(executablePath: "/bin/sleep", profile: "macmcp-local")
 
+        // `reclaimIfOwned` verifies disappearance through `proc_pidinfo`, which
+        // can observe an exited process before Foundation refreshes `isRunning`.
+        // Reap the child before asserting Foundation's view of its lifecycle.
+        process.waitUntilExit()
         XCTAssertFalse(process.isRunning)
         XCTAssertFalse(FileManager.default.fileExists(atPath: leaseStore.fileURL.path))
     }
