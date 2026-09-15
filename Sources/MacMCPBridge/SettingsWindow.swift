@@ -71,10 +71,14 @@ final class SettingsWindowModel: ObservableObject {
     @Published var calendarReadOnly = true
     @Published var calendarSettingsAvailable = false
     @Published var showingCalendarSettings = false
+    @Published var calendarRecurrenceEnabled = false
+    @Published var calendarAlarmsEnabled = false
     @Published var remindersAccess = false
     @Published var remindersReadOnly = true
     @Published var remindersSettingsAvailable = false
     @Published var showingRemindersSettings = false
+    @Published var remindersRecurrenceEnabled = false
+    @Published var remindersLocationTriggersEnabled = false
 
     @Published var mailAccounts: [MailAccount] = [] {
         didSet { onMailAccountCountChanged?(mailAccounts.count) }
@@ -99,6 +103,7 @@ final class SettingsWindowModel: ObservableObject {
     var onOpenRemindersSettings: (() -> Void)?
     var onCalendarWriteAccessChanged: ((Bool) -> Void)?
     var onRemindersWriteAccessChanged: ((Bool) -> Void)?
+    var onEventKitWriteCapabilityChanged: ((EventKitWriteCapability, Bool) -> Void)?
     var onMailAccountChanged: ((String, Bool) -> Void)?
     var onOpenMailAccountSettings: ((String) -> Void)?
     var onAddMailAccount: (() -> Void)?
@@ -140,6 +145,25 @@ final class SettingsWindowModel: ObservableObject {
     func setRemindersWriteAccess(_ enabled: Bool) {
         remindersReadOnly = !enabled
         onRemindersWriteAccessChanged?(enabled)
+    }
+
+    func isWriteCapabilityEnabled(_ capability: EventKitWriteCapability) -> Bool {
+        switch capability {
+        case .calendarRecurrence: calendarRecurrenceEnabled
+        case .calendarAlarms: calendarAlarmsEnabled
+        case .remindersRecurrence: remindersRecurrenceEnabled
+        case .remindersLocationTriggers: remindersLocationTriggersEnabled
+        }
+    }
+
+    func setWriteCapability(_ capability: EventKitWriteCapability, enabled: Bool) {
+        switch capability {
+        case .calendarRecurrence: calendarRecurrenceEnabled = enabled
+        case .calendarAlarms: calendarAlarmsEnabled = enabled
+        case .remindersRecurrence: remindersRecurrenceEnabled = enabled
+        case .remindersLocationTriggers: remindersLocationTriggersEnabled = enabled
+        }
+        onEventKitWriteCapabilityChanged?(capability, enabled)
     }
 
     func setMailAccountEnabled(id: String, enabled: Bool) {
@@ -304,23 +328,53 @@ struct SettingsWindowView: View {
         .sheet(isPresented: $model.showingCalendarSettings) {
             SettingsEventKitAccessEditor(
                 title: "Calendar",
-                detail: "Allow creating and updating calendar events. MacMCP cannot delete events, invite attendees, move events, or manage recurring events.",
+                detail: "Allow creating and updating calendar events. Delete, invitations, and moving events remain unavailable.",
                 writeAccess: Binding(
                     get: { !model.calendarReadOnly },
                     set: { model.setCalendarWriteAccess($0) }
-                )
+                ),
+                options: calendarWriteOptions
             )
         }
         .sheet(isPresented: $model.showingRemindersSettings) {
             SettingsEventKitAccessEditor(
                 title: "Reminders",
-                detail: "Allow creating and completing reminders. MacMCP cannot delete or reopen reminders, change recurrence, move them, or set location triggers.",
+                detail: "Allow creating and completing reminders. Delete, reopening, and moving reminders remain unavailable.",
                 writeAccess: Binding(
                     get: { !model.remindersReadOnly },
                     set: { model.setRemindersWriteAccess($0) }
-                )
+                ),
+                options: remindersWriteOptions
             )
         }
+    }
+
+    private var calendarWriteOptions: [SettingsEventKitWriteOption] {
+        [
+            eventKitWriteOption(.calendarRecurrence, detail: "Create, update, or clear repeating events."),
+            eventKitWriteOption(.calendarAlarms, detail: "Set or change event alerts and notifications.")
+        ]
+    }
+
+    private var remindersWriteOptions: [SettingsEventKitWriteOption] {
+        [
+            eventKitWriteOption(.remindersRecurrence, detail: "Create repeating reminders."),
+            eventKitWriteOption(.remindersLocationTriggers, detail: "Set a reminder to trigger at a location.")
+        ]
+    }
+
+    private func eventKitWriteOption(
+        _ capability: EventKitWriteCapability,
+        detail: String
+    ) -> SettingsEventKitWriteOption {
+        SettingsEventKitWriteOption(
+            capability: capability,
+            detail: detail,
+            enabled: Binding(
+                get: { model.isWriteCapabilityEnabled(capability) },
+                set: { model.setWriteCapability(capability, enabled: $0) }
+            )
+        )
     }
 }
 
@@ -668,10 +722,19 @@ private struct SettingsReadOnlyChip: View {
     }
 }
 
+private struct SettingsEventKitWriteOption: Identifiable {
+    let capability: EventKitWriteCapability
+    let detail: String
+    let enabled: Binding<Bool>
+
+    var id: EventKitWriteCapability { capability }
+}
+
 private struct SettingsEventKitAccessEditor: View {
     let title: String
     let detail: String
     @Binding var writeAccess: Bool
+    let options: [SettingsEventKitWriteOption]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -695,6 +758,23 @@ private struct SettingsEventKitAccessEditor: View {
                     .toggleStyle(.switch)
                     .controlSize(.small)
             }
+            Divider()
+            ForEach(options) { option in
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(option.capability.title)
+                        Text(option.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: option.enabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .disabled(!writeAccess)
+                }
+            }
             Spacer()
             HStack {
                 Spacer()
@@ -703,7 +783,7 @@ private struct SettingsEventKitAccessEditor: View {
             }
         }
         .padding(20)
-        .frame(width: 420, height: 250, alignment: .topLeading)
+        .frame(width: 440, height: 340, alignment: .topLeading)
     }
 }
 

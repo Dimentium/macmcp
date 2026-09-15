@@ -229,7 +229,7 @@ struct ReaderPolicy: Sendable {
             publicName: "calendar.create",
             sidecarID: eventKitSidecarID,
             upstreamName: "create_event",
-            allowedArguments: ["title", "start_time", "end_time", "notes", "location", "url", "calendar_name", "calendar_source", "all_day", "timezone"],
+            allowedArguments: ["title", "start_time", "end_time", "notes", "location", "url", "calendar_name", "calendar_source", "all_day", "timezone", "alarms", "recurrence"],
             exposure: .eventKitAction,
             isIdempotent: false
         ),
@@ -237,7 +237,7 @@ struct ReaderPolicy: Sendable {
             publicName: "calendar.update",
             sidecarID: eventKitSidecarID,
             upstreamName: "update_event",
-            allowedArguments: ["event_id", "title", "start_time", "end_time", "notes", "location", "all_day", "timezone", "clear_timezone"],
+            allowedArguments: ["event_id", "title", "start_time", "end_time", "notes", "location", "all_day", "timezone", "clear_timezone", "alarms", "recurrence", "clear_recurrence"],
             exposure: .eventKitAction,
             isIdempotent: false
         ),
@@ -245,7 +245,7 @@ struct ReaderPolicy: Sendable {
             publicName: "reminders.create",
             sidecarID: eventKitSidecarID,
             upstreamName: "create_reminder",
-            allowedArguments: ["title", "notes", "due_date", "priority", "calendar_name", "calendar_source"],
+            allowedArguments: ["title", "notes", "due_date", "priority", "calendar_name", "calendar_source", "recurrence", "location_trigger"],
             exposure: .eventKitAction,
             isIdempotent: false
         ),

@@ -114,7 +114,10 @@ final class BridgeServer {
                 return await attachmentReader.read(arguments: params.arguments)
             }
 
-            if let denial = await dataAccess.deniedMessage(forToolName: params.name) {
+            if let denial = await dataAccess.deniedMessage(
+                forToolName: params.name,
+                arguments: params.arguments
+            ) {
                 return CallTool.Result(content: [.text(denial)], isError: true)
             }
 

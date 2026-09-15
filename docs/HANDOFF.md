@@ -159,8 +159,10 @@ start read-only; their action tools are absent from `tools/list` and rejected
 on direct calls until both the ordinary data-access switch and that category's
 write gate are enabled. They are shared by local IPC, stdio, and the ChatGPT
 tunnel, so no restart is required. The action contract excludes deletion,
-moving, invitation management, recurrence, alarms, location triggers, and
-reopening reminders.
+moving, invitation management, and reopening reminders. Recurrence is
+independently granted for Calendar and Reminders; Calendar alerts and Reminder
+location triggers are independently granted as well. Those advanced arguments
+are rejected on every call unless their matching Settings switch is enabled.
 
 The bridge does not expose send, reply, forward, delete, move, archive, shell,
 filesystem, browser, or arbitrary attachment-download tools.

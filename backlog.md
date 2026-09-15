@@ -25,3 +25,4 @@
 - [x] Expose narrow EventKit create and update tools through the MacMCP policy
 - [x] Add EventKit write controls to Settings and runtime wiring
 - [x] Cover EventKit write tools and gates with tests and update docs
+- [x] Add individually gated EventKit recurrence, alerts, and location triggers

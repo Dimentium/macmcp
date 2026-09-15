@@ -47,20 +47,19 @@ final class ReaderPolicyTests: XCTestCase {
 
         XCTAssertEqual(rules["calendar.create"]?.allowedArguments, [
             "title", "start_time", "end_time", "notes", "location", "url",
-            "calendar_name", "calendar_source", "all_day", "timezone"
+            "calendar_name", "calendar_source", "all_day", "timezone", "alarms", "recurrence"
         ])
         XCTAssertEqual(rules["calendar.update"]?.allowedArguments, [
             "event_id", "title", "start_time", "end_time", "notes", "location",
-            "all_day", "timezone", "clear_timezone"
+            "all_day", "timezone", "clear_timezone", "alarms", "recurrence", "clear_recurrence"
         ])
         XCTAssertEqual(rules["reminders.create"]?.allowedArguments, [
-            "title", "notes", "due_date", "priority", "calendar_name", "calendar_source"
+            "title", "notes", "due_date", "priority", "calendar_name", "calendar_source",
+            "recurrence", "location_trigger"
         ])
         XCTAssertEqual(rules["reminders.complete"]?.allowedArguments, ["reminder_id"])
         XCTAssertEqual(rules["reminders.complete"]?.defaultArguments, ["completed": .bool(true)])
-        XCTAssertFalse(rules.values.contains { $0.allowedArguments.contains("recurrence") })
-        XCTAssertFalse(rules.values.contains { $0.allowedArguments.contains("alarms") })
-        XCTAssertFalse(rules.values.contains { $0.allowedArguments.contains("location_trigger") })
+        XCTAssertFalse(rules.values.contains { $0.allowedArguments.contains("structured_location") })
     }
 
     func testMailReadForcesNonMutatingArguments() throws {

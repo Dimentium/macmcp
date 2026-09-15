@@ -61,11 +61,11 @@ enum MacMCPServerMetadata {
         case "mail.mark":
             return "Change a read/unread or flagged state on a message in local macOS Mail. Use only after the user explicitly asks to modify the message."
         case "calendar.create":
-            return "Create one local Apple Calendar event. Use only after the user explicitly asks to add it; invitations, recurrence, deletion, and moving events are not supported."
+            return "Create one local Apple Calendar event. Use only after the user explicitly asks to add it; invitations, deletion, and moving events are not supported. Recurrence and alerts require their separate Settings permissions."
         case "calendar.update":
-            return "Update one existing local Apple Calendar event. Use only after the user explicitly asks to change it; recurrence, deletion, and moving events are not supported."
+            return "Update one existing local Apple Calendar event. Use only after the user explicitly asks to change it; deletion and moving events are not supported. Recurrence and alerts require their separate Settings permissions."
         case "reminders.create":
-            return "Create one local Apple Reminder. Use only after the user explicitly asks to add it; recurrence, deletion, and moving reminders are not supported."
+            return "Create one local Apple Reminder. Use only after the user explicitly asks to add it; deletion and moving reminders are not supported. Recurrence and location triggers require their separate Settings permissions."
         case "reminders.complete":
             return "Mark one local Apple Reminder complete. Use only after the user explicitly asks to change it."
         default:

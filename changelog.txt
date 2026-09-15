@@ -11,9 +11,10 @@ Unreleased
 ----------
 
 - Add separately gated, default-off EventKit write access. Calendar can create
-  and update a single non-recurring event; Reminders can create and complete a
-  reminder. The policy excludes deletes, moves, invitations, recurrence,
-  alarms, location triggers, and reopening reminders.
+  and update a single event; Reminders can create and complete a reminder.
+  Recurrence, Calendar alerts, and Reminder location triggers have their own
+  additional default-off controls. The policy excludes deletes, moves,
+  invitations, and reopening reminders.
 - Add Calendar and Reminders write controls to Settings. They apply immediately
   to local IPC, stdio, and ChatGPT tunnel calls, while legacy installations
   remain read-only.

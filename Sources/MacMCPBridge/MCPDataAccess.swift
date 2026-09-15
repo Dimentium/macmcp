@@ -25,6 +25,50 @@ enum MCPDataCategory: String, CaseIterable, Codable, Sendable {
     }
 }
 
+enum EventKitWriteCapability: String, CaseIterable, Codable, Sendable {
+    case calendarRecurrence
+    case calendarAlarms
+    case remindersRecurrence
+    case remindersLocationTriggers
+
+    var category: MCPDataCategory {
+        switch self {
+        case .calendarRecurrence, .calendarAlarms: .calendar
+        case .remindersRecurrence, .remindersLocationTriggers: .reminders
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .calendarRecurrence, .remindersRecurrence: "Recurrence"
+        case .calendarAlarms: "Alerts"
+        case .remindersLocationTriggers: "Location triggers"
+        }
+    }
+
+    static func required(forToolName publicName: String, arguments: [String: Value]?) -> Set<Self> {
+        let argumentNames: Set<String> = arguments.map { Set($0.keys) } ?? []
+        var capabilities: Set<Self> = []
+        if publicName.hasPrefix("calendar.") {
+            if argumentNames.contains("recurrence") || argumentNames.contains("clear_recurrence") {
+                capabilities.insert(.calendarRecurrence)
+            }
+            if argumentNames.contains("alarms") {
+                capabilities.insert(.calendarAlarms)
+            }
+        }
+        if publicName == "reminders.create" {
+            if argumentNames.contains("recurrence") {
+                capabilities.insert(.remindersRecurrence)
+            }
+            if argumentNames.contains("location_trigger") {
+                capabilities.insert(.remindersLocationTriggers)
+            }
+        }
+        return capabilities
+    }
+}
+
 enum MCPDataAccessError: LocalizedError, Equatable {
     case unableToPersist
 
@@ -41,11 +85,18 @@ actor MCPDataAccessStore {
         let schemaVersion: Int
         var enabledCategories: Set<MCPDataCategory>
         var writableCategories: Set<MCPDataCategory>
+        var enabledWriteCapabilities: Set<EventKitWriteCapability>
 
-        init(schemaVersion: Int, enabledCategories: Set<MCPDataCategory>, writableCategories: Set<MCPDataCategory> = []) {
+        init(
+            schemaVersion: Int,
+            enabledCategories: Set<MCPDataCategory>,
+            writableCategories: Set<MCPDataCategory> = [],
+            enabledWriteCapabilities: Set<EventKitWriteCapability> = []
+        ) {
             self.schemaVersion = schemaVersion
             self.enabledCategories = enabledCategories
             self.writableCategories = writableCategories
+            self.enabledWriteCapabilities = enabledWriteCapabilities
         }
 
         init(from decoder: any Decoder) throws {
@@ -53,6 +104,10 @@ actor MCPDataAccessStore {
             schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
             enabledCategories = try container.decode(Set<MCPDataCategory>.self, forKey: .enabledCategories)
             writableCategories = try container.decodeIfPresent(Set<MCPDataCategory>.self, forKey: .writableCategories) ?? []
+            enabledWriteCapabilities = try container.decodeIfPresent(
+                Set<EventKitWriteCapability>.self,
+                forKey: .enabledWriteCapabilities
+            ) ?? []
         }
     }
 
@@ -82,6 +137,10 @@ actor MCPDataAccessStore {
         (try? load().writableCategories) ?? []
     }
 
+    func enabledWriteCapabilities() -> Set<EventKitWriteCapability> {
+        (try? load().enabledWriteCapabilities) ?? []
+    }
+
     func setEnabled(_ enabled: Bool, for category: MCPDataCategory) throws {
         var payload = try load()
         if enabled {
@@ -98,6 +157,16 @@ actor MCPDataAccessStore {
             payload.writableCategories.insert(category)
         } else {
             payload.writableCategories.remove(category)
+        }
+        try save(payload)
+    }
+
+    func setWriteCapability(_ enabled: Bool, capability: EventKitWriteCapability) throws {
+        var payload = try load()
+        if enabled {
+            payload.enabledWriteCapabilities.insert(capability)
+        } else {
+            payload.enabledWriteCapabilities.remove(capability)
         }
         try save(payload)
     }
@@ -168,8 +237,16 @@ actor MCPDataAccessController {
         await store.writableCategories()
     }
 
+    func enabledWriteCapabilities() async -> Set<EventKitWriteCapability> {
+        await store.enabledWriteCapabilities()
+    }
+
     func setWritable(_ writable: Bool, for category: MCPDataCategory) async throws {
         try await store.setWritable(writable, for: category)
+    }
+
+    func setWriteCapability(_ enabled: Bool, capability: EventKitWriteCapability) async throws {
+        try await store.setWriteCapability(enabled, capability: capability)
     }
 
     func setEnabled(_ enabled: Bool, for category: MCPDataCategory) async throws {
@@ -186,12 +263,21 @@ actor MCPDataAccessController {
         }
     }
 
-    func deniedMessage(forToolName publicName: String) async -> String? {
+    func deniedMessage(forToolName publicName: String, arguments: [String: Value]? = nil) async -> String? {
         guard let category = MCPDataCategory.forToolName(publicName) else { return nil }
         guard await isEnabled(category) else { return category.disabledMessage }
-        guard ReaderPolicy.eventKitActionToolNames.contains(publicName), !(await isWritable(category)) else {
+        guard ReaderPolicy.eventKitActionToolNames.contains(publicName) else { return nil }
+        guard await isWritable(category) else {
+            return "\(category.title) write access is disabled. In MacMCP Settings, open \(category.title) and enable Write access."
+        }
+        let enabledCapabilities = await enabledWriteCapabilities()
+        let requiredCapabilities = EventKitWriteCapability.required(
+            forToolName: publicName,
+            arguments: arguments
+        )
+        guard let missing = requiredCapabilities.first(where: { !enabledCapabilities.contains($0) }) else {
             return nil
         }
-        return "\(category.title) write access is disabled. In MacMCP Settings, open \(category.title) and enable Write access."
+        return "\(missing.title) access is disabled. In MacMCP Settings, open \(category.title) and enable \(missing.title)."
     }
 }

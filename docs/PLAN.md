@@ -121,7 +121,9 @@ the app-owned runtime so every transport observes the same account set.
 The Local Bridge switch remains intentionally conservative: it is status-only
 and disabled until a safe app-owned stop/start path exists. Calendar and
 Reminders gears edit their persisted write gate; each category stays read-only
-unless the user explicitly enables its narrow write surface.
+unless the user explicitly enables its narrow write surface. Recurrence,
+Calendar alerts, and Reminder location triggers are separate default-off
+controls and are enforced for every call.
 
 The status-bar menu intentionally exposes only `Open Settings...` and `Quit`.
 Detailed controls live in the settings window. The integration has automated

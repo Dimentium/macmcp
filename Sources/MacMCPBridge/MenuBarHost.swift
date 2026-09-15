@@ -1032,6 +1032,9 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowModel.onRemindersWriteAccessChanged = { [weak self] enabled in
             self?.setSettingsEventKitWriteAccess(enabled, category: .reminders)
         }
+        settingsWindowModel.onEventKitWriteCapabilityChanged = { [weak self] capability, enabled in
+            self?.setSettingsEventKitWriteCapability(enabled, capability: capability)
+        }
         settingsWindowModel.onOpenLogs = {
             NSWorkspace.shared.open(MacMCPPaths.logsDirectory())
         }
@@ -1085,6 +1088,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return }
             let enabledCategories = await dataAccess.enabledCategories()
             let writableCategories = await dataAccess.writableCategories()
+            let enabledWriteCapabilities = await dataAccess.enabledWriteCapabilities()
             let writableAccountIDs = if let runtime {
                 await runtime.mailActionAccess.writableAccountIDs()
             } else {
@@ -1098,6 +1102,10 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             settingsWindowModel.remindersAccess = enabledCategories.contains(.reminders)
             settingsWindowModel.calendarReadOnly = !writableCategories.contains(.calendar)
             settingsWindowModel.remindersReadOnly = !writableCategories.contains(.reminders)
+            settingsWindowModel.calendarRecurrenceEnabled = enabledWriteCapabilities.contains(.calendarRecurrence)
+            settingsWindowModel.calendarAlarmsEnabled = enabledWriteCapabilities.contains(.calendarAlarms)
+            settingsWindowModel.remindersRecurrenceEnabled = enabledWriteCapabilities.contains(.remindersRecurrence)
+            settingsWindowModel.remindersLocationTriggersEnabled = enabledWriteCapabilities.contains(.remindersLocationTriggers)
             settingsWindowModel.tunnelEnabled = tunnelEnabled && settingsWindowModel.tunnelConfigured
             if !settingsWindowModel.tunnelEnabled {
                 settingsWindowModel.tunnelStatus = "Off"
@@ -1166,6 +1174,25 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } catch {
                 let alert = NSAlert()
                 alert.messageText = "Unable to change \(category.title) write access"
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+                refreshSettingsWindow()
+            }
+        }
+    }
+
+    private func setSettingsEventKitWriteCapability(
+        _ enabled: Bool,
+        capability: EventKitWriteCapability
+    ) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await dataAccess.setWriteCapability(enabled, capability: capability)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Unable to change \(capability.title) access"
                 alert.informativeText = error.localizedDescription
                 alert.addButton(withTitle: "OK")
                 alert.runModal()

@@ -476,7 +476,10 @@ final class LocalBridgeIPCServer: @unchecked Sendable {
                     }
                     result = await attachmentReader.read(arguments: parameters.arguments)
                 } else {
-                    if let denial = await dataAccess.deniedMessage(forToolName: publicName) {
+                    if let denial = await dataAccess.deniedMessage(
+                        forToolName: publicName,
+                        arguments: parameters.arguments
+                    ) {
                         return try Value(CallTool.Result(
                             content: [.text(text: denial, annotations: nil, _meta: nil)],
                             isError: true

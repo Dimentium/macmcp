@@ -20,14 +20,17 @@ final class MCPDataAccessStoreTests: XCTestCase {
         XCTAssertFalse(remindersInitiallyWritable)
         try await store.setEnabled(false, for: .calendar)
         try await store.setWritable(true, for: .reminders)
+        try await store.setWriteCapability(true, capability: .calendarAlarms)
 
         let reloaded = MCPDataAccessStore(fileURL: fileURL)
         let calendarAfterReload = await reloaded.isEnabled(.calendar)
         let remindersAfterReload = await reloaded.isEnabled(.reminders)
         let remindersWritableAfterReload = await reloaded.isWritable(.reminders)
+        let enabledCapabilitiesAfterReload = await reloaded.enabledWriteCapabilities()
         XCTAssertFalse(calendarAfterReload)
         XCTAssertTrue(remindersAfterReload)
         XCTAssertTrue(remindersWritableAfterReload)
+        XCTAssertEqual(enabledCapabilitiesAfterReload, [.calendarAlarms])
     }
 
     func testLegacyReadAccessStateKeepsEventKitWritesDisabled() async throws {
@@ -109,6 +112,51 @@ final class MCPDataAccessStoreTests: XCTestCase {
             ["calendar.list", "calendar.create"]
         )
         XCTAssertNil(denialWithWrites)
+    }
+
+    func testAdvancedEventKitCapabilitiesRemainOffUntilIndividuallyEnabled() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = MCPDataAccessController(
+            store: MCPDataAccessStore(fileURL: directory.appendingPathComponent("access.json"))
+        )
+        try await controller.setWritable(true, for: .calendar)
+        try await controller.setWritable(true, for: .reminders)
+
+        let recurrenceDenied = await controller.deniedMessage(
+            forToolName: "calendar.create",
+            arguments: ["recurrence": .string("weekly")]
+        )
+        let alarmsDenied = await controller.deniedMessage(
+            forToolName: "calendar.update",
+            arguments: ["alarms": .array([])]
+        )
+        let locationDenied = await controller.deniedMessage(
+            forToolName: "reminders.create",
+            arguments: ["location_trigger": .object([:])]
+        )
+        XCTAssertEqual(recurrenceDenied, "Recurrence access is disabled. In MacMCP Settings, open Calendar and enable Recurrence.")
+        XCTAssertEqual(alarmsDenied, "Alerts access is disabled. In MacMCP Settings, open Calendar and enable Alerts.")
+        XCTAssertEqual(locationDenied, "Location triggers access is disabled. In MacMCP Settings, open Reminders and enable Location triggers.")
+
+        try await controller.setWriteCapability(true, capability: .calendarRecurrence)
+        try await controller.setWriteCapability(true, capability: .calendarAlarms)
+        try await controller.setWriteCapability(true, capability: .remindersLocationTriggers)
+        let recurrenceAllowed = await controller.deniedMessage(
+            forToolName: "calendar.create",
+            arguments: ["recurrence": .string("weekly")]
+        )
+        let alarmsAllowed = await controller.deniedMessage(
+            forToolName: "calendar.update",
+            arguments: ["alarms": .array([])]
+        )
+        let locationAllowed = await controller.deniedMessage(
+            forToolName: "reminders.create",
+            arguments: ["location_trigger": .object([:])]
+        )
+        XCTAssertNil(recurrenceAllowed)
+        XCTAssertNil(alarmsAllowed)
+        XCTAssertNil(locationAllowed)
     }
 
     private func makeTemporaryDirectory() throws -> URL {
