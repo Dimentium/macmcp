@@ -2,8 +2,8 @@
 
 Last verified: 2026-09-15
 Repository: `Dimentium/macmcp`
-Working branch: `ux/settings-window` (local, not released)
-Current published and installed app: `MacMCP 0.2.31`
+Working branch: `ux/settings-window` (published through `public/main`)
+Current published and installed app: `MacMCP 0.2.32`
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -57,20 +57,23 @@ bridge: available
 mail: ready
 calendar: ready
 reminders: ready
-app version: 0.2.31
+app version: 0.2.32
 mail restarts: 0
 EventKit restarts: 0
 configured mail accounts: 2
-approved local clients: 4
+approved local clients: 5
 tunnel: running
 ```
 
-The installed 0.2.31 app was upgraded through the Cask during the latest
+The installed 0.2.32 app was upgraded through the Cask during the latest
 check. The existing tunnel profile and runtime-key reference were preserved;
 the app-owned tunnel reported `running` again. The bridge and tunnel became
 ready after 28 seconds.
-The Calendar/Reminders menu gate is included in the installed release and was
-validated through the local MCP path.
+The Calendar/Reminders settings write gates are included in the installed
+release. Before release, a signed temporary 0.2.32 bundle created a test event
+in the personal iCloud calendar and a test reminder in the personal `ToDo`
+list through the new MCP actions; the user confirmed both were visible and
+removed them.
 
 Automated local acceptance passed:
 
@@ -141,9 +144,8 @@ configured tunnel-client process.
 
 ## Tool And Safety Contract
 
-The installed 0.2.31 surface contains 17 tools. The current unreleased branch
-keeps that surface until an EventKit write gate is enabled, then publishes the
-corresponding narrow actions:
+MacMCP 0.2.32 exposes 17 tools by default. When a Calendar or Reminders write
+gate is enabled, it additionally publishes the corresponding narrow actions:
 
 - `bridge_status`
 - `mail.list_accounts`, `mail.server_info`, `mail.list_folders`,
@@ -153,7 +155,7 @@ corresponding narrow actions:
 - `mail.create_managed_draft`, `mail.update_managed_draft`, `mail.mark`
 
 Every tool has an `outputSchema`; successful calls return structured output.
-The unreleased EventKit actions are `calendar.create`, `calendar.update`,
+The EventKit actions are `calendar.create`, `calendar.update`,
 `reminders.create`, and `reminders.complete`. Calendar and Reminders each
 start read-only; their action tools are absent from `tools/list` and rejected
 on direct calls until both the ordinary data-access switch and that category's
@@ -268,7 +270,10 @@ and the actual `SMAppService.mainApp.status`. On the installed 0.2.24 runtime
 both the diagnostic and direct Login Item query report `enabled`; no Login
 Item behavior change is needed.
 
-The 0.2.31 publication completed through Apple notarization, GitHub, and the
+The 0.2.32 publication completed through Apple notarization, GitHub, and the
+Homebrew Cask. The local Cask upgraded from 0.2.31 to 0.2.32; the installed
+app, Calendar, Reminders, Mail, and tunnel all became ready, and the standard
+17-tool reader acceptance passed. The 0.2.31 publication completed through Apple notarization, GitHub, and the
 Homebrew Cask. Apple initially returned a transient CloudKit ticket-validation
 error after accepting notarization; a subsequent validation succeeded and the
 normal release script completed. The post-install diagnostic, local MCP gate,
@@ -368,3 +373,5 @@ not a reason to change the local bridge without a reproduction.
 - `97f9402` Publish MacMCP 0.2.30 Cask
 - `4f1aaad` Prepare MacMCP 0.2.31
 - `0a51018` Publish MacMCP 0.2.31 Cask
+- `37f31fd` Prepare MacMCP 0.2.32
+- `6b32bfc` Publish MacMCP 0.2.32 Cask
