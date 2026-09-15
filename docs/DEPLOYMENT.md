@@ -206,3 +206,10 @@ This exercises the app-owned local stdio proxy and all three local data
 components, including Mail folder/search/read calls. It does not start or test
 the ChatGPT tunnel; remote connector behavior is a separate product-surface
 check.
+
+If the prepared Gmail attachment fixture is present, the bounded attachment
+reader can be checked without changing the mailbox:
+
+```bash
+scripts/validate-local-mcp.sh --attachment-fixture
+```

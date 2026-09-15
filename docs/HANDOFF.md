@@ -80,15 +80,20 @@ removed them.
 Automated local acceptance passed:
 
 ```text
-tool_surface=PASS tools=17 structured_output=true
+tool_surface=PASS tools=21 structured_output=true
 bridge_status=PASS
 mail_reader=PASS accounts=2
+attachment_reader=PASS attachments=1 bytes=39
 calendar_reader=PASS
 reminders_reader=PASS
 result=PASS
 ```
 
-The local check does not start the tunnel, create drafts, or modify mail.
+The local check does not start the tunnel, create drafts, or modify mail. The
+attachment line is from the explicit `--attachment-fixture` run; the default
+gate remains fixture-free. The fixture is the Gmail draft titled `MacMCP
+attachment validation fixture — do not send`, containing one non-inline
+`text/plain` attachment, `5091-2_2-test.txt` (39 bytes).
 
 Manual ChatGPT acceptance also passed for both account types: recipient-free
 managed drafts were created and updated, and disabling `Draft creation allowed`
@@ -255,17 +260,16 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 1. Clarify and, only if needed, validate a genuine Codex/API
    tunnel-backed-target flow. The current local Codex path is already direct
-   STDIO. The official Secure MCP Tunnel wording is intentionally product
-   surface-specific; do not infer an endpoint from `tunnel_id`.
+   STDIO. The app-owned tunnel profile has passed the local `healthz`/`readyz`
+   probe with a live control-plane poll, and its tunnel metadata was read
+   successfully without changing the tunnel. The official Secure MCP Tunnel
+   wording is intentionally product-surface-specific; do not infer an
+   endpoint from `tunnel_id`. The remaining check is manual: select or paste
+   this tunnel in the target ChatGPT workspace's developer-mode app.
 2. Validate large Calendar, Reminders, and attachment responses through the
    remote ChatGPT/tunnel product surface. Local attachment text extraction has
-   already passed; the current local gate checks the tool surface but does not
-   call an attachment.
-3. A user-provided Gmail draft titled `MacMCP attachment validation fixture —
-   do not send` is now a read-only local attachment fixture. It contains one
-   non-inline `text/plain` attachment, `5091-2_2-test.txt` (39 bytes), whose
-   bounded text read succeeded. Use this existing draft for acceptance
-   coverage; never send, update, or delete it.
+   already passed; the default local gate remains fixture-free, while the
+   explicit fixture mode calls one attachment.
 
 The earlier `launchAtLogin=true` / `loginItem=not_registered` observation was
 confirmed to be two distinct states: the persisted preference in `launch.json`

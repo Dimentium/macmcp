@@ -32,3 +32,5 @@
 - [x] Replace README Settings rendering with a framed window screenshot
 - [x] Make the Homebrew Cask the documented primary install and update path
 - [x] Remove completed Settings UX verification from the active plan
+- [>] Validate the app-managed tunnel-backed product path
+- [x] Add opt-in read-only attachment fixture validation

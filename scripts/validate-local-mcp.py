@@ -4,11 +4,12 @@ Privacy-safe local MCP smoke test.
 
 This validates the app-owned local MCP path only. It intentionally does not
 start tunnel-client, create drafts, change message flags, or print personal
-data.
+data. The optional attachment-fixture mode only reads an existing fixture.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import select
@@ -27,6 +28,9 @@ DEFAULT_BRIDGE_CANDIDATES = (
     Path.home() / ".local/opt/macmcp/bin/macmcp-bridge",
 )
 MCP_REQUEST_TIMEOUT_SECONDS = float(os.environ.get("MACMCP_VALIDATION_MCP_TIMEOUT", "120"))
+DEFAULT_ATTACHMENT_FIXTURE_ACCOUNT = "gmail"
+DEFAULT_ATTACHMENT_FIXTURE_FOLDER = "[Gmail]/Drafts"
+DEFAULT_ATTACHMENT_FIXTURE_SUBJECT = "MacMCP attachment validation fixture — do not send"
 
 
 class ValidationError(Exception):
@@ -136,9 +140,16 @@ EXPECTED_TOOLS = {
     "mail.update_managed_draft",
     "mail.mark",
 }
+OPTIONAL_EVENTKIT_TOOLS = {
+    "calendar.create",
+    "calendar.update",
+    "reminders.create",
+    "reminders.complete",
+}
 
 
 def main() -> int:
+    options = parse_args()
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except Exception:
@@ -185,6 +196,9 @@ def main() -> int:
                     {"message_id": message_id, "max_body_chars": 1},
                 )
         print(f"mail_reader=PASS accounts={len(account_ids)}")
+
+        if options.attachment_fixture:
+            validate_attachment_fixture(client, account_ids)
 
         call_tool(client, "calendar.list", {})
         today = date.today()
@@ -304,6 +318,8 @@ def validate_tool_surface(tools: list[dict[str, Any]]) -> None:
     names = {str(tool.get("name", "")) for tool in tools}
     if not EXPECTED_TOOLS.issubset(names):
         raise ValidationError("mcp tool surface is incomplete")
+    if not names.issubset(EXPECTED_TOOLS | OPTIONAL_EVENTKIT_TOOLS):
+        raise ValidationError("mcp exposed an unknown tool")
     if any(is_forbidden_tool(name) for name in names):
         raise ValidationError("mcp exposed a forbidden tool")
     if any(not isinstance(tool.get("outputSchema"), dict) for tool in tools):
@@ -311,6 +327,8 @@ def validate_tool_surface(tools: list[dict[str, Any]]) -> None:
 
 
 def is_forbidden_tool(name: str) -> bool:
+    if name in OPTIONAL_EVENTKIT_TOOLS:
+        return False
     lowered = name.lower()
     mutation_words = ("send", "reply", "forward", "delete", "move", "archive", "complete")
     return any(word in lowered for word in mutation_words) or (
@@ -380,6 +398,79 @@ def account_ids_from_result(result: Any) -> list[str]:
     if any(not isinstance(account_id, str) or not account_id for account_id in account_ids):
         raise ValidationError("mail account id is invalid")
     return account_ids
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--attachment-fixture",
+        action="store_true",
+        help="read the existing opt-in Gmail attachment fixture without modifying mail",
+    )
+    return parser.parse_args()
+
+
+def validate_attachment_fixture(client: MCPClient, account_ids: list[str]) -> None:
+    account_id = os.environ.get(
+        "MACMCP_ATTACHMENT_FIXTURE_ACCOUNT", DEFAULT_ATTACHMENT_FIXTURE_ACCOUNT
+    ).strip()
+    folder = os.environ.get(
+        "MACMCP_ATTACHMENT_FIXTURE_FOLDER", DEFAULT_ATTACHMENT_FIXTURE_FOLDER
+    ).strip()
+    subject = os.environ.get(
+        "MACMCP_ATTACHMENT_FIXTURE_SUBJECT", DEFAULT_ATTACHMENT_FIXTURE_SUBJECT
+    )
+    if account_id not in account_ids:
+        raise ValidationError("attachment fixture account is not configured")
+    if not folder or not subject:
+        raise ValidationError("attachment fixture selectors are empty")
+
+    search = decode_result(
+        call_tool(
+            client,
+            "mail.search",
+            {"account_id": account_id, "folder": folder, "subject": subject, "limit": 5},
+        )
+    )
+    messages = search.get("messages") if isinstance(search, dict) else None
+    matches = [
+        message
+        for message in messages or []
+        if isinstance(message, dict) and message.get("subject") == subject
+    ]
+    if len(matches) != 1:
+        raise ValidationError("attachment fixture draft is missing or ambiguous")
+    message_id = matches[0].get("message_id")
+    if not isinstance(message_id, str) or not message_id:
+        raise ValidationError("attachment fixture message id is invalid")
+
+    message_result = decode_result(
+        call_tool(client, "mail.read", {"message_id": message_id, "max_body_chars": 0})
+    )
+    message = message_result.get("message") if isinstance(message_result, dict) else None
+    attachments = message.get("attachments") if isinstance(message, dict) else None
+    if not isinstance(attachments, list) or len(attachments) != 1:
+        raise ValidationError("attachment fixture must contain exactly one attachment")
+    attachment = attachments[0]
+    if not isinstance(attachment, dict) or attachment.get("inline") is True:
+        raise ValidationError("attachment fixture is not an external attachment")
+    part_id = attachment.get("part_id")
+    if not isinstance(part_id, str) or not part_id:
+        raise ValidationError("attachment fixture part id is invalid")
+
+    extracted = decode_result(
+        call_tool(
+            client,
+            "mail.read_attachment_text",
+            {"message_id": message_id, "part_id": part_id},
+        )
+    )
+    if not isinstance(extracted, dict) or not isinstance(extracted.get("text"), str):
+        raise ValidationError("attachment reader returned invalid text")
+    if extracted.get("text_truncated") is True:
+        raise ValidationError("attachment fixture text was truncated")
+    byte_count = len(extracted["text"].encode("utf-8"))
+    print(f"attachment_reader=PASS attachments=1 bytes={byte_count}")
 
 
 def first_message_id(result: Any) -> str | None:

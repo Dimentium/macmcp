@@ -131,9 +131,24 @@ scripts/validate-local-mcp.sh
 
 It uses the app-owned bridge and socket, so it also works with a Cask install
 that has no standalone `mcp.local.json`. It checks diagnostics, approvals, all
-17 published tools, `outputSchema` plus real `structuredContent`, both
-configured mail accounts, Calendar, and Reminders. It does not start
+17 reader tools plus any enabled narrow EventKit actions, `outputSchema` plus
+real `structuredContent`, both configured mail accounts, Calendar, and
+Reminders. It does not start
 `tunnel-client`, create drafts, change message flags, or modify mail data.
+
+When a deliberately prepared local attachment fixture exists, exercise the
+bounded attachment reader as an additional read-only check:
+
+```sh
+scripts/validate-local-mcp.sh --attachment-fixture
+```
+
+The fixture mode selects the Gmail draft titled `MacMCP attachment validation
+fixture — do not send` by default. Override its account, folder, or subject
+with `MACMCP_ATTACHMENT_FIXTURE_ACCOUNT`,
+`MACMCP_ATTACHMENT_FIXTURE_FOLDER`, or
+`MACMCP_ATTACHMENT_FIXTURE_SUBJECT`. It is opt-in because a clean Mac normally
+has no such draft; it never creates, updates, sends, or deletes mail.
 
 The same gate runs automatically as the final step of
 `scripts/release.sh --install-local`. The current published and installed

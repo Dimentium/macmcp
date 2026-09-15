@@ -439,9 +439,16 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("structuredContent"))
         XCTAssertTrue(script.contains("mail.search"))
         XCTAssertTrue(script.contains("mail.read"))
+        XCTAssertTrue(script.contains("--attachment-fixture"))
+        XCTAssertTrue(script.contains("validate_attachment_fixture"))
+        XCTAssertTrue(script.contains("MACMCP_ATTACHMENT_FIXTURE_SUBJECT"))
+        XCTAssertTrue(script.contains("OPTIONAL_EVENTKIT_TOOLS"))
+        XCTAssertTrue(script.contains("calendar.create"))
+        XCTAssertTrue(script.contains("reminders.complete"))
         XCTAssertTrue(script.contains("tunnel=SKIP local_only=true"))
         XCTAssertFalse(script.contains("subprocess.run(\n            [\"tunnel-client\""))
         XCTAssertTrue(wrapper.contains("validate-local-mcp.py"))
+        XCTAssertTrue(wrapper.contains("--attachment-fixture"))
         XCTAssertTrue(wrapper.contains("never starts tunnel-client"))
     }
 

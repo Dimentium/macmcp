@@ -14,7 +14,8 @@ Unreleased
   default-off EventKit write controls. Add a Settings-window screenshot,
   remove obsolete status-bar-menu instructions, and make the Cask the primary
   documented install/update path when Homebrew is available. Remove completed
-  Settings UX verification from the active plan.
+  Settings UX verification from the active plan. Add an opt-in, read-only
+  attachment-fixture check to local acceptance.
 
 0.2.32 - 2026-09-15
 -------------------
