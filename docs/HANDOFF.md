@@ -13,9 +13,9 @@ installation.
 ## Executive Summary
 
 MacMCP is a local macOS MCP bridge for Mail, Calendar, and Reminders. The
-normal distribution is a Developer ID-signed and Apple-notarized release DMG
+normal distribution is a Developer ID-signed and Apple-notarized Homebrew Cask
 containing the bridge, both sidecars, and a signed OpenAI `tunnel-client`; the
-Homebrew Cask is optional. The app owns the runtime, local IPC,
+release DMG provides the same runtime without Homebrew. The app owns the runtime, local IPC,
 sidecars, Keychain access, EventKit access, Login Item, and optional OpenAI
 Secure MCP Tunnel.
 
@@ -37,11 +37,12 @@ The project is beyond MVP for local use:
 - Managed drafts are recipient-free and protected by a Keychain-backed marker.
 - The signed Cask upgrade path, app restart, single-instance lock, diagnostics,
   log rotation, uninstall preservation, and local acceptance gate exist.
-- The release DMG is the Homebrew-free, administrator-free install path. A
-  first-launch setup window optionally configures mail and/or the ChatGPT
-  tunnel, storing secrets in Keychain; either or both can be left disabled.
-  After first launch, `Open Settings...` is the single entry point for these
-  configuration tasks.
+- The Cask is the preferred path on Macs with Homebrew: it installs, upgrades,
+  and starts the signed app. The release DMG is the Homebrew-free,
+  administrator-free alternative. A first-launch setup window optionally
+  configures mail and/or the ChatGPT tunnel, storing secrets in Keychain;
+  either or both can be left disabled. After first launch, `Open Settings...`
+  is the single entry point for these configuration tasks.
 - The approved single-page settings window is now integrated into the
   menu-bar app on this branch. It centralizes Login Item, local/tunnel access,
   EventKit access, mail-account CRUD and gates, tunnel configuration, update,
@@ -182,15 +183,7 @@ Mail action rules:
 
 ## Normal Operations
 
-Install from the release DMG on Apple Silicon macOS 14+ (no Homebrew or admin
-rights required):
-
-1. Download `MacMCP-<version>-macos.dmg` from GitHub Releases.
-2. Open it and drag `MacMCP.app` to `/Applications`, or to `~/Applications`
-   when the user is not an administrator.
-3. Open the app and complete its setup window.
-
-The optional Homebrew Cask path is:
+On a Mac with Homebrew, install with the Cask:
 
 ```sh
 brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
@@ -200,6 +193,14 @@ macmcp setup --gmail-address you@example.com
 
 Add iCloud with `--icloud-address`; repeat either preset for multiple accounts.
 Use `--mail-account` for custom IMAP.
+
+Without Homebrew or administrator rights, install from the release DMG on Apple
+Silicon macOS 14+:
+
+1. Download `MacMCP-<version>-macos.dmg` from GitHub Releases.
+2. Open it and drag `MacMCP.app` to `/Applications`, or to `~/Applications`
+   when the user is not an administrator.
+3. Open the app and complete its setup window.
 
 Upgrade without losing configuration or Keychain secrets:
 

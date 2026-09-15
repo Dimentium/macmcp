@@ -5,7 +5,36 @@ sidecars, Keychain access, EventKit permissions, and optional ChatGPT tunnel.
 MCP clients connect through a small local stdio proxy; they do not receive mail
 passwords or direct sidecar access.
 
-## Direct install from GitHub Releases (recommended)
+## Recommended: Homebrew Cask
+
+The signed Cask is the simplest normal install and update path when Homebrew is
+available:
+
+```bash
+brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
+brew install --cask macmcp
+macmcp setup --gmail-address you@gmail.com
+```
+
+`macmcp setup` asks for the app-specific password for each configured account.
+It supports repeated `--icloud-address`, repeated `--gmail-address`, and
+custom `--mail-account` values. It stores passwords in macOS Keychain and
+starts `/Applications/MacMCP.app`. The Cask and the DMG use the same prebuilt
+runtime, including the signed `tunnel-client`; a Cask install does not need a
+separate `brew install openai/tools/tunnel-client`. Cask upgrades retain
+configuration and Keychain secrets:
+
+```bash
+brew upgrade --cask macmcp
+```
+
+On its first launch, `0.2.26` or later imports a legacy `mac-agent-bridge`
+configuration when present. Mail accounts, Keychain-backed secrets, mail action
+settings, and the ChatGPT tunnel configuration are retained. The legacy local
+MCP proxy is deliberately not trusted by the new app, so approve the new proxy
+once with `macmcp-bridge --approve-pending-client`.
+
+## Without Homebrew: direct install from GitHub Releases
 
 Download `MacMCP-<version>-macos.dmg` from the [latest GitHub
 Release](https://github.com/Dimentium/macmcp/releases). The DMG contains the
@@ -26,29 +55,6 @@ launch when only Calendar or Reminders are needed.
 
 macOS can ask for Keychain, Calendar, Reminders, and Login Item permissions.
 Grant only the capabilities you intend to use.
-
-## Homebrew Cask (optional)
-
-The signed Cask is convenient for command-line setup and repeatable upgrades:
-
-```bash
-brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
-brew install --cask macmcp
-macmcp setup --gmail-address you@gmail.com
-```
-
-`macmcp setup` asks for the app-specific password for each configured account.
-It supports repeated `--icloud-address`, repeated `--gmail-address`, and
-custom `--mail-account` values. It stores passwords in macOS Keychain and
-starts `/Applications/MacMCP.app`. The Cask and the DMG use the same prebuilt
-runtime, including the signed `tunnel-client`; a Cask install does not need a
-separate `brew install openai/tools/tunnel-client`.
-
-On its first launch, `0.2.26` or later imports a legacy `mac-agent-bridge`
-configuration when present. Mail accounts, Keychain-backed secrets, mail action
-settings, and the ChatGPT tunnel configuration are retained. The
-legacy local MCP proxy is deliberately not trusted by the new app, so approve
-the new proxy once with `macmcp-bridge --approve-pending-client`.
 
 ## Source Install
 

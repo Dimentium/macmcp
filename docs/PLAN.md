@@ -6,7 +6,7 @@ documents are evidence records, not forward plans.
 ## Status
 
 MacMCP is a local MVP+ for MCP clients that can launch a local stdio server:
-the signed release DMG, optional Homebrew Cask, source formula, menu-bar app,
+the signed Homebrew Cask, Homebrew-free release DMG, source formula, menu-bar app,
 Keychain password storage,
 iCloud/Gmail presets, multi-account config, account-gated mail actions, upgrade,
 uninstall, and in-app Cask update control exist. The target Mac has a real local
@@ -35,13 +35,13 @@ Keychain-prompt caveat of the optional deep IMAP validator, are kept in
 
 ## Direction
 
-1. Keep the direct release install and signed Cask upgrades reliable.
-   The release DMG is the primary user path: it contains the complete signed
-   runtime, signed `tunnel-client`, and companion files, and works without
-   Homebrew or administrator access. On first launch, the app's setup window
-   optionally configures mail and/or the ChatGPT tunnel, storing secrets in
-   Keychain. The Cask remains useful for command-line setup and repeatable
-   upgrades.
+1. Keep the signed Cask install/upgrade and direct release install reliable.
+   The Cask is the primary user path where Homebrew is available: it installs
+   the complete signed runtime and supports simple upgrades. The release DMG is
+   the equal Homebrew-free, administrator-free alternative; it contains the
+   same signed `tunnel-client` and companion files. On first launch, the app's
+   setup window optionally configures mail and/or the ChatGPT tunnel, storing
+   secrets in Keychain.
    The Developer ID-signed, Apple-notarized Cask is published and contains the
    complete runtime. It checks GitHub Releases at launch and every six hours;
    its Updates menu can then refresh the Homebrew tap, upgrade the Cask, and

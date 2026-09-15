@@ -35,15 +35,34 @@ fields and cannot be sent.
 
 ## Installation
 
-MacMCP has a normal, Homebrew-free installation. Homebrew is optional and is
-not needed on the Mac that will actually use the app.
+For a Mac that already uses Homebrew, the Cask is the recommended installation:
+it installs the app and the `macmcp` command, and future updates are one
+command or one Settings button. If Homebrew is unavailable, unwanted, or the
+user cannot install it, use the equally supported signed DMG instead.
 
-### Recommended: download the release DMG
+### Recommended: Homebrew Cask
+
+```bash
+brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
+brew install --cask macmcp
+macmcp setup --gmail-address you@gmail.com
+```
+
+The Cask installs the signed app in `/Applications` and the `macmcp` command.
+Its setup accepts repeatable `--gmail-address`, `--icloud-address`, and
+`--mail-account` options. Cask upgrades retain configuration and Keychain
+secrets:
+
+```bash
+brew upgrade --cask macmcp
+```
+
+### Without Homebrew: download the release DMG
 
 Use the `MacMCP-<version>-macos.dmg` asset on the [latest GitHub
 Release](https://github.com/Dimentium/macmcp/releases). Do not download
-`Source code` and do not start with the ZIP unless you specifically want the
-Homebrew path.
+`Source code`; the ZIP is the Cask archive and is not meant to be opened
+manually.
 
 Requirements: an Apple Silicon Mac running macOS 14 (Sonoma) or later. An
 administrator account and Homebrew are not required.
@@ -91,10 +110,11 @@ prerequisite for the first launch.
 ### Connect a local MCP client
 
 Keep MacMCP running in the menu bar, then add this command to your MCP client.
-Replace the app path with `/Applications/MacMCP.app` if you installed it there:
+Replace the app path with `~/Applications/MacMCP.app` if you used the
+Homebrew-free DMG without administrator access:
 
 ```bash
-app="$HOME/Applications/MacMCP.app"
+app="/Applications/MacMCP.app"
 codex mcp add macmcp -- \
   "$app/Contents/MacOS/macmcp-bridge" \
   --stdio-proxy "$HOME/Library/Application Support/macmcp/mcp.sock"
@@ -107,22 +127,6 @@ not start the mail or EventKit sidecars itself.
 ```bash
 "$app/Contents/MacOS/macmcp-bridge" --approve-pending-client
 ```
-
-### Homebrew (optional)
-
-Homebrew is convenient for repeatable upgrades and for developers, but it is
-not required. The signed Cask contains the same prebuilt bridge, mail sidecar,
-and EventKit sidecar as the DMG:
-
-```bash
-brew tap Dimentium/macmcp https://github.com/Dimentium/macmcp
-brew install --cask macmcp
-macmcp setup --gmail-address you@gmail.com
-```
-
-The Cask also installs the `macmcp` command. Its setup accepts repeatable
-`--gmail-address`, `--icloud-address`, and `--mail-account` options. Cask
-upgrades retain configuration and Keychain secrets.
 
 ### Advanced: source install
 
@@ -190,7 +194,7 @@ For a privacy-safe support snapshot, run:
 # Homebrew installation
 macmcp diagnose
 
-# DMG installation (choose the path you used)
+# DMG installation without administrator access
 "$HOME/Applications/MacMCP.app/Contents/Resources/macmcp" diagnose
 ```
 

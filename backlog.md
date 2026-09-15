@@ -30,3 +30,4 @@
 - [x] Stabilize tunnel runtime lease reclamation test in macOS CI
 - [x] Align user documentation and README with MacMCP 0.2.32 settings and EventKit controls
 - [x] Replace README Settings rendering with a framed window screenshot
+- [x] Make the Homebrew Cask the documented primary install and update path
