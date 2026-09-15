@@ -166,8 +166,10 @@ final class BridgeRuntime {
         let router = GatewayRouter()
         let policy = ReaderPolicy(rules: ReaderPolicy.allRules)
         let mailActionAccess = MailActionAccessController(accounts: enabledAccounts)
+        let mailWritesEnabled = !(await mailActionAccess.writableAccountIDs()).isEmpty
+        let eventKitWritesEnabled = !(await dataAccess.writableCategories()).isEmpty
         await statusSource.updateWriteCapabilitiesEnabled(
-            !(await mailActionAccess.writableAccountIDs()).isEmpty
+            mailWritesEnabled || eventKitWritesEnabled
         )
         await runtimeObserver.bind(supervisor: supervisor, router: router, policy: policy)
         try Task.checkCancellation()

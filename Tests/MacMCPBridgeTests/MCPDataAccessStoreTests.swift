@@ -12,15 +12,40 @@ final class MCPDataAccessStoreTests: XCTestCase {
 
         let calendarInitiallyEnabled = await store.isEnabled(.calendar)
         let remindersInitiallyEnabled = await store.isEnabled(.reminders)
+        let calendarInitiallyWritable = await store.isWritable(.calendar)
+        let remindersInitiallyWritable = await store.isWritable(.reminders)
         XCTAssertTrue(calendarInitiallyEnabled)
         XCTAssertTrue(remindersInitiallyEnabled)
+        XCTAssertFalse(calendarInitiallyWritable)
+        XCTAssertFalse(remindersInitiallyWritable)
         try await store.setEnabled(false, for: .calendar)
+        try await store.setWritable(true, for: .reminders)
 
         let reloaded = MCPDataAccessStore(fileURL: fileURL)
         let calendarAfterReload = await reloaded.isEnabled(.calendar)
         let remindersAfterReload = await reloaded.isEnabled(.reminders)
+        let remindersWritableAfterReload = await reloaded.isWritable(.reminders)
         XCTAssertFalse(calendarAfterReload)
         XCTAssertTrue(remindersAfterReload)
+        XCTAssertTrue(remindersWritableAfterReload)
+    }
+
+    func testLegacyReadAccessStateKeepsEventKitWritesDisabled() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appendingPathComponent("mcp-data-access.json")
+        try Data(#"{"enabledCategories":["calendar","reminders"],"schemaVersion":1}"#.utf8)
+            .write(to: fileURL)
+
+        let store = MCPDataAccessStore(fileURL: fileURL)
+        let calendarEnabled = await store.isEnabled(.calendar)
+        let remindersEnabled = await store.isEnabled(.reminders)
+        let calendarWritable = await store.isWritable(.calendar)
+        let remindersWritable = await store.isWritable(.reminders)
+        XCTAssertTrue(calendarEnabled)
+        XCTAssertTrue(remindersEnabled)
+        XCTAssertFalse(calendarWritable)
+        XCTAssertFalse(remindersWritable)
     }
 
     func testCorruptStateFailsClosed() async throws {
@@ -54,6 +79,36 @@ final class MCPDataAccessStoreTests: XCTestCase {
         let mailDenial = await controller.deniedMessage(forToolName: "mail.search")
         XCTAssertEqual(calendarDenial, MCPDataCategory.calendar.disabledMessage)
         XCTAssertNil(mailDenial)
+    }
+
+    func testEventKitActionsAreHiddenAndDeniedUntilWriteAccessIsEnabled() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = MCPDataAccessController(
+            store: MCPDataAccessStore(fileURL: directory.appendingPathComponent("access.json"))
+        )
+        let tools = [
+            Tool(name: "calendar.list", description: "calendar", inputSchema: .object([:])),
+            Tool(name: "calendar.create", description: "create", inputSchema: .object([:])),
+            Tool(name: "reminders.complete", description: "complete", inputSchema: .object([:]))
+        ]
+
+        let initiallyVisible = await controller.filterTools(tools).map(\.name)
+        let initialDenial = await controller.deniedMessage(forToolName: "calendar.create")
+        XCTAssertEqual(initiallyVisible, ["calendar.list"])
+        XCTAssertEqual(
+            initialDenial,
+            "Calendar write access is disabled. In MacMCP Settings, open Calendar and enable Write access."
+        )
+
+        try await controller.setWritable(true, for: .calendar)
+        let visibleWithWrites = await controller.filterTools(tools).map(\.name)
+        let denialWithWrites = await controller.deniedMessage(forToolName: "calendar.create")
+        XCTAssertEqual(
+            visibleWithWrites,
+            ["calendar.list", "calendar.create"]
+        )
+        XCTAssertNil(denialWithWrites)
     }
 
     private func makeTemporaryDirectory() throws -> URL {

@@ -102,9 +102,10 @@ State ownership during migration:
   the tunnel runtime key. It must never be written to `launch.json`, logs, or
   diagnostic snapshots. Mail passwords continue to use the account username as
   their Keychain account.
-- `MCPDataAccessController` owns Calendar and Reminders MCP access. The
-  existing `MailActionAccessController` owns per-account read-only/draft
-  permissions. Both must continue to gate local IPC, STDIO, and tunnel calls.
+- `MCPDataAccessController` owns Calendar and Reminders MCP access, including
+  separate default-off write access. The existing `MailActionAccessController`
+  owns per-account read-only/draft permissions. Both must continue to gate
+  local IPC, STDIO, and tunnel calls.
 - `MenuBarHost` and `ChatGPTTunnelSupervisor` remain the source of live bridge
   and tunnel status. Settings actions must use their existing lifecycle paths
   rather than starting an independent runtime or tunnel client.
@@ -117,12 +118,10 @@ tunnel access/restart/configuration, Keychain-backed credentials, update, log,
 repository, and account CRUD paths. Mail-account changes deliberately restart
 the app-owned runtime so every transport observes the same account set.
 
-Two controls remain intentionally conservative. The Local Bridge switch is
-status-only and disabled until a safe app-owned stop/start path exists. The
-Calendar and Reminders settings gears are present but disabled because there is
-no separate per-category settings store to edit; their access switches remain
-live. These states are recorded in [docs/KNOWN_ISSUES.md](KNOWN_ISSUES.md)
-rather than represented by UI-only preferences.
+The Local Bridge switch remains intentionally conservative: it is status-only
+and disabled until a safe app-owned stop/start path exists. Calendar and
+Reminders gears edit their persisted write gate; each category stays read-only
+unless the user explicitly enables its narrow write surface.
 
 The status-bar menu intentionally exposes only `Open Settings...` and `Quit`.
 Detailed controls live in the settings window. The integration has automated
@@ -162,7 +161,8 @@ action profile; it needs a capability-gated design instead of being mapped to
 
 - Raw headless LaunchAgent as the EventKit owner.
 - Mail mutations beyond recipient-free managed drafts and the four explicit
-  message-state changes, whether local or through the ChatGPT tunnel.
+  message-state changes and the narrow default-off EventKit writes described
+  below, whether local or through the ChatGPT tunnel.
 - Notes, Contacts, Messages, Apple Mail private databases, Full Disk Access, or
   generic shell/browser/filesystem access.
 - Broad sidecar forks unrelated to the reviewed iCloud compatibility and

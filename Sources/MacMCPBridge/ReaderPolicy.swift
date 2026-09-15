@@ -4,6 +4,7 @@ import MCP
 enum ToolExposure: Equatable, Sendable {
     case reader
     case mailAction
+    case eventKitAction
 }
 
 struct ReaderToolRule: Equatable, Sendable {
@@ -223,8 +224,45 @@ struct ReaderPolicy: Sendable {
         )
     ]
 
-    static let allRules = rules + mailActionRules
+    static let eventKitActionRules: [ReaderToolRule] = [
+        ReaderToolRule(
+            publicName: "calendar.create",
+            sidecarID: eventKitSidecarID,
+            upstreamName: "create_event",
+            allowedArguments: ["title", "start_time", "end_time", "notes", "location", "url", "calendar_name", "calendar_source", "all_day", "timezone"],
+            exposure: .eventKitAction,
+            isIdempotent: false
+        ),
+        ReaderToolRule(
+            publicName: "calendar.update",
+            sidecarID: eventKitSidecarID,
+            upstreamName: "update_event",
+            allowedArguments: ["event_id", "title", "start_time", "end_time", "notes", "location", "all_day", "timezone", "clear_timezone"],
+            exposure: .eventKitAction,
+            isIdempotent: false
+        ),
+        ReaderToolRule(
+            publicName: "reminders.create",
+            sidecarID: eventKitSidecarID,
+            upstreamName: "create_reminder",
+            allowedArguments: ["title", "notes", "due_date", "priority", "calendar_name", "calendar_source"],
+            exposure: .eventKitAction,
+            isIdempotent: false
+        ),
+        ReaderToolRule(
+            publicName: "reminders.complete",
+            sidecarID: eventKitSidecarID,
+            upstreamName: "complete_reminder",
+            allowedArguments: ["reminder_id"],
+            defaultArguments: ["completed": .bool(true)],
+            exposure: .eventKitAction,
+            isIdempotent: true
+        )
+    ]
+
+    static let allRules = rules + mailActionRules + eventKitActionRules
     static let mailActionToolNames = Set(mailActionRules.map(\.publicName))
+    static let eventKitActionToolNames = Set(eventKitActionRules.map(\.publicName))
 
     private let rulesByName: [String: ReaderToolRule]
 

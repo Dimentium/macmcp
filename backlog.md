@@ -21,3 +21,7 @@
 - [x] Add isolated source-script regression coverage for a foreign same-profile tunnel runtime
 - [x] Retry transient Git clone and fetch failures while building pinned sidecars
 - [x] Release MacMCP 0.2.31
+- [x] Define default-off EventKit write access for calendar and reminders
+- [x] Expose narrow EventKit create and update tools through the MacMCP policy
+- [x] Add EventKit write controls to Settings and runtime wiring
+- [x] Cover EventKit write tools and gates with tests and update docs

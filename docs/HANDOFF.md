@@ -30,6 +30,9 @@ The project is beyond MVP for local use:
 - Calendar and Reminders have independent MCP access gates in the menu. They
   default to enabled, persist per user, and gate local IPC, STDIO, and the
   ChatGPT tunnel without a restart.
+- Calendar and Reminders each also have a separate default-off write gate in
+  Settings. Enabling it exposes only the reviewed narrow action tools and
+  takes effect for all transports without a restart.
 - Managed drafts are recipient-free and protected by a Keychain-backed marker.
 - The signed Cask upgrade path, app restart, single-instance lock, diagnostics,
   log rotation, uninstall preservation, and local acceptance gate exist.
@@ -138,7 +141,9 @@ configured tunnel-client process.
 
 ## Tool And Safety Contract
 
-The published surface currently contains 17 tools:
+The installed 0.2.31 surface contains 17 tools. The current unreleased branch
+keeps that surface until an EventKit write gate is enabled, then publishes the
+corresponding narrow actions:
 
 - `bridge_status`
 - `mail.list_accounts`, `mail.server_info`, `mail.list_folders`,
@@ -148,9 +153,17 @@ The published surface currently contains 17 tools:
 - `mail.create_managed_draft`, `mail.update_managed_draft`, `mail.mark`
 
 Every tool has an `outputSchema`; successful calls return structured output.
-The bridge does not expose send, reply, forward, delete, move, archive,
-calendar-write, reminder-write, shell, filesystem, browser, or arbitrary
-attachment-download tools.
+The unreleased EventKit actions are `calendar.create`, `calendar.update`,
+`reminders.create`, and `reminders.complete`. Calendar and Reminders each
+start read-only; their action tools are absent from `tools/list` and rejected
+on direct calls until both the ordinary data-access switch and that category's
+write gate are enabled. They are shared by local IPC, stdio, and the ChatGPT
+tunnel, so no restart is required. The action contract excludes deletion,
+moving, invitation management, recurrence, alarms, location triggers, and
+reopening reminders.
+
+The bridge does not expose send, reply, forward, delete, move, archive, shell,
+filesystem, browser, or arbitrary attachment-download tools.
 
 Mail action rules:
 

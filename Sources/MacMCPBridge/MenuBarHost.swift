@@ -904,8 +904,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     writableAccountIDs.contains(accountID),
                     for: accountID
                 )
-                let updatedWritableAccountIDs = await runtime.mailActionAccess.writableAccountIDs()
-                await runtime.statusSource.updateWriteCapabilitiesEnabled(!updatedWritableAccountIDs.isEmpty)
+                await refreshWriteCapabilitiesStatus()
             } catch {
                 // Keep the last persisted state visible if the settings file
                 // cannot be changed.
@@ -1021,6 +1020,18 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowModel.onRemindersChanged = { [weak self] enabled in
             self?.setSettingsDataAccess(enabled, category: .reminders)
         }
+        settingsWindowModel.onOpenCalendarSettings = { [weak self] in
+            self?.settingsWindowModel.showingCalendarSettings = true
+        }
+        settingsWindowModel.onOpenRemindersSettings = { [weak self] in
+            self?.settingsWindowModel.showingRemindersSettings = true
+        }
+        settingsWindowModel.onCalendarWriteAccessChanged = { [weak self] enabled in
+            self?.setSettingsEventKitWriteAccess(enabled, category: .calendar)
+        }
+        settingsWindowModel.onRemindersWriteAccessChanged = { [weak self] enabled in
+            self?.setSettingsEventKitWriteAccess(enabled, category: .reminders)
+        }
         settingsWindowModel.onOpenLogs = {
             NSWorkspace.shared.open(MacMCPPaths.logsDirectory())
         }
@@ -1052,6 +1063,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowModel.tunnelAPIKeyAvailable = hasTunnelKey()
         settingsWindowModel.tunnelToggleAvailable = launch?.chatGPTTunnel != nil
         settingsWindowModel.eventKitConfigured = configuration.eventKitSidecarURL != nil
+        settingsWindowModel.calendarSettingsAvailable = settingsWindowModel.eventKitConfigured
+        settingsWindowModel.remindersSettingsAvailable = settingsWindowModel.eventKitConfigured
         syncSettingsUpdateState()
         settingsWindowModel.mailAccounts = configuration.mailAccounts.map { account in
             SettingsWindowModel.MailAccount(
@@ -1071,6 +1084,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Task { [weak self] in
             guard let self else { return }
             let enabledCategories = await dataAccess.enabledCategories()
+            let writableCategories = await dataAccess.writableCategories()
             let writableAccountIDs = if let runtime {
                 await runtime.mailActionAccess.writableAccountIDs()
             } else {
@@ -1082,6 +1096,8 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let tunnelEnabled = await tunnelAccessStore.isEnabled()
             settingsWindowModel.calendarAccess = enabledCategories.contains(.calendar)
             settingsWindowModel.remindersAccess = enabledCategories.contains(.reminders)
+            settingsWindowModel.calendarReadOnly = !writableCategories.contains(.calendar)
+            settingsWindowModel.remindersReadOnly = !writableCategories.contains(.reminders)
             settingsWindowModel.tunnelEnabled = tunnelEnabled && settingsWindowModel.tunnelConfigured
             if !settingsWindowModel.tunnelEnabled {
                 settingsWindowModel.tunnelStatus = "Off"
@@ -1139,6 +1155,35 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 refreshSettingsWindow()
             }
         }
+    }
+
+    private func setSettingsEventKitWriteAccess(_ enabled: Bool, category: MCPDataCategory) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await dataAccess.setWritable(enabled, for: category)
+                await refreshWriteCapabilitiesStatus()
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Unable to change \(category.title) write access"
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+                refreshSettingsWindow()
+            }
+        }
+    }
+
+    private func refreshWriteCapabilitiesStatus() async {
+        let eventKitWritesEnabled = !(await dataAccess.writableCategories()).isEmpty
+        let mailWritesEnabled = if let runtime {
+            !(await runtime.mailActionAccess.writableAccountIDs()).isEmpty
+        } else {
+            !(await mailActionAccessStore.writableAccountIDs()).isEmpty
+        }
+        await runtime?.statusSource.updateWriteCapabilitiesEnabled(
+            eventKitWritesEnabled || mailWritesEnabled
+        )
     }
 
     private func setMailAccountEnabledFromSettings(_ accountID: String, enabled: Bool) {
@@ -1251,8 +1296,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     existingAccount: existingAccount,
                     form: form
                 )
-                let writableAccountIDs = await mailActionAccessStore.writableAccountIDs()
-                await runtime?.statusSource.updateWriteCapabilitiesEnabled(!writableAccountIDs.isEmpty)
+                await refreshWriteCapabilitiesStatus()
                 if let index = settingsWindowModel.mailAccounts.firstIndex(where: {
                     $0.id == result.accountID
                 }) {

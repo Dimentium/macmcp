@@ -28,9 +28,9 @@ personal data.
 - Local Bridge is shown as a live status row, but its switch is disabled. The
   menu-bar app does not yet expose an independent stop/start lifecycle that can
   be safely controlled from settings.
-- Calendar and Reminders access switches are live. Their settings gears remain
-  disabled until a separate EventKit settings store exists; there are no
-  additional EventKit parameters to edit today.
+- Calendar and Reminders access switches are live. Their settings gears now
+  control a separate default-off write gate; a final visual click-through of
+  those sheets on a configured production host remains part of release QA.
 - Saving mail-account configuration restarts the app-owned runtime so local
   IPC, STDIO, and the ChatGPT tunnel receive the same account set. This is
   intentional, but it is not an in-place account reload.

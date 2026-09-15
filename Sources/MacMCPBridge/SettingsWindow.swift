@@ -70,9 +70,11 @@ final class SettingsWindowModel: ObservableObject {
     @Published var calendarAccess = false
     @Published var calendarReadOnly = true
     @Published var calendarSettingsAvailable = false
+    @Published var showingCalendarSettings = false
     @Published var remindersAccess = false
     @Published var remindersReadOnly = true
     @Published var remindersSettingsAvailable = false
+    @Published var showingRemindersSettings = false
 
     @Published var mailAccounts: [MailAccount] = [] {
         didSet { onMailAccountCountChanged?(mailAccounts.count) }
@@ -95,6 +97,8 @@ final class SettingsWindowModel: ObservableObject {
     var onRemindersChanged: ((Bool) -> Void)?
     var onOpenCalendarSettings: (() -> Void)?
     var onOpenRemindersSettings: (() -> Void)?
+    var onCalendarWriteAccessChanged: ((Bool) -> Void)?
+    var onRemindersWriteAccessChanged: ((Bool) -> Void)?
     var onMailAccountChanged: ((String, Bool) -> Void)?
     var onOpenMailAccountSettings: ((String) -> Void)?
     var onAddMailAccount: (() -> Void)?
@@ -126,6 +130,16 @@ final class SettingsWindowModel: ObservableObject {
     func setRemindersAccess(_ enabled: Bool) {
         remindersAccess = enabled
         onRemindersChanged?(enabled)
+    }
+
+    func setCalendarWriteAccess(_ enabled: Bool) {
+        calendarReadOnly = !enabled
+        onCalendarWriteAccessChanged?(enabled)
+    }
+
+    func setRemindersWriteAccess(_ enabled: Bool) {
+        remindersReadOnly = !enabled
+        onRemindersWriteAccessChanged?(enabled)
     }
 
     func setMailAccountEnabled(id: String, enabled: Bool) {
@@ -285,6 +299,26 @@ struct SettingsWindowView: View {
                 onSave: { form in
                     model.onSaveTunnel?(form)
                 }
+            )
+        }
+        .sheet(isPresented: $model.showingCalendarSettings) {
+            SettingsEventKitAccessEditor(
+                title: "Calendar",
+                detail: "Allow creating and updating calendar events. MacMCP cannot delete events, invite attendees, move events, or manage recurring events.",
+                writeAccess: Binding(
+                    get: { !model.calendarReadOnly },
+                    set: { model.setCalendarWriteAccess($0) }
+                )
+            )
+        }
+        .sheet(isPresented: $model.showingRemindersSettings) {
+            SettingsEventKitAccessEditor(
+                title: "Reminders",
+                detail: "Allow creating and completing reminders. MacMCP cannot delete or reopen reminders, change recurrence, move them, or set location triggers.",
+                writeAccess: Binding(
+                    get: { !model.remindersReadOnly },
+                    set: { model.setRemindersWriteAccess($0) }
+                )
             )
         }
     }
@@ -631,6 +665,45 @@ private struct SettingsReadOnlyChip: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(Color.secondary.opacity(0.12), in: Capsule())
+    }
+}
+
+private struct SettingsEventKitAccessEditor: View {
+    let title: String
+    let detail: String
+    @Binding var writeAccess: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("\(title) access")
+                .font(.title2.weight(.semibold))
+            Text(detail)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Divider()
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("MCP write access")
+                    Text(writeAccess ? "Read and write" : "Read-only")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Toggle("", isOn: $writeAccess)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+            }
+            Spacer()
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 420, height: 250, alignment: .topLeading)
     }
 }
 

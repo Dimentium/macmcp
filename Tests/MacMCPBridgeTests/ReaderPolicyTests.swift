@@ -25,11 +25,42 @@ final class ReaderPolicyTests: XCTestCase {
         )
     }
 
-    func testUnifiedToolSurfaceIncludesMailActions() {
+    func testUnifiedToolSurfaceIncludesNarrowMailAndEventKitActions() {
         XCTAssertEqual(
-            ReaderPolicy.allRules.map(\.publicName).suffix(3),
-            ["mail.create_managed_draft", "mail.update_managed_draft", "mail.mark"]
+            ReaderPolicy.allRules.map(\.publicName).suffix(7),
+            [
+                "mail.create_managed_draft",
+                "mail.update_managed_draft",
+                "mail.mark",
+                "calendar.create",
+                "calendar.update",
+                "reminders.create",
+                "reminders.complete"
+            ]
         )
+    }
+
+    func testEventKitActionPolicyExcludesDestructiveAndAdvancedFields() {
+        let rules = Dictionary(
+            uniqueKeysWithValues: ReaderPolicy.eventKitActionRules.map { ($0.publicName, $0) }
+        )
+
+        XCTAssertEqual(rules["calendar.create"]?.allowedArguments, [
+            "title", "start_time", "end_time", "notes", "location", "url",
+            "calendar_name", "calendar_source", "all_day", "timezone"
+        ])
+        XCTAssertEqual(rules["calendar.update"]?.allowedArguments, [
+            "event_id", "title", "start_time", "end_time", "notes", "location",
+            "all_day", "timezone", "clear_timezone"
+        ])
+        XCTAssertEqual(rules["reminders.create"]?.allowedArguments, [
+            "title", "notes", "due_date", "priority", "calendar_name", "calendar_source"
+        ])
+        XCTAssertEqual(rules["reminders.complete"]?.allowedArguments, ["reminder_id"])
+        XCTAssertEqual(rules["reminders.complete"]?.defaultArguments, ["completed": .bool(true)])
+        XCTAssertFalse(rules.values.contains { $0.allowedArguments.contains("recurrence") })
+        XCTAssertFalse(rules.values.contains { $0.allowedArguments.contains("alarms") })
+        XCTAssertFalse(rules.values.contains { $0.allowedArguments.contains("location_trigger") })
     }
 
     func testMailReadForcesNonMutatingArguments() throws {

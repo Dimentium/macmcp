@@ -50,10 +50,14 @@ final class SettingsWindowTests: XCTestCase {
         var launchValue: Bool?
         var tunnelValue: Bool?
         var calendarValue: Bool?
+        var calendarWriteValue: Bool?
+        var remindersWriteValue: Bool?
         var mailValue: (String, Bool)?
         model.onLaunchAtLoginChanged = { launchValue = $0 }
         model.onTunnelChanged = { tunnelValue = $0 }
         model.onCalendarChanged = { calendarValue = $0 }
+        model.onCalendarWriteAccessChanged = { calendarWriteValue = $0 }
+        model.onRemindersWriteAccessChanged = { remindersWriteValue = $0 }
         model.onMailAccountChanged = { mailValue = ($0, $1) }
         model.mailAccounts = [
             SettingsWindowModel.MailAccount(
@@ -72,11 +76,17 @@ final class SettingsWindowTests: XCTestCase {
         model.setLaunchAtLogin(true)
         model.setTunnelEnabled(false)
         model.setCalendarAccess(false)
+        model.setCalendarWriteAccess(true)
+        model.setRemindersWriteAccess(true)
         model.setMailAccountEnabled(id: "gmail", enabled: false)
 
         XCTAssertEqual(launchValue, true)
         XCTAssertEqual(tunnelValue, false)
         XCTAssertEqual(calendarValue, false)
+        XCTAssertEqual(calendarWriteValue, true)
+        XCTAssertEqual(remindersWriteValue, true)
+        XCTAssertFalse(model.calendarReadOnly)
+        XCTAssertFalse(model.remindersReadOnly)
         XCTAssertEqual(mailValue?.0, "gmail")
         XCTAssertEqual(mailValue?.1, false)
         XCTAssertFalse(model.mailAccounts[0].enabled)

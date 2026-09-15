@@ -13,7 +13,7 @@ enum MacMCPServerMetadata {
     """
 
     static func toolDescription(for publicName: String, exposure: ToolExposure) -> String {
-        if exposure == .mailAction {
+        if exposure == .mailAction || exposure == .eventKitAction {
             return actionDescription(for: publicName)
         }
 
@@ -60,6 +60,14 @@ enum MacMCPServerMetadata {
             return "Update an existing recipient-free managed draft in local macOS Mail. Use only after the user explicitly asks to change that draft and supplies the current revision; this tool cannot send email."
         case "mail.mark":
             return "Change a read/unread or flagged state on a message in local macOS Mail. Use only after the user explicitly asks to modify the message."
+        case "calendar.create":
+            return "Create one local Apple Calendar event. Use only after the user explicitly asks to add it; invitations, recurrence, deletion, and moving events are not supported."
+        case "calendar.update":
+            return "Update one existing local Apple Calendar event. Use only after the user explicitly asks to change it; recurrence, deletion, and moving events are not supported."
+        case "reminders.create":
+            return "Create one local Apple Reminder. Use only after the user explicitly asks to add it; recurrence, deletion, and moving reminders are not supported."
+        case "reminders.complete":
+            return "Mark one local Apple Reminder complete. Use only after the user explicitly asks to change it."
         default:
             return "Mail action in local macOS Mail. Use only after an explicit user request; it cannot send email."
         }
