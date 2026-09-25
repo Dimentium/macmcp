@@ -97,26 +97,30 @@ struct MailAccountConfiguration: Equatable, Sendable {
 
     private static func validateID(_ id: String) throws {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
-        guard !id.isEmpty, id.utf8.count <= 64,
-              id.unicodeScalars.allSatisfy(allowed.contains)
-        else {
+        guard !id.isEmpty, id.utf8.count <= 64 else {
+            throw MailSidecarConfigurationError.invalidAccountID
+        }
+        for scalar in id.unicodeScalars where !allowed.contains(scalar) {
             throw MailSidecarConfigurationError.invalidAccountID
         }
     }
 
     private static func validateUsername(_ username: String) throws {
-        guard !username.isEmpty, username.utf8.count <= 254,
-              !username.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
-        else {
+        guard !username.isEmpty, username.utf8.count <= 254 else {
+            throw MailSidecarConfigurationError.invalidUsername
+        }
+        let controls = CharacterSet.controlCharacters
+        for scalar in username.unicodeScalars where controls.contains(scalar) {
             throw MailSidecarConfigurationError.invalidUsername
         }
     }
 
     private static func validateHost(_ host: String) throws {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-."))
-        guard !host.isEmpty, host.utf8.count <= 253,
-              host.unicodeScalars.allSatisfy(allowed.contains)
-        else {
+        guard !host.isEmpty, host.utf8.count <= 253 else {
+            throw MailSidecarConfigurationError.invalidHost
+        }
+        for scalar in host.unicodeScalars where !allowed.contains(scalar) {
             throw MailSidecarConfigurationError.invalidHost
         }
     }

@@ -57,6 +57,41 @@ final class MailSidecarConfigurationTests: XCTestCase {
         XCTAssertEqual(account.imapSecurity, .tls)
     }
 
+    func testBuiltInAccountsAcceptTheirASCIIIDsAndHosts() throws {
+        let iCloud = try MailAccountConfiguration.iCloud(address: "reader@icloud.com")
+        let gmail = try MailAccountConfiguration.gmail(address: "reader@gmail.com")
+        let custom = try MailAccountConfiguration(
+            id: "work-account_1",
+            username: "reader@example.com",
+            imapHost: "imap.example-1.com"
+        )
+
+        XCTAssertEqual(iCloud.id, "icloud")
+        XCTAssertEqual(iCloud.imapHost, "imap.mail.me.com")
+        XCTAssertEqual(gmail.id, "gmail")
+        XCTAssertEqual(gmail.imapHost, "imap.gmail.com")
+        XCTAssertEqual(custom.id, "work-account_1")
+        XCTAssertEqual(custom.imapHost, "imap.example-1.com")
+    }
+
+    func testRejectsInvalidAccountIDsAndIMAPHosts() {
+        XCTAssertThrowsError(
+            try MailAccountConfiguration.gmail(address: "reader@gmail.com", id: "bad/id")
+        ) { error in
+            XCTAssertEqual(error as? MailSidecarConfigurationError, .invalidAccountID)
+        }
+
+        XCTAssertThrowsError(
+            try MailAccountConfiguration(
+                id: "work",
+                username: "reader@example.com",
+                imapHost: "imap.example.com/path"
+            )
+        ) { error in
+            XCTAssertEqual(error as? MailSidecarConfigurationError, .invalidHost)
+        }
+    }
+
     func testPlainIMAPRequiresExplicitUnsafeOverride() {
         XCTAssertThrowsError(
             try MailAccountConfiguration(

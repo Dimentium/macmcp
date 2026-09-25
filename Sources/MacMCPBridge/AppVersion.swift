@@ -1,4 +1,4 @@
 enum AppVersion {
     static let name = "MacMCP"
-    static let version = "0.2.33"
+    static let version = "0.2.34"
 }

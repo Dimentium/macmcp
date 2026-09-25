@@ -33,6 +33,12 @@ Release execution details, including the local acceptance gate and the
 Keychain-prompt caveat of the optional deep IMAP validator, are kept in
 [docs/RELEASING.md](RELEASING.md).
 
+The 0.2.33 signed release and Cask are published and installed on the target
+Mac, but optimized account and sidecar identifier validation prevented the
+app runtime from starting. Version 0.2.34 contains the fix and adds
+release-configuration tests. Local reader and recipient-draft acceptance must
+be repeated after the runtime is ready.
+
 ## Direction
 
 1. Keep the signed Cask install/upgrade and direct release install reliable.

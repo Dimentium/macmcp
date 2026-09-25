@@ -34,4 +34,4 @@
 - [x] Remove completed Settings UX verification from the active plan
 - [>] Validate the app-managed tunnel-backed product path
 - [x] Add opt-in read-only attachment fixture validation
-- [>] Publish and install MacMCP 0.2.33 after restoring Developer ID signing, notarization profile, and GitHub authentication
+- [>] Fix optimized account/sidecar validation; publish and verify MacMCP 0.2.34

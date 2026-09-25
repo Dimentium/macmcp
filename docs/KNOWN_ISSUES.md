@@ -6,11 +6,13 @@ personal data.
 
 ## Deferred Verification
 
-- Recipient-aware managed drafts are implemented in the working tree, but the
-  installed 0.2.32 release still has the recipient-free contract. On the next
-  signed build, create a managed draft with To/Cc/Bcc recipients in the local
-  and ChatGPT paths, then update its content and confirm all recipients remain
-  in the draft. Do not send the acceptance draft.
+- The 0.2.33 release publishes recipient-aware managed drafts, but its
+  optimized account and sidecar identifier validators reject valid iCloud/Gmail
+  configuration, so the upgraded app runtime did not become ready. The pending
+  0.2.34 fix replaces those validators and adds optimized Swift tests. After
+  installation, create a managed draft with
+  To/Cc/Bcc recipients locally and through ChatGPT, update its content, and
+  confirm the recipients remain. Do not send the acceptance draft.
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
   `reminders.list` response with the old default of 100 items occupied about
   125 KiB because the untrusted-data envelope is intentionally present in both

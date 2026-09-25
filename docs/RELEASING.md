@@ -84,8 +84,8 @@ run; the release script intentionally refuses a dirty worktree.
 
 The normal release path is one command. First update `changelog.txt`, bump all
 source version fields, commit the intended release, and ensure the worktree is
-clean. The command
-runs the full tests, builds the pinned sidecars, signs and notarizes the app,
+clean. The command runs the full Swift test suite in both debug and optimized
+release configurations, builds the pinned sidecars, signs and notarizes the app,
 creates the ZIP and DMG release artifacts, validates Gatekeeper, tags and pushes
 the source commit, creates the GitHub
 Release, regenerates and commits the Cask and source formula, and pushes that
@@ -160,14 +160,13 @@ with `MACMCP_ATTACHMENT_FIXTURE_ACCOUNT`,
 has no such draft; it never creates, updates, sends, or deletes mail.
 
 The same gate runs automatically as the final step of
-`scripts/release.sh --install-local`. The current published and installed
-runtime is `MacMCP 0.2.32`; changes to these scripts and docs do not require a
-new binary release by themselves. The 0.2.32 publication completed through
-Apple notarization, GitHub, and Cask installation. A transient CloudKit ticket
-validation error immediately after notarization acceptance resolved on retry;
-the normal release script then completed the Cask upgrade, tunnel startup, and
-local MCP acceptance path. The installed runtime passes
-`macmcp diagnose --json` and `scripts/validate-local-mcp.sh`.
+`scripts/release.sh --install-local`. MacMCP 0.2.33 is published and installed
+locally, but its optimized account and sidecar identifier validators rejected
+valid IDs and the runtime did not become ready after the Cask upgrade. The
+release script stopped before this local acceptance gate. The pending 0.2.34
+change fixes the validators, and release mode is now tested before signing so
+this class of startup failure is caught before publication. The 0.2.32
+publication and its runtime acceptance remain historical verified state.
 
 The 0.2.24 build also patches the pinned MCP Swift SDK's empty-pipe retry from
 10 ms to 100 ms. The patch is applied by `scripts/patch-mcp-sdk-stdio.sh` to

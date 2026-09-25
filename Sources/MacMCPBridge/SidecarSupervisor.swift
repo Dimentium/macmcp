@@ -287,7 +287,10 @@ actor SidecarSupervisor {
     static func isValidIdentifier(_ value: String) -> Bool {
         guard !value.isEmpty else { return false }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
-        return value.unicodeScalars.allSatisfy(allowed.contains)
+        for scalar in value.unicodeScalars where !allowed.contains(scalar) {
+            return false
+        }
+        return true
     }
 
     static func minimalEnvironment(from source: [String: String]) -> [String: String] {

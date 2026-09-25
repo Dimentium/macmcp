@@ -276,6 +276,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(script.contains("git status --porcelain"))
         XCTAssertTrue(script.contains("patch-mcp-sdk-stdio.sh"))
         XCTAssertTrue(script.contains("swift test"))
+        XCTAssertTrue(script.contains("swift test -c release"))
         XCTAssertTrue(script.contains("notarize-local-app.sh"))
         XCTAssertTrue(script.contains("git tag -a \"$tag\""))
         XCTAssertTrue(script.contains("gh release create \"$tag\""))
@@ -330,9 +331,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(appVersion.contains("static let version = \"0.2.33\""))
-        XCTAssertTrue(appInfo.contains("<string>0.2.33</string>"))
-        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.33</string>").count, 3)
+        XCTAssertTrue(appVersion.contains("static let version = \"0.2.34\""))
+        XCTAssertTrue(appInfo.contains("<string>0.2.34</string>"))
+        XCTAssertEqual(bundleInfo.components(separatedBy: "<string>0.2.34</string>").count, 3)
     }
 
     func testLocalArchiveScriptExcludesWorkspaceArtifacts() throws {

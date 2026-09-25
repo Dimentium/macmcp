@@ -249,9 +249,10 @@ git ls-remote --exit-code --tags "$remote" "refs/tags/$tag" >/dev/null 2>&1 && {
 printf 'Release version: %s\nSource commit: %s\nPublic remote: %s\n' \
   "$version" "$source_revision" "$remote"
 
-log_step 2 "Run the full test suite"
+log_step 2 "Run the full debug and release test suites"
 "$script_dir/patch-mcp-sdk-stdio.sh" --package-path "$project_dir"
 swift test
+swift test -c release
 require_clean_worktree
 
 log_step 3 "Build, sign, notarize, and assess the app"
