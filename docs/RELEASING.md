@@ -160,13 +160,17 @@ with `MACMCP_ATTACHMENT_FIXTURE_ACCOUNT`,
 has no such draft; it never creates, updates, sends, or deletes mail.
 
 The same gate runs automatically as the final step of
-`scripts/release.sh --install-local`. MacMCP 0.2.33 is published and installed
-locally, but its optimized account and sidecar identifier validators rejected
-valid IDs and the runtime did not become ready after the Cask upgrade. The
-release script stopped before this local acceptance gate. The pending 0.2.34
-change fixes the validators, and release mode is now tested before signing so
-this class of startup failure is caught before publication. The 0.2.32
-publication and its runtime acceptance remain historical verified state.
+`scripts/release.sh --install-local`. MacMCP 0.2.34 is published and installed
+locally. The runtime became ready after 30 seconds; `macmcp diagnose --json`
+reports Mail, Calendar, Reminders, and the tunnel ready, and the local gate
+passes for both Mail accounts and 21 tools. A controlled local managed-draft
+acceptance created and updated an iCloud draft with To/Cc/Bcc addresses under
+`example.invalid`; all three remained searchable in Drafts, and the draft was
+not sent. Refresh the ChatGPT MCP connection before running the remote
+recipient-aware acceptance because its current tool descriptor is stale. The
+release-optimized identifier regression is covered by running Swift tests in
+both debug and optimized configurations before signing. The 0.2.32 publication
+and its runtime acceptance remain historical verified state.
 
 The 0.2.24 build also patches the pinned MCP Swift SDK's empty-pipe retry from
 10 ms to 100 ms. The patch is applied by `scripts/patch-mcp-sdk-stdio.sh` to

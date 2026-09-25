@@ -3,8 +3,8 @@
 Last verified: 2026-09-25
 Repository: `Dimentium/macmcp`
 Working branch: `ux/settings-window` (published through `public/main`)
-Current published and installed bundle: `MacMCP 0.2.33`; its runtime failed to
-start after the local Cask upgrade. The 0.2.34 startup fix is pending.
+Current published and installed app: `MacMCP 0.2.34`; the runtime and local
+reader acceptance are healthy.
 
 This is the canonical current-state handoff. Read it first, then use
 `docs/PLAN.md` for forward work, `docs/KNOWN_ISSUES.md` for unresolved items,
@@ -35,11 +35,10 @@ The project is beyond MVP for local use:
 - Calendar and Reminders each also have a separate default-off write gate in
   Settings. Enabling it exposes only the reviewed narrow action tools and
   takes effect for all transports without a restart.
-- The published 0.2.33 contract accepts optional To/Cc/Bcc on managed draft
-  creation and preserves them through content updates. The Cask installed its
-  bundle locally, but optimized validation rejected valid account and sidecar
-  IDs at startup. The 0.2.34 fix adds a release-mode test gate; controlled Mail
-  and ChatGPT draft acceptance remains pending.
+- MacMCP 0.2.34 accepts optional To/Cc/Bcc on managed draft creation and
+  preserves them through content updates. A local iCloud acceptance created
+  and updated an unsent draft with all three recipient types; remote ChatGPT
+  acceptance is pending a client tool-schema refresh.
 - The signed Cask upgrade path, app restart, single-instance lock, diagnostics,
   log rotation, uninstall preservation, and local acceptance gate exist.
 - The Cask is the preferred path on Macs with Homebrew: it installs, upgrades,
@@ -57,13 +56,23 @@ The project is beyond MVP for local use:
 
 ## Current Release Verification
 
-The 0.2.33 source and signed artifacts were published, and the local Cask
-upgrade installed bundle version 0.2.33. The app did not reach runtime-ready
-state: release diagnostics reported the bridge and tunnel unavailable, and the
-local acceptance step did not run. Optimized validation rejected standard
-account and sidecar IDs although debug tests passed. The corrected 0.2.34
-release runs the full Swift suite in both debug and optimized release
-configurations before publishing.
+The signed 0.2.34 release is published at
+https://github.com/Dimentium/macmcp/releases/tag/v0.2.34. The local Cask
+upgraded from 0.2.33; the app became ready after 30 seconds. Diagnostics show
+bridge, Mail (two accounts), Calendar, Reminders, and the tunnel ready, with
+`launchAtLogin=true` and `loginItem=enabled`. The local release gate passed for
+21 tools, both Mail accounts, Calendar, and Reminders. Process review found one
+app runtime, one `tunnel-client`, and one tunnel-owned stdio proxy; the other
+stdio proxies belong to external local MCP clients.
+
+The release also fixes an optimized-build validation bug in mail account and
+sidecar identifiers. Both full Swift suites passed (215 tests each), as did
+`go test ./...`; the release script now runs debug and optimized Swift suites
+before signing. A controlled local acceptance created a managed iCloud draft
+with To/Cc/Bcc addresses under `example.invalid`, updated it using its exact
+revision, and confirmed all three addresses remained searchable in Drafts. The
+draft was not sent. The connected ChatGPT tool descriptor still exposes the
+older recipient-free schema; refresh that client before remote acceptance.
 
 ## Previously Verified State (0.2.32)
 
@@ -115,9 +124,9 @@ managed drafts were created and updated, and disabling `Draft creation allowed`
 blocked a later update immediately without restarting MacMCP. Routine signed
 Cask updates did not break existing ChatGPT chats.
 
-When the 0.2.32 runtime was healthy, a Codex MCP tool context once returned
-`Transport closed`; this was a stale client-session condition. The currently
-installed 0.2.33 runtime is separately unavailable due to its startup bug.
+Earlier releases had a stale `Transport closed` client-session condition.
+After 0.2.34, the local runtime is healthy; the remaining stale client state is
+the recipient-free tool schema until that MCP connection is refreshed.
 
 The Settings window is a completed, released part of the app. It was verified
 with a production Swift build, the full XCTest suite, a locally launched
@@ -193,9 +202,10 @@ Mail action rules:
 - Each account starts with `Draft creation allowed` disabled.
 - The account control is in `MacMCP > Open Settings...`.
 - The control gates local MCP, STDIO, and ChatGPT tunnel calls immediately.
-- The published 0.2.33 contract accepts optional To/Cc/Bcc recipients,
+- The published 0.2.34 contract accepts optional To/Cc/Bcc recipients,
   validates them, and preserves them through updates. It still excludes
-  `Reply-To` and `Resent-*`. Runtime acceptance awaits the 0.2.34 startup fix.
+  `Reply-To` and `Resent-*`. Local acceptance passed; refresh the remote client
+  schema before ChatGPT acceptance.
 - Only drafts carrying the valid MacMCP marker can be updated.
 - Updating requires the exact current revision.
 - The bridge never sends mail and never exposes a delete action.
@@ -269,14 +279,14 @@ The script tests, builds, signs, notarizes, publishes the GitHub release,
 regenerates Cask/formula metadata, upgrades the local Cask, restarts the app,
 and runs the local gate. Release logs are private files under `dist/`.
 
-Do not run a binary release for documentation-only or validator-only changes.
+Do not run a binary release for documentation-only or script-only validator
+changes.
 Do not manually replace the Cask unless diagnosing a failed release step.
 
 ## Open Work, In Order
 
-1. Publish and install 0.2.34 after fixing optimized account and sidecar
-   identifier validation.
-   Then run controlled To/Cc/Bcc create-and-update acceptance locally and
+1. Refresh the ChatGPT MCP connection so it discovers the recipient-aware
+   tool schema, then run controlled To/Cc/Bcc create-and-update acceptance
    through ChatGPT using the checks in `docs/RELEASING.md`.
 2. Clarify and, only if needed, validate a genuine Codex/API
    tunnel-backed-target flow. The current local Codex path is already direct
@@ -297,11 +307,11 @@ and the actual `SMAppService.mainApp.status`. On the installed 0.2.24 runtime
 both the diagnostic and direct Login Item query report `enabled`; no Login
 Item behavior change is needed.
 
-The 0.2.33 publication completed through Apple notarization, GitHub, and the
-Homebrew Cask, but its local runtime did not become ready after upgrade. The
-release-only account validation bug blocked the final local acceptance step;
-0.2.34 is the pending fix. The 0.2.32 publication completed through Apple
-notarization, GitHub, and the Homebrew Cask. The local Cask upgraded from
+The 0.2.34 publication completed through Apple notarization, GitHub, and the
+Homebrew Cask; the upgraded runtime and local acceptance passed. The 0.2.33
+runtime initially failed because optimized identifier validation rejected
+valid configuration; 0.2.34 contains the fix. The 0.2.32 publication
+completed through Apple notarization, GitHub, and the Homebrew Cask. The local Cask upgraded from
 0.2.31 to 0.2.32; the installed app, Calendar, Reminders, Mail, and tunnel all
 became ready, and the standard
 17-tool reader acceptance passed. The 0.2.31 publication completed through Apple notarization, GitHub, and the

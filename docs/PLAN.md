@@ -33,11 +33,11 @@ Release execution details, including the local acceptance gate and the
 Keychain-prompt caveat of the optional deep IMAP validator, are kept in
 [docs/RELEASING.md](RELEASING.md).
 
-The 0.2.33 signed release and Cask are published and installed on the target
-Mac, but optimized account and sidecar identifier validation prevented the
-app runtime from starting. Version 0.2.34 contains the fix and adds
-release-configuration tests. Local reader and recipient-draft acceptance must
-be repeated after the runtime is ready.
+The signed 0.2.34 release is installed on the target Mac. The bridge, two Mail
+accounts, Calendar, Reminders, and tunnel are ready, and the local reader gate
+passes. Optimized account and sidecar identifier validation is covered by the
+release-configuration test run. Local To/Cc/Bcc draft create/update acceptance
+passed; remote ChatGPT acceptance remains pending a client tool-schema refresh.
 
 ## Direction
 

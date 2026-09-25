@@ -6,13 +6,12 @@ personal data.
 
 ## Deferred Verification
 
-- The 0.2.33 release publishes recipient-aware managed drafts, but its
-  optimized account and sidecar identifier validators reject valid iCloud/Gmail
-  configuration, so the upgraded app runtime did not become ready. The pending
-  0.2.34 fix replaces those validators and adds optimized Swift tests. After
-  installation, create a managed draft with
-  To/Cc/Bcc recipients locally and through ChatGPT, update its content, and
-  confirm the recipients remain. Do not send the acceptance draft.
+- Local recipient-aware managed-draft acceptance passed on MacMCP 0.2.34: an
+  iCloud draft with To/Cc/Bcc addresses under `example.invalid` was updated
+  using the exact revision and all three addresses remained searchable. The
+  draft was not sent. The connected ChatGPT MCP descriptor still shows the
+  recipient-free schema; refresh that connection, then repeat create/update
+  acceptance through ChatGPT without sending the draft.
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
   `reminders.list` response with the old default of 100 items occupied about
   125 KiB because the untrusted-data envelope is intentionally present in both
@@ -40,6 +39,10 @@ personal data.
   source or ad-hoc install must be updated through its normal source workflow.
 
 ## Resolved Since The 2026-09-05 Audit
+
+- MacMCP 0.2.34 fixes release-optimized validation of mail account and sidecar
+  identifiers. The debug and optimized Swift suites both pass, and the signed
+  Cask upgrade reaches a ready runtime and passes the local MCP reader gate.
 
 - MacMCP 0.2.30 records an exact tunnel runtime lease and only reclaims a
   matching app-owned process after an interrupted restart. A same-profile

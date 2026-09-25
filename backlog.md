@@ -34,4 +34,5 @@
 - [x] Remove completed Settings UX verification from the active plan
 - [>] Validate the app-managed tunnel-backed product path
 - [x] Add opt-in read-only attachment fixture validation
-- [>] Fix optimized account/sidecar validation; publish and verify MacMCP 0.2.34
+- [x] Fix optimized account/sidecar validation; publish and verify MacMCP 0.2.34
+- [>] Refresh ChatGPT MCP schema and verify To/Cc/Bcc managed-draft create/update without sending
