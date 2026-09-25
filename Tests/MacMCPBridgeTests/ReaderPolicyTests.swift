@@ -246,14 +246,17 @@ final class ReaderPolicyTests: XCTestCase {
         ) { error in
             XCTAssertEqual(error as? ReaderPolicyError, .invalidArgument("action"))
         }
-        XCTAssertThrowsError(
-            try policy.prepareArguments(
-                for: "mail.create_managed_draft",
-                supplied: ["to": .array([.string("person@example.com")])]
-            )
-        ) { error in
-            XCTAssertEqual(error as? ReaderPolicyError, .unknownArgument("to"))
-        }
+        let draftArguments = try policy.prepareArguments(
+            for: "mail.create_managed_draft",
+            supplied: [
+                "to": .array([.string("person@example.com")]),
+                "cc": .array([.string("copy@example.com")]),
+                "bcc": .array([.string("blind@example.com")])
+            ]
+        )
+        XCTAssertEqual(draftArguments["to"], .array([.string("person@example.com")]))
+        XCTAssertEqual(draftArguments["cc"], .array([.string("copy@example.com")]))
+        XCTAssertEqual(draftArguments["bcc"], .array([.string("blind@example.com")]))
     }
 
     func testMailActionProjectionMarksMutatingToolAndNarrowedEnum() throws {

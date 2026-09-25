@@ -136,6 +136,15 @@ real `structuredContent`, both configured mail accounts, Calendar, and
 Reminders. It does not start
 `tunnel-client`, create drafts, change message flags, or modify mail data.
 
+For a release that changes managed draft behavior, supplement the no-mutation
+gate with a controlled mail-action acceptance on an account where Draft
+creation allowed is explicitly enabled. Create a draft with test To, Cc, and
+Bcc recipients, update its content with the exact returned `message_id` and
+`revision`, and confirm the replacement retains all recipients. Confirm the
+draft remains unsent; remove the test draft manually in the mail client if it
+is no longer needed. Exercise the same flow through ChatGPT when the release
+changes the tunnel-facing tool contract.
+
 When a deliberately prepared local attachment fixture exists, exercise the
 bounded attachment reader as an additional read-only check:
 

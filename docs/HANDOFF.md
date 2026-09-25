@@ -34,7 +34,14 @@ The project is beyond MVP for local use:
 - Calendar and Reminders each also have a separate default-off write gate in
   Settings. Enabling it exposes only the reviewed narrow action tools and
   takes effect for all transports without a restart.
-- Managed drafts are recipient-free and protected by a Keychain-backed marker.
+- Published 0.2.32 managed drafts are recipient-free and protected by a
+  Keychain-backed marker. The working tree now accepts optional To/Cc/Bcc on
+  creation and preserves them through content updates; release acceptance is
+  still pending.
+- The 0.2.33 release candidate passes `go test ./...`, all 213 Swift tests,
+  and a build of the pinned mail sidecar with the checked-in recipient patch.
+  These automated checks do not replace the pending controlled Mail and
+  ChatGPT draft acceptance.
 - The signed Cask upgrade path, app restart, single-instance lock, diagnostics,
   log rotation, uninstall preservation, and local acceptance gate exist.
 - The Cask is the preferred path on Macs with Homebrew: it installs, upgrades,
@@ -180,7 +187,9 @@ Mail action rules:
 - Each account starts with `Draft creation allowed` disabled.
 - The account control is in `MacMCP > Open Settings...`.
 - The control gates local MCP, STDIO, and ChatGPT tunnel calls immediately.
-- Managed drafts have no `To`, `Cc`, `Bcc`, `Reply-To`, or `Resent-*` headers.
+- The published 0.2.32 app creates drafts without `To`, `Cc`, or `Bcc`. The
+  working tree adds optional To/Cc/Bcc recipients, validates them, and
+  preserves them through updates. It still excludes `Reply-To` and `Resent-*`.
 - Only drafts carrying the valid MacMCP marker can be updated.
 - Updating requires the exact current revision.
 - The bridge never sends mail and never exposes a delete action.
@@ -258,7 +267,11 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 ## Open Work, In Order
 
-1. Clarify and, only if needed, validate a genuine Codex/API
+1. Validate recipient-aware managed drafts before release. The working tree
+   accepts To/Cc/Bcc on creation and preserves them during content updates; the
+   installed 0.2.32 release does not include this change. Use the checks in
+   `docs/RELEASING.md` before publishing it.
+2. Clarify and, only if needed, validate a genuine Codex/API
    tunnel-backed-target flow. The current local Codex path is already direct
    STDIO. The app-owned tunnel profile has passed the local `healthz`/`readyz`
    probe with a live control-plane poll, and its tunnel metadata was read
@@ -266,7 +279,7 @@ Do not manually replace the Cask unless diagnosing a failed release step.
    wording is intentionally product-surface-specific; do not infer an
    endpoint from `tunnel_id`. The remaining check is manual: select or paste
    this tunnel in the target ChatGPT workspace's developer-mode app.
-2. Validate large Calendar, Reminders, and attachment responses through the
+3. Validate large Calendar, Reminders, and attachment responses through the
    remote ChatGPT/tunnel product surface. Local attachment text extraction has
    already passed; the default local gate remains fixture-free, while the
    explicit fixture mode calls one attachment.
@@ -350,6 +363,8 @@ not a reason to change the local bridge without a reproduction.
 - `Sources/MacMCPBridge/MailActionAccessStore.swift`: account read-only state.
 - `Sources/MacMCPBridge/MCPDataAccess.swift`: Calendar/Reminders MCP gates.
 - `Sources/MacMCPBridge/ManagedDraftKeyStore.swift`: draft marker key.
+- `Packaging/Patches/mail-mcp-managed-draft-recipients.patch`: recipient-aware
+  managed draft overlay applied to the pinned mail sidecar build.
 - `Sources/MacMCPBridge/AttachmentTextReader.swift`: bounded text extraction.
 - `scripts/release.sh`: normal release entrypoint.
 - `scripts/validate-local-mcp.sh`: normal local acceptance gate.

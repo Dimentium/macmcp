@@ -1,0 +1,240 @@
+diff --git a/internal/tools/managed_draft.go b/internal/tools/managed_draft.go
+index 9949884..7919cd7 100644
+--- a/internal/tools/managed_draft.go
++++ b/internal/tools/managed_draft.go
+@@ -27,3 +27,3 @@ const managedDraftRevisionHeader = "X-MacMCP-Managed-Revision"
+-// managedDraftInput intentionally has no recipient, reply, threading, or
+-// attachment fields. A managed draft can be reviewed and addressed only in a
+-// human mail client, never sent through this MCP surface.
++// managedDraftInput accepts recipients for a draft but intentionally has no
++// reply, threading, or attachment fields. A managed draft can be reviewed but
++// never sent through this MCP surface.
+@@ -32,3 +32,12 @@ type managedDraftInput struct {
+-	Subject  string `json:"subject" jsonschema:"draft subject line, single line, no line breaks"`
+-	BodyText string `json:"body_text,omitempty" jsonschema:"plain text draft body; use separately from body_html"`
+-	BodyHTML string `json:"body_html,omitempty" jsonschema:"HTML draft body using real HTML tags; use separately from body_text"`
++	To       []string `json:"to,omitempty" jsonschema:"primary recipient addresses; plain addresses or \"Name <addr@example.com>\""`
++	Cc       []string `json:"cc,omitempty" jsonschema:"carbon-copy recipient addresses"`
++	Bcc      []string `json:"bcc,omitempty" jsonschema:"blind carbon-copy recipient addresses"`
++	Subject  string   `json:"subject" jsonschema:"draft subject line, single line, no line breaks"`
++	BodyText string   `json:"body_text,omitempty" jsonschema:"plain text draft body; use separately from body_html"`
++	BodyHTML string   `json:"body_html,omitempty" jsonschema:"HTML draft body using real HTML tags; use separately from body_text"`
++}
++
++type managedDraftRecipients struct {
++	To  []string
++	Cc  []string
++	Bcc []string
+@@ -62,2 +71,2 @@ func (s *Server) registerManagedDrafts(srv *mcp.Server) {
+-		Title: "Create a recipient-free managed draft",
+-		Description: "Create a locally managed draft without any recipient fields. It cannot send email. " +
++		Title: "Create a managed draft",
++		Description: "Create a locally managed draft with optional To, Cc, and Bcc recipients. It cannot send email. " +
+@@ -70,3 +79,3 @@ func (s *Server) registerManagedDrafts(srv *mcp.Server) {
+-		Title: "Update a recipient-free managed draft",
+-		Description: "Replace a locally managed recipient-free draft using its exact current revision. " +
+-			"The operation refuses drafts without the authenticated marker, drafts edited by a human, and drafts with recipient fields.",
++		Title: "Update a managed draft",
++		Description: "Replace a locally managed draft using its exact current revision while preserving its To, Cc, and Bcc recipients. " +
++			"The operation refuses drafts without the authenticated marker, drafts edited by a human, and drafts with unsupported reply or resent recipient fields.",
+@@ -95 +104,2 @@ func (s *Server) createManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+-	return s.saveManagedDraft(ctx, acc.ID, "", in.Subject, in.BodyText, in.BodyHTML, marker)
++	recipients := managedDraftRecipients{To: in.To, Cc: in.Cc, Bcc: in.Bcc}
++	return s.saveManagedDraft(ctx, acc.ID, "", in.Subject, in.BodyText, in.BodyHTML, marker, recipients)
+@@ -108,0 +119 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
++	var recipients managedDraftRecipients
+@@ -142,0 +154,4 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
++		recipients, err = managedDraftRecipientsFromRaw(raw)
++		if err != nil {
++			return fmt.Errorf("managed draft recipient fields are invalid; do not overwrite the draft")
++		}
+@@ -148 +163 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+-	return s.saveManagedDraft(ctx, acc.ID, in.MessageID, in.Subject, in.BodyText, in.BodyHTML, marker)
++	return s.saveManagedDraft(ctx, acc.ID, in.MessageID, in.Subject, in.BodyText, in.BodyHTML, marker, recipients)
+@@ -153,0 +169 @@ func (s *Server) saveManagedDraft(
++	recipients managedDraftRecipients,
+@@ -159 +175 @@ func (s *Server) saveManagedDraft(
+-	raw, err := buildManagedDraft(acc, subject, bodyText, bodyHTML, marker)
++	raw, err := buildManagedDraft(acc, subject, bodyText, bodyHTML, marker, recipients)
+@@ -208 +224 @@ func (s *Server) saveManagedDraft(
+-		out.Summary = "recipient-free managed draft saved"
++		out.Summary = "managed draft saved"
+@@ -210 +226 @@ func (s *Server) saveManagedDraft(
+-		out.Summary = "recipient-free managed draft updated"
++		out.Summary = "managed draft updated"
+@@ -215,2 +231,2 @@ func (s *Server) saveManagedDraft(
+-func buildManagedDraft(acc *config.Account, subject, bodyText, bodyHTML, marker string) ([]byte, error) {
+-	raw, err := buildManagedDraftRaw(acc, subject, bodyText, bodyHTML, marker, "")
++func buildManagedDraft(acc *config.Account, subject, bodyText, bodyHTML, marker string, recipients managedDraftRecipients) ([]byte, error) {
++	raw, err := buildManagedDraftRaw(acc, subject, bodyText, bodyHTML, marker, "", recipients)
+@@ -223 +239 @@ func buildManagedDraft(acc *config.Account, subject, bodyText, bodyHTML, marker
+-func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, marker, revision string) ([]byte, error) {
++func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, marker, revision string, recipients managedDraftRecipients) ([]byte, error) {
+@@ -228,0 +245,3 @@ func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, mark
++		To:                   recipients.To,
++		Cc:                   recipients.Cc,
++		Bcc:                  recipients.Bcc,
+@@ -242 +261,50 @@ func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, mark
+-	return raw.Bytes(), nil
++	return withManagedDraftBccHeader(raw.Bytes(), recipients.Bcc)
++}
++
++func withManagedDraftBccHeader(raw []byte, recipients []string) ([]byte, error) {
++	if len(recipients) == 0 {
++		return raw, nil
++	}
++
++	lineEnding := "\r\n"
++	separator := []byte("\r\n\r\n")
++	boundary := bytes.Index(raw, separator)
++	if boundary < 0 {
++		lineEnding = "\n"
++		separator = []byte("\n\n")
++		boundary = bytes.Index(raw, separator)
++	}
++	if boundary < 0 {
++		return nil, fmt.Errorf("managed draft has no header/body separator")
++	}
++
++	var header strings.Builder
++	header.WriteString("Bcc: ")
++	lineLength := len("Bcc: ")
++	for index, rawAddress := range recipients {
++		address, err := stdmail.ParseAddress(rawAddress)
++		if err != nil {
++			return nil, fmt.Errorf("invalid Bcc address")
++		}
++		formatted := address.String()
++		if index > 0 {
++			if lineLength+2+len(formatted) > 78 {
++				header.WriteString("," + lineEnding + "\t")
++				lineLength = 1
++			} else {
++				header.WriteString(", ")
++				lineLength += 2
++			}
++		}
++		if lineLength+len(formatted) > 998 {
++			return nil, fmt.Errorf("Bcc address exceeds the header line limit")
++		}
++		header.WriteString(formatted)
++		lineLength += len(formatted)
++	}
++	line := []byte(lineEnding + header.String())
++	result := make([]byte, 0, len(raw)+len(line))
++	result = append(result, raw[:boundary]...)
++	result = append(result, line...)
++	result = append(result, raw[boundary:]...)
++	return result, nil
+@@ -273 +341,4 @@ func validManagedDraftMarker(raw, key []byte) (string, bool, error) {
+-	if hasRecipientHeaders(message.Header) {
++	if hasForbiddenRecipientHeaders(message.Header) {
++		return "", false, nil
++	}
++	if _, err := managedDraftRecipientsFromHeader(message.Header); err != nil {
+@@ -307 +378,58 @@ func managedDraftReadInfo(raw, key []byte) *managedDraftReadOutput {
+-func hasRecipientHeaders(header stdmail.Header) bool {
++func managedDraftRecipientsFromRaw(raw []byte) (managedDraftRecipients, error) {
++	message, err := stdmail.ReadMessage(bytes.NewReader(raw))
++	if err != nil {
++		return managedDraftRecipients{}, err
++	}
++	return managedDraftRecipientsFromHeader(message.Header)
++}
++
++func managedDraftRecipientsFromHeader(header stdmail.Header) (managedDraftRecipients, error) {
++	parse := func(field string) ([]string, error) {
++		var addresses []string
++		for _, value := range managedDraftHeaderValues(header, field) {
++			if strings.TrimSpace(value) == "" {
++				return nil, fmt.Errorf("empty %s header", field)
++			}
++			parsed, err := stdmail.ParseAddressList(value)
++			if err != nil {
++				return nil, fmt.Errorf("invalid %s header", field)
++			}
++			for _, address := range parsed {
++				addresses = append(addresses, address.String())
++			}
++		}
++		if len(addresses) > 0 {
++			if err := send.ValidateRecipients(addresses, strings.ToLower(field)); err != nil {
++				return nil, err
++			}
++		}
++		return addresses, nil
++	}
++	to, err := parse("To")
++	if err != nil {
++		return managedDraftRecipients{}, err
++	}
++	cc, err := parse("Cc")
++	if err != nil {
++		return managedDraftRecipients{}, err
++	}
++	bcc, err := parse("Bcc")
++	if err != nil {
++		return managedDraftRecipients{}, err
++	}
++	if len(to)+len(cc)+len(bcc) > send.MaxRecipients {
++		return managedDraftRecipients{}, fmt.Errorf("managed draft recipient count exceeds the limit")
++	}
++	return managedDraftRecipients{To: to, Cc: cc, Bcc: bcc}, nil
++}
++
++func managedDraftHeaderValues(header stdmail.Header, field string) []string {
++	for name, values := range header {
++		if strings.EqualFold(name, field) {
++			return values
++		}
++	}
++	return nil
++}
++
++func hasForbiddenRecipientHeaders(header stdmail.Header) bool {
+@@ -309 +437 @@ func hasRecipientHeaders(header stdmail.Header) bool {
+-		"To", "Cc", "Bcc", "Reply-To", "Resent-To", "Resent-Cc", "Resent-Bcc", "Resent-Reply-To",
++		"Reply-To", "Resent-To", "Resent-Cc", "Resent-Bcc", "Resent-Reply-To",
+@@ -311,2 +439,4 @@ func hasRecipientHeaders(header stdmail.Header) bool {
+-		if strings.TrimSpace(header.Get(name)) != "" {
+-			return true
++		for _, value := range managedDraftHeaderValues(header, name) {
++			if strings.TrimSpace(value) != "" {
++				return true
++			}
+diff --git a/internal/tools/managed_draft_test.go b/internal/tools/managed_draft_test.go
+index 1e4d1a8..4ab35b9 100644
+--- a/internal/tools/managed_draft_test.go
++++ b/internal/tools/managed_draft_test.go
+@@ -11 +11 @@ import (
+-func TestManagedDraftMarkerAuthenticatesAndRejectsRecipients(t *testing.T) {
++func TestManagedDraftMarkerAuthenticatesRecipientsAndRejectsReplyTo(t *testing.T) {
+@@ -17 +17,6 @@ func TestManagedDraftMarkerAuthenticatesAndRejectsRecipients(t *testing.T) {
+-	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker)
++	recipients := managedDraftRecipients{
++		To:  []string{"person@example.com"},
++		Cc:  []string{"copy@example.com"},
++		Bcc: []string{"blind@example.com"},
++	}
++	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, recipients)
+@@ -26,3 +31,8 @@ func TestManagedDraftMarkerAuthenticatesAndRejectsRecipients(t *testing.T) {
+-	withRecipient := bytes.Replace(raw, []byte("Subject: Subject"), []byte("To: person@example.com\r\nSubject: Subject"), 1)
+-	if _, ok, err := validManagedDraftMarker(withRecipient, key); err != nil || ok {
+-		t.Fatalf("recipient-bearing draft = ok %v, err %v; want rejected", ok, err)
++	gotRecipients, err := managedDraftRecipientsFromRaw(raw)
++	if err != nil || len(gotRecipients.To) != 1 || len(gotRecipients.Cc) != 1 || len(gotRecipients.Bcc) != 1 {
++		t.Fatalf("managedDraftRecipientsFromRaw = %#v, err %v", gotRecipients, err)
++	}
++
++	withReplyTo := bytes.Replace(raw, []byte("Subject: Subject"), []byte("Reply-To: other@example.com\r\nSubject: Subject"), 1)
++	if _, ok, err := validManagedDraftMarker(withReplyTo, key); err != nil || ok {
++		t.Fatalf("Reply-To draft = ok %v, err %v; want rejected", ok, err)
+@@ -43 +53 @@ func TestManagedDraftRevisionChangesOnHumanEdit(t *testing.T) {
+-	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker)
++	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, managedDraftRecipients{})
+@@ -61 +71 @@ func TestManagedDraftReadInfoReturnsSavedRevisionAndAdoptsLegacyDrafts(t *testin
+-	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker)
++	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, managedDraftRecipients{})
+@@ -79 +89 @@ func TestManagedDraftReadInfoReturnsSavedRevisionAndAdoptsLegacyDrafts(t *testin
+-	legacy, err := buildManagedDraftRaw(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, "")
++	legacy, err := buildManagedDraftRaw(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, "", managedDraftRecipients{})

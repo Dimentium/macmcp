@@ -92,18 +92,20 @@ tunnel. Every configured account begins with Draft creation allowed disabled.
 The account toggle in `MacMCP > Open Settings...` enables or disables new action
 calls for that specific account immediately and persists across app restarts.
 
-It exposes only recipient-free managed drafts and one-message `read`, `unread`,
-`flagged`, or `unflagged` operations. SMTP, send, delete, move, and archive
-remain unavailable. Calendar and Reminder writes use their separate,
-default-off EventKit gates described above.
+It exposes managed drafts with optional `to`, `cc`, and `bcc` recipient arrays,
+plus one-message `read`, `unread`, `flagged`, or `unflagged` operations. Draft
+updates preserve the recipients from the current revision. SMTP, send, delete,
+move, and archive remain unavailable. Calendar and Reminder writes use their
+separate, default-off EventKit gates described above.
 
 Each managed draft has an HMAC marker created from a persistent Keychain key
 and held only in the private runtime sidecar config. Updating requires the
 exact revision returned by the previous operation; a legacy draft with the
 valid marker but without a revision header gets a one-time revision derived
 from its current MIME. The server refuses an invalid marker, a changed draft,
-or any `To`, `Cc`, `Bcc`, `Reply-To`, or
-`Resent-*` recipient header.
+or unsupported `Reply-To` and `Resent-*` recipient headers. Recipient arrays
+are validated before append and become part of the revision checked during
+updates.
 
 Updating appends the replacement before marking the prior draft deleted, without
 expunging it. A partial retirement is reported as `saved_unretired` and must
@@ -114,7 +116,7 @@ action profile; it needs a capability-gated design instead of being mapped to
 ## Not In The Current Plan
 
 - Raw headless LaunchAgent as the EventKit owner.
-- Mail mutations beyond recipient-free managed drafts and the four explicit
+- Mail mutations beyond managed drafts and the four explicit
   message-state changes and the narrow default-off EventKit writes described
   below, whether local or through the ChatGPT tunnel.
 - Notes, Contacts, Messages, Apple Mail private databases, Full Disk Access, or

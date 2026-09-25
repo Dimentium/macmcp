@@ -159,10 +159,11 @@ The tunnel path preserves the same account-gated contract as local MCP:
 
 ## Mail Actions
 
-MacMCP can create recipient-free managed drafts and change `read`, `unread`,
-`flagged`, or `unflagged` state. It cannot send email. These tools are available
-to the tunnel only when Draft creation allowed is enabled locally for the
-relevant account; every new account is blocked by default.
+MacMCP can create managed drafts with optional `to`, `cc`, and `bcc` recipient
+arrays and change `read`, `unread`, `flagged`, or `unflagged` state. Content
+updates preserve the draft's recipients. It cannot send email. These tools are
+available to the tunnel only when Draft creation allowed is enabled locally
+for the relevant account; every new account is blocked by default.
 
 ## Validation Gate
 

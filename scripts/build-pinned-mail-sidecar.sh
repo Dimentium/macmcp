@@ -139,6 +139,16 @@ for spec in "go.mod:$MAIL_GO_MOD_SHA256" "go.sum:$MAIL_GO_SUM_SHA256"; do
   fi
 done
 
+mail_patch="$project_dir/Packaging/Patches/mail-mcp-managed-draft-recipients.patch"
+if git -C "$mail_src" apply --unidiff-zero --reverse --check "$mail_patch" >/dev/null 2>&1; then
+  echo "mail-mcp managed-draft recipient patch is already applied" >&2
+elif git -C "$mail_src" apply --unidiff-zero --check "$mail_patch"; then
+  git -C "$mail_src" apply --unidiff-zero "$mail_patch"
+else
+  echo "mail-mcp managed-draft recipient patch does not apply to the pinned source" >&2
+  exit 1
+fi
+
 GOWORK=off GOFLAGS= go -C "$mail_src" build -trimpath -mod=readonly -buildvcs=false \
   -ldflags "-s -w -X main.version=$MAIL_VERSION" \
   -o "$mail_binary" \

@@ -201,7 +201,9 @@ struct ReaderPolicy: Sendable {
             publicName: "mail.create_managed_draft",
             sidecarID: mailSidecarID,
             upstreamName: "create_managed_draft",
-            allowedArguments: ["account_id", "subject", "body_text", "body_html"],
+            allowedArguments: [
+                "account_id", "to", "cc", "bcc", "subject", "body_text", "body_html"
+            ],
             exposure: .mailAction,
             isIdempotent: false
         ),

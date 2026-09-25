@@ -31,6 +31,18 @@ private actor IPCFakeSidecarClient: SidecarToolClient {
                     "type": .string("object"),
                     "properties": .object([
                         "account_id": .object(["type": .string("string")]),
+                        "to": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")])
+                        ]),
+                        "cc": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")])
+                        ]),
+                        "bcc": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")])
+                        ]),
                         "subject": .object(["type": .string("string")]),
                         "body_text": .object(["type": .string("string")]),
                         "body_html": .object(["type": .string("string")])

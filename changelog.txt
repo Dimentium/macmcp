@@ -10,12 +10,16 @@ before publication.
 Unreleased
 ----------
 
-- Clarify the current one-page Settings workflow, optional tunnel setup, and
-  default-off EventKit write controls. Add a Settings-window screenshot,
-  remove obsolete status-bar-menu instructions, and make the Cask the primary
-  documented install/update path when Homebrew is available. Remove completed
-  Settings UX verification from the active plan. Add an opt-in, read-only
-  attachment-fixture check to local acceptance.
+0.2.33 - 2026-09-25
+-------------------
+
+- Allow managed email drafts to include optional To, Cc, and Bcc recipients,
+  and preserve those recipients when the draft content is updated. Drafts
+  remain unsent by MacMCP.
+- Clarify the one-page Settings workflow, optional tunnel setup, and
+  default-off EventKit write controls. Add a Settings-window screenshot and
+  opt-in, read-only attachment-fixture validation, and make the Homebrew Cask
+  the primary documented install/update path.
 
 0.2.32 - 2026-09-15
 -------------------

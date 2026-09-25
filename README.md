@@ -20,9 +20,9 @@ see [docs/HANDOFF.md](docs/HANDOFF.md).
 - Read supported text attachments.
 - Read Calendar events and Reminders through EventKit.
 - Provide structured MCP responses for reliable client use.
-- Create recipient-free managed drafts and change one message's read/unread or
-  flagged/unflagged state after **Draft creation allowed** is enabled for that
-  account.
+- Create managed drafts with optional To, Cc, and Bcc recipients, and change
+  one message's read/unread or flagged/unflagged state after **Draft creation
+  allowed** is enabled for that account.
 - When separately enabled in Settings, create/update Calendar events and
   create/complete Reminders. Repeating events, alerts, and location triggers
   each need their own additional switch.
@@ -260,7 +260,7 @@ MacMCP directly uses the following upstream projects:
 
 | Component | Purpose | License | Source |
 | --- | --- | --- | --- |
-| [mail-mcp](https://github.com/Dimentium/mail-mcp) v1.2.5 | IMAP mail sidecar for iCloud Mail and Gmail, including the iCloud folder-list fallback and authenticated managed drafts | MIT | [MacMCP fork](https://github.com/Dimentium/mail-mcp), based on [upstream](https://github.com/kacperkwapisz/mail-mcp) |
+| [mail-mcp](https://github.com/Dimentium/mail-mcp) v1.2.5 | IMAP mail sidecar for iCloud Mail and Gmail, including the iCloud folder-list fallback and recipient-aware authenticated managed drafts | MIT | [MacMCP fork](https://github.com/Dimentium/mail-mcp), based on [upstream](https://github.com/kacperkwapisz/mail-mcp) |
 | [che-ical-mcp](https://github.com/PsychQuant/che-ical-mcp) v1.16.1 | EventKit Calendar and Reminders sidecar | MIT | [upstream](https://github.com/PsychQuant/che-ical-mcp) |
 | [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) | Local MCP server implementation | MIT / Apache-2.0 | [upstream](https://github.com/modelcontextprotocol/swift-sdk) |
 | [Swift System](https://github.com/apple/swift-system) | Swift system interfaces | Apache-2.0 | [upstream](https://github.com/apple/swift-system) |
@@ -284,8 +284,10 @@ files. A signed app bundle includes the corresponding full license texts under
 - Calendar and Reminders actions are separate, default-off Settings controls.
   They allow only the documented narrow actions; additional recurrence, alert,
   and location-trigger controls are independently default-off.
-- Managed drafts carry an HMAC marker derived from a Keychain key. Drafts with
-  recipients, an invalid marker, or a stale revision cannot be edited.
+- Managed drafts carry an HMAC marker derived from a Keychain key. Optional
+  recipient addresses are validated and preserved during content updates.
+  Drafts with an invalid marker, unsupported Reply-To/Resent recipient
+  headers, or a stale revision cannot be edited.
 - The bridge does not expose arbitrary shell, file-system, or automation tools.
 - The tunnel uses an explicit restricted runtime key and can be disabled at any
   time from the menu.

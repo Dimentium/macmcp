@@ -21,7 +21,11 @@ validation on the target Mac. Current artifact hashes are recorded in
 
 `Dimentium/mail-mcp` is a focused fork of `kacperkwapisz/mail-mcp`. It changes
 the iCloud compatibility path and adds the reviewed local managed-draft
-contract. When a server
+contract. MacMCP also applies the checked-in
+`Packaging/Patches/mail-mcp-managed-draft-recipients.patch` overlay to the
+pinned source, allowing optional To/Cc/Bcc addresses on managed drafts while
+preserving them on content updates. The patch does not change the verified
+Go module graph. When a server
 rejects `LIST ... RETURN (SPECIAL-USE)`, it retries plain IMAP `LIST`. This
 keeps server-declared roles for Gmail while restoring folder discovery for
 iCloud Mail. The behavior has dedicated unit coverage.
@@ -37,9 +41,9 @@ sidecar:
   attachment types;
 - it validates and bounds every result before returning it to an agent.
 
-The fork is limited to this compatibility and managed-draft contract; feature
-and policy changes remain in MacMCP unless they cannot be enforced before an
-upstream call.
+The fork and checked-in overlay remain limited to compatibility and the
+managed-draft contract; feature and policy changes remain in MacMCP unless they
+cannot be enforced before an upstream call.
 
 ## Known gaps accepted for the prototype
 

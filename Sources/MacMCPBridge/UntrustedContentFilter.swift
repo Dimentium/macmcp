@@ -133,7 +133,7 @@ struct UntrustedContentFilter: Sendable {
 
     private func failureMessage(for publicToolName: String) -> String {
         if publicToolName == "mail.update_managed_draft" {
-            return "Managed draft update was rejected. Use the exact message_id and revision from its last create or update result; manual edits or recipient fields invalidate the draft."
+            return "Managed draft update was rejected. Use the exact message_id and revision from its last create or update result; manual edits or unsupported reply or resent recipient fields invalidate the draft."
         }
         return "Reader sidecar returned an error"
     }

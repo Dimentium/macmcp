@@ -55,9 +55,9 @@ enum MacMCPServerMetadata {
     private static func actionDescription(for publicName: String) -> String {
         switch publicName {
         case "mail.create_managed_draft":
-            return "Create a recipient-free managed draft in local macOS Mail. Use only after the user explicitly asks to create a draft; this tool cannot send email."
+            return "Create a managed draft in local macOS Mail, optionally addressed with to, cc, and bcc recipients. Recipients are preserved when the draft is updated. Use only after the user explicitly asks to create a draft; this tool cannot send email."
         case "mail.update_managed_draft":
-            return "Update an existing recipient-free managed draft in local macOS Mail. Use only after the user explicitly asks to change that draft and supplies the current revision; this tool cannot send email."
+            return "Update an existing managed draft in local macOS Mail while preserving its recipients. Use only after the user explicitly asks to change that draft and supplies the current revision; this tool cannot send email."
         case "mail.mark":
             return "Change a read/unread or flagged state on a message in local macOS Mail. Use only after the user explicitly asks to modify the message."
         case "calendar.create":
