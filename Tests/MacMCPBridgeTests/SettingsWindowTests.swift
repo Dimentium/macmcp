@@ -15,6 +15,39 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(model.tunnelStatus, "Unavailable")
     }
 
+    func testSettingsSheetsHaveDistinctSingleSelection() {
+        let model = SettingsWindowModel()
+
+        model.activeSheet = .tunnel
+        XCTAssertEqual(model.activeSheet, .tunnel)
+        model.activeSheet = .mailAccount("icloud-person@example.com")
+        XCTAssertEqual(model.activeSheet, .mailAccount("icloud-person@example.com"))
+        XCTAssertNotEqual(
+            SettingsWindowModel.Sheet.tunnel.id,
+            SettingsWindowModel.Sheet.calendar.id
+        )
+    }
+
+    func testTunnelClientVersionReaderLoadsExecutableVersion() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("macmcp-tunnel-version-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let executable = directory.appendingPathComponent("tunnel-client")
+        let script = "#!/bin/sh\nprintf 'tunnel-client 1.2.3\\n'\n"
+        try Data(script.utf8).write(to: executable)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: executable.path
+        )
+
+        XCTAssertEqual(
+            TunnelClientVersionReader.version(atPath: executable.path),
+            "tunnel-client 1.2.3"
+        )
+    }
+
     func testLocalBridgeStateUpdatesVisibleStatus() {
         let model = SettingsWindowModel()
 

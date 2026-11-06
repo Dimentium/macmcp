@@ -55,4 +55,5 @@ jobs:
           tap_dir="$(brew --repository macmcp-ci/cask)"
           mkdir -p "$tap_dir/Casks"
           cp Casks/macmcp.rb "$tap_dir/Casks/macmcp.rb"
+          brew trust --cask macmcp-ci/cask/macmcp
           brew fetch --cask macmcp-ci/cask/macmcp

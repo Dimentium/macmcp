@@ -28,6 +28,24 @@ enum SettingsUpdateState: Equatable {
 
 @MainActor
 final class SettingsWindowModel: ObservableObject {
+    enum Sheet: Identifiable, Equatable {
+        case addMailAccount
+        case mailAccount(String)
+        case tunnel
+        case calendar
+        case reminders
+
+        var id: String {
+            switch self {
+            case .addMailAccount: "add-mail-account"
+            case .mailAccount(let accountID): "mail-account-\(accountID)"
+            case .tunnel: "tunnel"
+            case .calendar: "calendar"
+            case .reminders: "reminders"
+            }
+        }
+    }
+
     struct MailAccount: Identifiable, Equatable {
         let id: String
         var provider: String
@@ -63,20 +81,19 @@ final class SettingsWindowModel: ObservableObject {
     @Published var tunnelToggleAvailable = false
     @Published var tunnelID = ""
     @Published var tunnelClientPath = ""
+    @Published var tunnelClientVersion = "Checking…"
     @Published var tunnelAPIKeyAvailable = false
-    @Published var showingTunnelSettings = false
+    @Published var activeSheet: Sheet?
 
     @Published var eventKitConfigured = false
     @Published var calendarAccess = false
     @Published var calendarReadOnly = true
     @Published var calendarSettingsAvailable = false
-    @Published var showingCalendarSettings = false
     @Published var calendarRecurrenceEnabled = false
     @Published var calendarAlarmsEnabled = false
     @Published var remindersAccess = false
     @Published var remindersReadOnly = true
     @Published var remindersSettingsAvailable = false
-    @Published var showingRemindersSettings = false
     @Published var remindersRecurrenceEnabled = false
     @Published var remindersLocationTriggersEnabled = false
 
@@ -84,9 +101,6 @@ final class SettingsWindowModel: ObservableObject {
         didSet { onMailAccountCountChanged?(mailAccounts.count) }
     }
     @Published var mailAccountToggleAvailable = false
-    @Published var showingAddMailAccount = false
-    @Published var showingMailAccountSettings = false
-    @Published var selectedMailAccountID: String?
     @Published var updateState: SettingsUpdateState = .checking
     @Published var version = AppVersion.version
 
@@ -292,60 +306,58 @@ struct SettingsWindowView: View {
             SettingsWindowFooter(model: model)
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .sheet(isPresented: $model.showingAddMailAccount) {
-            SettingsMailAccountEditor(
-                account: nil,
-                onSave: { form in
-                    model.onSaveMailAccount?(nil, form)
-                }
-            )
-        }
-        .sheet(isPresented: $model.showingMailAccountSettings) {
-            if let accountID = model.selectedMailAccountID,
-               let account = model.mailAccounts.first(where: { $0.id == accountID }) {
+        .sheet(item: $model.activeSheet) { sheet in
+            switch sheet {
+            case .addMailAccount:
                 SettingsMailAccountEditor(
-                    account: account,
+                    account: nil,
                     onSave: { form in
-                        model.onSaveMailAccount?(accountID, form)
-                    },
-                    onRemove: {
-                        model.onRemoveMailAccount?(accountID)
+                        model.onSaveMailAccount?(nil, form)
                     }
                 )
-                .id(accountID)
-            }
-        }
-        .sheet(isPresented: $model.showingTunnelSettings) {
-            SettingsTunnelEditor(
-                tunnelID: model.tunnelID,
-                apiKeyAvailable: model.tunnelAPIKeyAvailable,
-                clientPath: model.tunnelClientPath,
-                onSave: { form in
-                    model.onSaveTunnel?(form)
+            case .mailAccount(let accountID):
+                if let account = model.mailAccounts.first(where: { $0.id == accountID }) {
+                    SettingsMailAccountEditor(
+                        account: account,
+                        onSave: { form in
+                            model.onSaveMailAccount?(accountID, form)
+                        },
+                        onRemove: {
+                            model.onRemoveMailAccount?(accountID)
+                        }
+                    )
+                    .id(accountID)
                 }
-            )
-        }
-        .sheet(isPresented: $model.showingCalendarSettings) {
-            SettingsEventKitAccessEditor(
-                title: "Calendar",
-                detail: "Allow creating and updating calendar events. Delete, invitations, and moving events remain unavailable.",
-                writeAccess: Binding(
-                    get: { !model.calendarReadOnly },
-                    set: { model.setCalendarWriteAccess($0) }
-                ),
-                options: calendarWriteOptions
-            )
-        }
-        .sheet(isPresented: $model.showingRemindersSettings) {
-            SettingsEventKitAccessEditor(
-                title: "Reminders",
-                detail: "Allow creating and completing reminders. Delete, reopening, and moving reminders remain unavailable.",
-                writeAccess: Binding(
-                    get: { !model.remindersReadOnly },
-                    set: { model.setRemindersWriteAccess($0) }
-                ),
-                options: remindersWriteOptions
-            )
+            case .tunnel:
+                SettingsTunnelEditor(
+                    model: model,
+                    tunnelID: model.tunnelID,
+                    apiKeyAvailable: model.tunnelAPIKeyAvailable,
+                    onSave: { form in
+                        model.onSaveTunnel?(form)
+                    }
+                )
+            case .calendar:
+                SettingsEventKitAccessEditor(
+                    title: "Calendar",
+                    detail: "Allow creating and updating calendar events. Delete, invitations, and moving events remain unavailable.",
+                    writeAccess: Binding(
+                        get: { !model.calendarReadOnly },
+                        set: { model.setCalendarWriteAccess($0) }
+                    ),
+                    options: calendarWriteOptions
+                )
+            case .reminders:
+                SettingsEventKitAccessEditor(
+                    title: "Reminders",
+                    detail: "Allow creating and completing reminders. Delete, reopening, and moving reminders remain unavailable.",
+                    writeAccess: Binding(
+                        get: { !model.remindersReadOnly },
+                        set: { model.setRemindersWriteAccess($0) }
+                    ),
+                    options: remindersWriteOptions
+                )
+            }
         }
     }
 
@@ -967,9 +979,9 @@ struct SettingsTunnelForm: Equatable {
 }
 
 private struct SettingsTunnelEditor: View {
+    @ObservedObject var model: SettingsWindowModel
     let initialTunnelID: String
     let apiKeyAvailable: Bool
-    let clientPath: String
     let onSave: (SettingsTunnelForm) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var tunnelID: String
@@ -979,14 +991,14 @@ private struct SettingsTunnelEditor: View {
     @State private var checkPassed = false
 
     init(
+        model: SettingsWindowModel,
         tunnelID: String,
         apiKeyAvailable: Bool,
-        clientPath: String,
         onSave: @escaping (SettingsTunnelForm) -> Void
     ) {
+        self.model = model
         self.initialTunnelID = tunnelID
         self.apiKeyAvailable = apiKeyAvailable
-        self.clientPath = clientPath
         self.onSave = onSave
         _tunnelID = State(initialValue: tunnelID)
     }
@@ -999,6 +1011,39 @@ private struct SettingsTunnelEditor: View {
                 Text("Connect the local MCP server to ChatGPT.")
                     .foregroundStyle(.secondary)
             }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Runtime")
+                        .font(.caption.weight(.medium))
+                    Spacer()
+                    SettingsStatusPill(text: model.tunnelStatus, color: statusColor)
+                }
+                HStack(alignment: .top, spacing: 8) {
+                    Text("Binary path")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 68, alignment: .leading)
+                    Text(model.tunnelClientPath.isEmpty ? "Not configured" : model.tunnelClientPath)
+                        .font(.system(.caption2, design: .monospaced))
+                        .textSelection(.enabled)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack(spacing: 8) {
+                    Text("Version")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 68, alignment: .leading)
+                    Text(model.tunnelClientVersion)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
@@ -1074,7 +1119,16 @@ private struct SettingsTunnelEditor: View {
             }
         }
         .padding(20)
-        .frame(width: 470, height: 390, alignment: .topLeading)
+        .frame(width: 470, height: 490, alignment: .topLeading)
+    }
+
+    private var statusColor: Color {
+        switch model.tunnelStatus {
+        case "Connected": .green
+        case "Starting": .orange
+        case "Unavailable": .red
+        default: .secondary
+        }
     }
 
     private var normalizedTunnelID: String {
@@ -1096,7 +1150,7 @@ private struct SettingsTunnelEditor: View {
     }
 
     private func checkConfiguration() {
-        let hasExecutable = FileManager.default.isExecutableFile(atPath: clientPath)
+        let hasExecutable = FileManager.default.isExecutableFile(atPath: model.tunnelClientPath)
         guard hasRequiredValues, AppLaunchConfigurationStore.isValidTunnelID(normalizedTunnelID), hasExecutable else {
             checkedTunnelID = ""
             checkedAPIKey = ""

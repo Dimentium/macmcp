@@ -56,6 +56,15 @@ The project is beyond MVP for local use:
   logs, repository, and close actions. Secrets remain Keychain-only.
 - The status-bar menu intentionally contains only `Open Settings...` and
   `Quit`; component status and lifecycle controls are shown in settings.
+- The current source worktree has a follow-up to the Settings window: all
+  editors now share one sheet route, and ChatGPT Tunnel settings display the
+  configured binary path, its reported version, and supervisor status. Version
+  lookup runs outside the UI thread. This change is not part of the installed
+  0.2.35 release; debug and optimized Swift suites each pass with 219 tests.
+- GitHub Actions for the 0.2.35 release and its documentation follow-up failed
+  only in Homebrew Cask release acceptance: the temporary CI cask tap was
+  untrusted. The current workflow explicitly trusts that test cask before
+  fetching it; a new branch run is pending.
 
 ## Current Release Verification
 

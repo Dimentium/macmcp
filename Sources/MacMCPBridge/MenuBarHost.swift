@@ -70,6 +70,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var setupAssistant: SetupAssistant?
     private var settingsWindowController: SettingsWindowController?
     private let settingsWindowModel = SettingsWindowModel()
+    private var tunnelClientVersionPath: String?
     private var updateState: UpdateMenuState = .checking
     private var displayedWritableAccountIDs: Set<String>?
     private var displayedClientApprovalSnapshot: ClientApprovalSnapshot?
@@ -980,7 +981,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.setMailAccountEnabledFromSettings(accountID, enabled: enabled)
         }
         settingsWindowModel.onAddMailAccount = { [weak self] in
-            self?.settingsWindowModel.showingAddMailAccount = true
+            self?.settingsWindowModel.activeSheet = .addMailAccount
         }
         settingsWindowModel.onOpenMailAccountSettings = { [weak self] accountID in
             Task { [weak self] in
@@ -992,8 +993,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return
                 }
                 self.settingsWindowModel.mailAccounts[index].readOnly = !writableAccountIDs.contains(accountID)
-                self.settingsWindowModel.selectedMailAccountID = accountID
-                self.settingsWindowModel.showingMailAccountSettings = true
+                self.settingsWindowModel.activeSheet = .mailAccount(accountID)
             }
         }
         settingsWindowModel.onSaveMailAccount = { [weak self] accountID, form in
@@ -1009,7 +1009,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.restartChatGPTTunnel()
         }
         settingsWindowModel.onOpenTunnelSettings = { [weak self] in
-            self?.settingsWindowModel.showingTunnelSettings = true
+            self?.settingsWindowModel.activeSheet = .tunnel
         }
         settingsWindowModel.onSaveTunnel = { [weak self] form in
             self?.saveTunnelFromSettings(form)
@@ -1021,10 +1021,10 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.setSettingsDataAccess(enabled, category: .reminders)
         }
         settingsWindowModel.onOpenCalendarSettings = { [weak self] in
-            self?.settingsWindowModel.showingCalendarSettings = true
+            self?.settingsWindowModel.activeSheet = .calendar
         }
         settingsWindowModel.onOpenRemindersSettings = { [weak self] in
-            self?.settingsWindowModel.showingRemindersSettings = true
+            self?.settingsWindowModel.activeSheet = .reminders
         }
         settingsWindowModel.onCalendarWriteAccessChanged = { [weak self] enabled in
             self?.setSettingsEventKitWriteAccess(enabled, category: .calendar)
@@ -1063,6 +1063,7 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
             settingsWindowModel.tunnelClientPath = SetupAssistant.bundledTunnelClientURL?.path ?? ""
             settingsWindowModel.tunnelStatus = "Off"
         }
+        refreshTunnelClientVersion(for: settingsWindowModel.tunnelClientPath)
         settingsWindowModel.tunnelAPIKeyAvailable = hasTunnelKey()
         settingsWindowModel.tunnelToggleAvailable = launch?.chatGPTTunnel != nil
         settingsWindowModel.eventKitConfigured = configuration.eventKitSidecarURL != nil
@@ -1116,6 +1117,28 @@ final class MenuBarHost: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 updated.readOnly = !writableAccountIDs.contains(account.id)
                 return updated
             }
+        }
+    }
+
+    private func refreshTunnelClientVersion(for path: String) {
+        guard tunnelClientVersionPath != path else { return }
+        tunnelClientVersionPath = path
+        guard !path.isEmpty else {
+            settingsWindowModel.tunnelClientVersion = "Unavailable"
+            return
+        }
+
+        settingsWindowModel.tunnelClientVersion = "Checking…"
+        Task { [weak self] in
+            let version = await Task.detached(priority: .utility) {
+                TunnelClientVersionReader.version(atPath: path)
+            }.value
+            guard let self,
+                  self.tunnelClientVersionPath == path,
+                  self.settingsWindowModel.tunnelClientPath == path else {
+                return
+            }
+            self.settingsWindowModel.tunnelClientVersion = version
         }
     }
 

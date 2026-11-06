@@ -39,6 +39,11 @@ personal data.
 
 ## Settings Window
 
+- A reported ChatGPT Tunnel gear and iCloud account gear sometimes opened no
+  editor. The Settings view attached several `.sheet` modifiers to the same
+  root; the current source worktree consolidates them into one item-driven
+  sheet. The Swift suite passes, but manual verification in an installed build
+  remains pending.
 - Local Bridge is shown as a live status row, but its switch is disabled. The
   menu-bar app does not yet expose an independent stop/start lifecycle that can
   be safely controlled from settings.
@@ -51,6 +56,14 @@ personal data.
   intentional, but it is not an in-place account reload.
 - The Update button is available only for a newer Homebrew Cask release. A
   source or ad-hoc install must be updated through its normal source workflow.
+
+## CI
+
+- Recent GitHub Actions runs passed build, tests, local deployment acceptance,
+  and source formula acceptance, then failed because Homebrew refused to fetch
+  the cask from the temporary untrusted CI tap. The workflow now explicitly
+  trusts that test cask before fetching it. Confirm the fix in the next GitHub
+  Actions run.
 
 ## Resolved Since The 2026-09-05 Audit
 

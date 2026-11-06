@@ -41,6 +41,12 @@ empty-search guidance and long-range Calendar search passed through the local
 STDIO MCP path. Local To/Cc/Bcc draft create/update acceptance passed; remote
 ChatGPT acceptance remains pending a client tool-schema refresh.
 
+The current source worktree also updates Settings sheet routing to use a single
+active sheet and shows the ChatGPT Tunnel binary path, `--version` output, and
+supervisor status in its editor. The version check is asynchronous. The full
+debug and optimized Swift suites each pass with 219 tests; this follow-up has
+not been installed or released.
+
 ## Direction
 
 1. Keep the signed Cask install/upgrade and direct release install reliable.
