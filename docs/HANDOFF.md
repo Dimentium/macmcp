@@ -3,7 +3,7 @@
 Last verified: 2026-11-06
 Repository: `Dimentium/macmcp`
 Working branch: `fix/mcp-error-messages` (based on `ux/settings-window`)
-Current published and installed app: `MacMCP 0.2.35`; the runtime and local
+Current published and installed app: `MacMCP 0.2.36`; the runtime and local
 reader acceptance are healthy.
 
 This is the canonical current-state handoff. Read it first, then use
@@ -56,36 +56,27 @@ The project is beyond MVP for local use:
   logs, repository, and close actions. Secrets remain Keychain-only.
 - The status-bar menu intentionally contains only `Open Settings...` and
   `Quit`; component status and lifecycle controls are shown in settings.
-- The current source worktree has a follow-up to the Settings window: all
-  editors now share one sheet route, and ChatGPT Tunnel settings display the
-  configured binary path, its reported version, and supervisor status. Version
-  lookup runs outside the UI thread. This change is not part of the installed
-  0.2.35 release; debug and optimized Swift suites each pass with 219 tests.
-- GitHub Actions for the 0.2.35 release and its documentation follow-up failed
-  only in Homebrew Cask release acceptance: the temporary CI cask tap was
-  untrusted. The current workflow explicitly trusts that test cask before
-  fetching it; branch CI run 42284874953 passed every job step, including Cask
-  release acceptance. That run showed advisory warnings for setup-go's old
-  Node runtime and the absent root Go cache key; the workflow now uses
-  setup-go v7 with its unused repository-level cache disabled. Run 42287887241
-  passed the full workflow after this change; the runtime/cache warnings are
-  gone, with only GitHub's runner-capacity advisory remaining.
+- MacMCP 0.2.36 routes all Settings editors through one sheet and shows the
+  configured ChatGPT Tunnel binary path, reported version, and supervisor
+  status. Version lookup runs outside the UI thread. The debug and optimized
+  Swift suites each pass with 219 tests.
+- GitHub Actions run 42289094031 passed the full workflow after the Cask trust
+  and setup-go cleanup. Only GitHub's general macOS arm64 runner-capacity
+  advisory remains.
 
 ## Current Release Verification
 
-The signed 0.2.35 release is published at
-https://github.com/Dimentium/macmcp/releases/tag/v0.2.35 and installed through
+The signed 0.2.36 release is published at
+https://github.com/Dimentium/macmcp/releases/tag/v0.2.36 and installed through
 the Cask. Apple accepted notarization; Gatekeeper assessment and the ZIP/DMG
-checksums passed. The release script's AppleScript quit did not stop the old
-0.2.34 process after the upgrade. The exact stale app process was terminated
-with SIGTERM, then the installed 0.2.35 app was relaunched and became ready
-immediately. Diagnostics show Mail, Calendar, Reminders, and tunnel ready, with
-`launchAtLogin=true` and `loginItem=enabled`. The local release gate passed for
-21 tools, Calendar, Reminders, and the one account returned by
-`mail.list_accounts`; diagnostics report two configured mail accounts, so the
-account-count discrepancy remains open. Process review found one app runtime,
-one bundled `tunnel-client 0.0.19`, and one tunnel-owned stdio proxy; other
-stdio proxies belong to external local MCP clients.
+checksums passed. The runtime became ready after 30 seconds. Diagnostics report
+bridge version 0.2.36, Mail/Calendar/Reminders ready, two configured mail
+accounts, Login Item enabled, and tunnel running. The local release gate passed
+for 21 tools, both accounts, Calendar, and Reminders. Process review found one
+app runtime, one bundled `tunnel-client 0.0.19`, and one tunnel-owned stdio
+proxy; other stdio proxies belong to external local MCP clients. The
+Settings-sheet and tunnel-runtime details are now in the installed build;
+manual gear-click verification remains pending.
 
 The installed local STDIO MCP path returned three `mvcr` matches for both
 2010-01-01 through 2026-11-07 and 2025-01-01 through 2026-01-01. An empty
@@ -316,15 +307,10 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 ## Open Work, In Order
 
-1. Harden release and local MCP acceptance after the 0.2.35 release. The
-   published build returns actionable guidance for empty `calendar.search`
-   calls and returned three `mvcr` matches over both a 2010–2026 range and 2025
-   through the installed local STDIO MCP path. However, the in-chat MCP
-   connector returned `Transport closed` after restart and needs a fresh
-   connection test. The local gate reports two configured mail accounts but
-   `mail.list_accounts` returned one. Also add a safe fallback for the release
-   helper when AppleScript quit does not stop the prior app process; the 0.2.35
-   app was manually restarted and passed the local gate.
+1. Refresh the in-chat MCP connection after the 0.2.36 app restart and verify
+   the remote transport. Local release acceptance now passes for both
+   configured mail accounts, all 21 tools, Calendar, and Reminders. The wide
+   `mvcr` Calendar search also continues to return the known matches.
 2. Refresh the ChatGPT MCP connection so it discovers the recipient-aware
    tool schema, then run controlled To/Cc/Bcc create-and-update acceptance
    through ChatGPT using the checks in `docs/RELEASING.md`.

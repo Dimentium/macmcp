@@ -33,23 +33,21 @@ Release execution details, including the local acceptance gate and the
 Keychain-prompt caveat of the optional deep IMAP validator, are kept in
 [docs/RELEASING.md](RELEASING.md).
 
-The signed 0.2.35 release is installed on the target Mac. The bridge, Calendar,
-Reminders, and tunnel are ready. Diagnostics count two configured Mail
-accounts, though the release gate's `mail.list_accounts` call returned one;
-investigate that discrepancy before claiming two-account acceptance. The
-empty-search guidance and long-range Calendar search passed through the local
-STDIO MCP path. Local To/Cc/Bcc draft create/update acceptance passed; remote
-ChatGPT acceptance remains pending a client tool-schema refresh.
+MacMCP 0.2.36 is published and installed on the target Mac. The bridge, Mail,
+Calendar, Reminders, and tunnel are ready. Diagnostics show two configured
+Mail accounts, and the local release gate passed for both accounts, the full
+21-tool surface, Calendar, and Reminders. The empty-search guidance and
+long-range Calendar search passed through the local STDIO MCP path. Local
+To/Cc/Bcc draft create/update acceptance passed; remote ChatGPT acceptance
+remains pending a client tool-schema refresh.
 
-The current source worktree also updates Settings sheet routing to use a single
-active sheet and shows the ChatGPT Tunnel binary path, `--version` output, and
-supervisor status in its editor. The version check is asynchronous. The full
-debug and optimized Swift suites each pass with 219 tests; this follow-up has
-not been installed or released. GitHub Actions run 42284874953 also passed all
-steps, including Cask release acceptance after trusting its temporary tap. A
-subsequent workflow cleanup uses setup-go v7 with caching disabled because the
-repo has no root Go manifest. CI run 42287887241 passed all steps after the
-cleanup, and the action-runtime and missing-cache warnings are gone.
+Release 0.2.36 includes the single-sheet Settings routing and the ChatGPT
+Tunnel binary path, reported version, and supervisor status. The full debug
+and optimized Swift suites each pass with 219 tests. GitHub Actions run
+42289094031 passed the full workflow after the Cask trust and setup-go cleanup;
+only the general macOS arm64 runner-capacity advisory remains. Manual
+verification of the Settings gear buttons in the installed build remains
+open.
 
 ## Direction
 
@@ -102,15 +100,10 @@ cleanup, and the action-runtime and missing-cache warnings are gone.
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
-4. Harden release and local MCP acceptance after the 0.2.35 release. The
-   published build returns actionable guidance for empty `calendar.search`
-   calls and returned three `mvcr` matches over both a 2010–2026 range and 2025
-   through the installed local STDIO MCP path. However, the in-chat MCP
-   connector returned `Transport closed` after restart and needs a fresh
-   connection test. The local gate reports two configured mail accounts but
-   `mail.list_accounts` returned one. Also add a safe fallback for the release
-   helper when AppleScript quit does not stop the prior app process; the 0.2.35
-   app was manually restarted and passed the local gate.
+4. Refresh the in-chat MCP connection after the 0.2.36 app restart and verify
+   the remote transport. The installed local gate now passes for both
+   configured mail accounts, all 21 tools, Calendar, and Reminders; the wide
+   `mvcr` Calendar search also returns the known matches.
 
 ## Per-Account Mail Actions
 

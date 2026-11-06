@@ -160,25 +160,23 @@ with `MACMCP_ATTACHMENT_FIXTURE_ACCOUNT`,
 has no such draft; it never creates, updates, sends, or deletes mail.
 
 The gate normally runs as the final step of
-`scripts/release.sh --install-local`. MacMCP 0.2.35 is published and installed
-locally. Apple notarization, Gatekeeper, ZIP/DMG checksums, and the Cask upgrade
-passed. In this release run, the helper's AppleScript quit did not stop the
-previous app; after terminating that exact stale process and relaunching,
-diagnostics reported bridge version 0.2.35 with Mail, Calendar, Reminders, and
-tunnel ready. The local gate passed for 21 tools and the one account returned by
-`mail.list_accounts`; diagnostics count two configured accounts, and the
-discrepancy is recorded in `KNOWN_ISSUES.md`. The installed local STDIO MCP
-path returned three `mvcr` matches for both a 2010–2026 range and calendar year
-2025, and returned actionable guidance for an empty `calendar.search` call.
-Process review found one app runtime, one bundled `tunnel-client 0.0.19`, and
-one tunnel-owned stdio proxy. A controlled local managed-draft
-acceptance created and updated an iCloud draft with To/Cc/Bcc addresses under
-`example.invalid`; all three remained searchable in Drafts, and the draft was
-not sent. Refresh the ChatGPT MCP connection before running the remote
-recipient-aware acceptance because its current tool descriptor is stale. The
-release-optimized identifier regression is covered by running Swift tests in
-both debug and optimized configurations before signing. The 0.2.32 and 0.2.34
-publications and their runtime acceptance remain historical verified state.
+`scripts/release.sh --install-local`. MacMCP 0.2.36 is published at
+https://github.com/Dimentium/macmcp/releases/tag/v0.2.36 and installed locally.
+The 2026-11-06 release passed both debug and optimized Swift suites (219 tests
+each), Apple notarization, Gatekeeper, ZIP/DMG checksum validation, the Cask
+upgrade, post-install diagnostics, and local MCP acceptance. Diagnostics
+reported bridge version 0.2.36, Mail/Calendar/Reminders ready, two configured
+mail accounts, Login Item enabled, and tunnel running. The local gate passed
+for 21 tools and both mail accounts, plus Calendar and Reminders. It also
+returned the known `mvcr` matches over the wide Calendar search and actionable
+guidance for an empty `calendar.search` call. Process review found one app
+runtime, one bundled `tunnel-client 0.0.19`, and one tunnel-owned stdio proxy;
+other stdio proxies belong to external local MCP clients. The installed build
+contains the Settings sheet routing and tunnel runtime details, but manual
+gear-click verification remains open. Refresh the ChatGPT MCP connection
+before remote recipient-aware acceptance because its current tool descriptor
+is stale. The 0.2.32 and 0.2.34 publications and their runtime acceptance
+remain historical verified state.
 
 The 0.2.24 build also patches the pinned MCP Swift SDK's empty-pipe retry from
 10 ms to 100 ms. The patch is applied by `scripts/patch-mcp-sdk-stdio.sh` to

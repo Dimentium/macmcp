@@ -6,20 +6,10 @@ personal data.
 
 ## Deferred Verification
 
-- After the 0.2.35 Cask upgrade, local runtime diagnostics counted two
-  configured mail accounts but `mail.list_accounts` returned one. The local
-  release gate passed for that returned account. Determine why the second
-  configured account is not exposed before claiming both-account acceptance.
-- The in-chat MacMCP connector returned `Transport closed` after restarting
-  the local app for 0.2.35. Direct calls through the installed bridge's local
-  STDIO MCP path passed, including the wide Calendar search and empty-search
-  guidance. Refresh the in-chat MCP connection and repeat the calls to verify
-  that transport.
-- The 0.2.35 `scripts/release.sh --install-local` run did not stop the prior app
-  process after its AppleScript quit request and exited before its built-in
-  local acceptance step. Manually sending SIGTERM to the exact old app process
-  and relaunching the installed app succeeded; the local gate then passed.
-  Add a safe restart fallback to the release helper before the next release.
+- After installing 0.2.36, refresh the in-chat MacMCP connection and verify
+  remote calls. The 0.2.35 connection returned `Transport closed` after the
+  app restart; local STDIO acceptance now passes for both configured mail
+  accounts, all 21 tools, Calendar, and Reminders.
 - Local recipient-aware managed-draft acceptance passed on MacMCP 0.2.34: an
   iCloud draft with To/Cc/Bcc addresses under `example.invalid` was updated
   using the exact revision and all three addresses remained searchable. The
@@ -40,10 +30,9 @@ personal data.
 ## Settings Window
 
 - A reported ChatGPT Tunnel gear and iCloud account gear sometimes opened no
-  editor. The Settings view attached several `.sheet` modifiers to the same
-  root; the current source worktree consolidates them into one item-driven
-  sheet. The Swift suite passes, but manual verification in an installed build
-  remains pending.
+  editor. MacMCP 0.2.36 consolidates Settings editors into one item-driven
+  sheet. The Swift suite and release acceptance pass; manual gear-click
+  verification in the installed build remains pending.
 - Local Bridge is shown as a live status row, but its switch is disabled. The
   menu-bar app does not yet expose an independent stop/start lifecycle that can
   be safely controlled from settings.
@@ -59,6 +48,10 @@ personal data.
 
 ## Resolved Since The 2026-09-05 Audit
 
+- MacMCP 0.2.36 is signed, notarized, published, and installed. Diagnostics
+  report Mail, Calendar, Reminders, and tunnel ready. The release gate passes
+  for both configured mail accounts, all 21 tools, Calendar, and Reminders.
+  The settings editor routing and tunnel runtime details are included.
 - GitHub Actions run 42287887241 passed the full macOS workflow, including
   Cask acceptance. The test cask is explicitly trusted, setup-go uses v7, and
   its unused root-level Go cache is disabled. The earlier Cask trust failure,
