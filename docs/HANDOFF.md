@@ -67,8 +67,9 @@ The project is beyond MVP for local use:
   fetching it; branch CI run 42284874953 passed every job step, including Cask
   release acceptance. That run showed advisory warnings for setup-go's old
   Node runtime and the absent root Go cache key; the workflow now uses
-  setup-go v7 with its unused repository-level cache disabled, pending CI
-  confirmation.
+  setup-go v7 with its unused repository-level cache disabled. Run 42287887241
+  passed the full workflow after this change; the runtime/cache warnings are
+  gone, with only GitHub's runner-capacity advisory remaining.
 
 ## Current Release Verification
 

@@ -57,17 +57,13 @@ personal data.
 - The Update button is available only for a newer Homebrew Cask release. A
   source or ad-hoc install must be updated through its normal source workflow.
 
-## CI
-
-- The Cask trust failure is fixed and full macOS CI passed. The successful run
-  still emitted advisories for setup-go's Node runtime and a missing root
-  `go.sum` cache key. The workflow now uses setup-go v7 and disables its
-  repository-level Go cache; confirm the warnings are gone in the next run.
-
 ## Resolved Since The 2026-09-05 Audit
 
-- GitHub Actions run 42284874953 passed the full macOS workflow after the Cask
-  acceptance step explicitly trusted its temporary test tap entry before fetch.
+- GitHub Actions run 42287887241 passed the full macOS workflow, including
+  Cask acceptance. The test cask is explicitly trusted, setup-go uses v7, and
+  its unused root-level Go cache is disabled. The earlier Cask trust failure,
+  Node runtime warning, and missing `go.sum` cache warning are resolved; only
+  GitHub's general macOS arm64 capacity advisory remains.
 - MacMCP 0.2.35 gives actionable guidance for empty `calendar.search` calls
   and retrieves wide-range matches by querying adjacent four-year EventKit
   windows. The installed local STDIO MCP path returned the three known `mvcr`
