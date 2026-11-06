@@ -378,8 +378,9 @@ final class PackagingScriptTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(workflow.contains("uses: actions/setup-go@v5"))
+        XCTAssertTrue(workflow.contains("uses: actions/setup-go@v7"))
         XCTAssertTrue(workflow.contains("go-version: \"1.25.4\""))
+        XCTAssertTrue(workflow.contains("cache: false"))
         XCTAssertTrue(workflow.contains("scripts/verify-local-deployment.sh"))
         XCTAssertTrue(workflow.contains("Homebrew source formula acceptance"))
         XCTAssertTrue(workflow.contains("brew tap-new --no-git macmcp-ci/local"))
@@ -389,6 +390,7 @@ final class PackagingScriptTests: XCTestCase {
         XCTAssertTrue(workflow.contains("Homebrew Cask release acceptance"))
         XCTAssertTrue(workflow.contains("brew tap-new --no-git macmcp-ci/cask"))
         XCTAssertTrue(workflow.contains("cp Casks/macmcp.rb \"$tap_dir/Casks/macmcp.rb\""))
+        XCTAssertTrue(workflow.contains("brew trust --cask macmcp-ci/cask/macmcp"))
         XCTAssertTrue(workflow.contains("brew fetch --cask macmcp-ci/cask/macmcp"))
     }
 
