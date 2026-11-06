@@ -57,6 +57,13 @@ personal data.
 - The Update button is available only for a newer Homebrew Cask release. A
   source or ad-hoc install must be updated through its normal source workflow.
 
+## CI
+
+- The Cask trust failure is fixed and full macOS CI passed. The successful run
+  still emitted advisories for setup-go's Node runtime and a missing root
+  `go.sum` cache key. The workflow now uses setup-go v7 and disables its
+  repository-level Go cache; confirm the warnings are gone in the next run.
+
 ## Resolved Since The 2026-09-05 Audit
 
 - GitHub Actions run 42284874953 passed the full macOS workflow after the Cask

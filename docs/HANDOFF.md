@@ -65,7 +65,10 @@ The project is beyond MVP for local use:
   only in Homebrew Cask release acceptance: the temporary CI cask tap was
   untrusted. The current workflow explicitly trusts that test cask before
   fetching it; branch CI run 42284874953 passed every job step, including Cask
-  release acceptance.
+  release acceptance. That run showed advisory warnings for setup-go's old
+  Node runtime and the absent root Go cache key; the workflow now uses
+  setup-go v7 with its unused repository-level cache disabled, pending CI
+  confirmation.
 
 ## Current Release Verification
 

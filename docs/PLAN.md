@@ -46,7 +46,9 @@ active sheet and shows the ChatGPT Tunnel binary path, `--version` output, and
 supervisor status in its editor. The version check is asynchronous. The full
 debug and optimized Swift suites each pass with 219 tests; this follow-up has
 not been installed or released. GitHub Actions run 42284874953 also passed all
-steps, including Cask release acceptance after trusting its temporary tap.
+steps, including Cask release acceptance after trusting its temporary tap. A
+subsequent workflow cleanup uses setup-go v7 with caching disabled because the
+repo has no root Go manifest; CI confirmation is pending.
 
 ## Direction
 
