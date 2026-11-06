@@ -45,7 +45,8 @@ The current source worktree also updates Settings sheet routing to use a single
 active sheet and shows the ChatGPT Tunnel binary path, `--version` output, and
 supervisor status in its editor. The version check is asynchronous. The full
 debug and optimized Swift suites each pass with 219 tests; this follow-up has
-not been installed or released.
+not been installed or released. GitHub Actions run 42284874953 also passed all
+steps, including Cask release acceptance after trusting its temporary tap.
 
 ## Direction
 

@@ -64,7 +64,8 @@ The project is beyond MVP for local use:
 - GitHub Actions for the 0.2.35 release and its documentation follow-up failed
   only in Homebrew Cask release acceptance: the temporary CI cask tap was
   untrusted. The current workflow explicitly trusts that test cask before
-  fetching it; a new branch run is pending.
+  fetching it; branch CI run 42284874953 passed every job step, including Cask
+  release acceptance.
 
 ## Current Release Verification
 

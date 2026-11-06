@@ -57,16 +57,10 @@ personal data.
 - The Update button is available only for a newer Homebrew Cask release. A
   source or ad-hoc install must be updated through its normal source workflow.
 
-## CI
-
-- Recent GitHub Actions runs passed build, tests, local deployment acceptance,
-  and source formula acceptance, then failed because Homebrew refused to fetch
-  the cask from the temporary untrusted CI tap. The workflow now explicitly
-  trusts that test cask before fetching it. Confirm the fix in the next GitHub
-  Actions run.
-
 ## Resolved Since The 2026-09-05 Audit
 
+- GitHub Actions run 42284874953 passed the full macOS workflow after the Cask
+  acceptance step explicitly trusted its temporary test tap entry before fetch.
 - MacMCP 0.2.35 gives actionable guidance for empty `calendar.search` calls
   and retrieves wide-range matches by querying adjacent four-year EventKit
   windows. The installed local STDIO MCP path returned the three known `mvcr`
