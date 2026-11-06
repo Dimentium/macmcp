@@ -3,7 +3,7 @@
 Last verified: 2026-11-06
 Repository: `Dimentium/macmcp`
 Working branch: `fix/mcp-error-messages` (based on `ux/settings-window`)
-Current published and installed app: `MacMCP 0.2.34`; the runtime and local
+Current published and installed app: `MacMCP 0.2.35`; the runtime and local
 reader acceptance are healthy.
 
 This is the canonical current-state handoff. Read it first, then use
@@ -35,6 +35,9 @@ The project is beyond MVP for local use:
 - Calendar and Reminders each also have a separate default-off write gate in
   Settings. Enabling it exposes only the reviewed narrow action tools and
   takes effect for all transports without a restart.
+- MacMCP 0.2.35 gives actionable guidance for empty `calendar.search` calls,
+  searches wide EventKit ranges in adjacent four-year windows, and bundles
+  `tunnel-client 0.0.19` with supervised stdio-child recovery.
 - MacMCP 0.2.34 accepts optional To/Cc/Bcc on managed draft creation and
   preserves them through content updates. A local iCloud acceptance created
   and updated an unsent draft with all three recipient types; remote ChatGPT
@@ -56,14 +59,28 @@ The project is beyond MVP for local use:
 
 ## Current Release Verification
 
-The signed 0.2.34 release is published at
-https://github.com/Dimentium/macmcp/releases/tag/v0.2.34. The local Cask
-upgraded from 0.2.33; the app became ready after 30 seconds. Diagnostics show
-bridge, Mail (two accounts), Calendar, Reminders, and the tunnel ready, with
+The signed 0.2.35 release is published at
+https://github.com/Dimentium/macmcp/releases/tag/v0.2.35 and installed through
+the Cask. Apple accepted notarization; Gatekeeper assessment and the ZIP/DMG
+checksums passed. The release script's AppleScript quit did not stop the old
+0.2.34 process after the upgrade. The exact stale app process was terminated
+with SIGTERM, then the installed 0.2.35 app was relaunched and became ready
+immediately. Diagnostics show Mail, Calendar, Reminders, and tunnel ready, with
 `launchAtLogin=true` and `loginItem=enabled`. The local release gate passed for
-21 tools, both Mail accounts, Calendar, and Reminders. Process review found one
-app runtime, one `tunnel-client`, and one tunnel-owned stdio proxy; the other
+21 tools, Calendar, Reminders, and the one account returned by
+`mail.list_accounts`; diagnostics report two configured mail accounts, so the
+account-count discrepancy remains open. Process review found one app runtime,
+one bundled `tunnel-client 0.0.19`, and one tunnel-owned stdio proxy; other
 stdio proxies belong to external local MCP clients.
+
+The installed local STDIO MCP path returned three `mvcr` matches for both
+2010-01-01 through 2026-11-07 and 2025-01-01 through 2026-01-01. An empty
+`calendar.search` call returned actionable criteria guidance. Both full MacMCP
+Swift suites passed (217 tests each); the pinned EventKit sidecar passed 531
+tests. The connected in-chat MacMCP tool transport returned `Transport closed`
+after the app restart, so refresh that connection before claiming fresh
+ChatGPT-transport acceptance. The release script also needs a restart fallback
+for a prior app process that ignores the AppleScript quit request.
 
 The release also fixes an optimized-build validation bug in mail account and
 sidecar identifiers. Both full Swift suites passed (215 tests each), as did
@@ -285,17 +302,15 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 ## Open Work, In Order
 
-1. Validate the `calendar.search` empty-query guard from
-   `fix/mcp-error-messages` after rebuilding the bridge and refreshing an MCP
-   connection. On 0.2.34, an empty call reproduces the generic sidecar error;
-   a keyword search succeeds. Also validate the wide-range fix:
-   a matching keyword returns events over a four-year range but none over a
-   five-year range, despite matches during 2025. The pinned CheICalMCP source
-   documents incomplete EventKit results for very wide predicates; the branch
-   build patch now searches four-year windows and deduplicates occurrences.
-   The sidecar builds and all 531 sidecar tests pass; the MacMCP bridge passes
-   all 217 tests in debug and release configurations. Verify the changes
-   through a fresh MCP connection after installing the release candidate.
+1. Harden release and local MCP acceptance after the 0.2.35 release. The
+   published build returns actionable guidance for empty `calendar.search`
+   calls and returned three `mvcr` matches over both a 2010–2026 range and 2025
+   through the installed local STDIO MCP path. However, the in-chat MCP
+   connector returned `Transport closed` after restart and needs a fresh
+   connection test. The local gate reports two configured mail accounts but
+   `mail.list_accounts` returned one. Also add a safe fallback for the release
+   helper when AppleScript quit does not stop the prior app process; the 0.2.35
+   app was manually restarted and passed the local gate.
 2. Refresh the ChatGPT MCP connection so it discovers the recipient-aware
    tool schema, then run controlled To/Cc/Bcc create-and-update acceptance
    through ChatGPT using the checks in `docs/RELEASING.md`.

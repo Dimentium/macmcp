@@ -33,11 +33,13 @@ Release execution details, including the local acceptance gate and the
 Keychain-prompt caveat of the optional deep IMAP validator, are kept in
 [docs/RELEASING.md](RELEASING.md).
 
-The signed 0.2.34 release is installed on the target Mac. The bridge, two Mail
-accounts, Calendar, Reminders, and tunnel are ready, and the local reader gate
-passes. Optimized account and sidecar identifier validation is covered by the
-release-configuration test run. Local To/Cc/Bcc draft create/update acceptance
-passed; remote ChatGPT acceptance remains pending a client tool-schema refresh.
+The signed 0.2.35 release is installed on the target Mac. The bridge, Calendar,
+Reminders, and tunnel are ready. Diagnostics count two configured Mail
+accounts, though the release gate's `mail.list_accounts` call returned one;
+investigate that discrepancy before claiming two-account acceptance. The
+empty-search guidance and long-range Calendar search passed through the local
+STDIO MCP path. Local To/Cc/Bcc draft create/update acceptance passed; remote
+ChatGPT acceptance remains pending a client tool-schema refresh.
 
 ## Direction
 
@@ -90,19 +92,15 @@ passed; remote ChatGPT acceptance remains pending a client tool-schema refresh.
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
-4. Make MCP query requirements clear to clients.
-   An empty `calendar.search` call on 0.2.34 reached the EventKit sidecar and
-   returned a generic error, while a keyword search succeeded. The active
-   `fix/mcp-error-messages` branch adds a preflight explanation and clearer
-   tool guidance; verify the behavior through a rebuilt connection before
-   considering the issue resolved. A separate range defect is confirmed: a
-   keyword search returned three events over 2022-01-01 through 2026-01-01 but
-   none over 2021-01-01 through 2026-01-01, despite matches in 2025. The pinned
-   sidecar source confirms that very wide EventKit predicates may omit results.
-   The branch build patch queries four-year windows and deduplicates
-   occurrences. The sidecar build and all 531 sidecar tests pass; all 217
-   MacMCP tests pass in debug and release. Validate a wide search through a
-   fresh MCP connection before considering the defect resolved.
+4. Harden release and local MCP acceptance after the 0.2.35 release. The
+   published build returns actionable guidance for empty `calendar.search`
+   calls and returned three `mvcr` matches over both a 2010–2026 range and 2025
+   through the installed local STDIO MCP path. However, the in-chat MCP
+   connector returned `Transport closed` after restart and needs a fresh
+   connection test. The local gate reports two configured mail accounts but
+   `mail.list_accounts` returned one. Also add a safe fallback for the release
+   helper when AppleScript quit does not stop the prior app process; the 0.2.35
+   app was manually restarted and passed the local gate.
 
 ## Per-Account Mail Actions
 

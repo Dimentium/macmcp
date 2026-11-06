@@ -6,22 +6,20 @@ personal data.
 
 ## Deferred Verification
 
-- On the installed MacMCP 0.2.34 runtime, calling `calendar.search` with no
-  criteria reproduced the generic reader-sidecar error; supplying a keyword
-  succeeds. The `fix/mcp-error-messages` branch now rejects an empty search
-  before contacting the sidecar and returns guidance to provide a keyword, date
-  boundary, or calendar filter, or use `calendar.upcoming`. This branch change
-  builds successfully but still needs validation through a fresh MCP connection.
-- `calendar.search` also loses matches for a wide explicit date range. On the
-  configured host, a supplied keyword returned three events for 2025 and for
-  the four-year interval 2022-01-01 through 2026-01-01, but returned zero for
-  the five-year interval 2021-01-01 through 2026-01-01 and for 2010 through
-  2026. The pinned CheICalMCP source documents incomplete results from very
-  wide EventKit predicates. The `fix/mcp-error-messages` build patch now queries
-  adjacent four-year windows and deduplicates recurring occurrences. Both the
-  pinned sidecar build and its 531 tests pass, as do all 217 MacMCP tests in
-  debug and release. Validate a wide search through a fresh connection before
-  closing this issue.
+- After the 0.2.35 Cask upgrade, local runtime diagnostics counted two
+  configured mail accounts but `mail.list_accounts` returned one. The local
+  release gate passed for that returned account. Determine why the second
+  configured account is not exposed before claiming both-account acceptance.
+- The in-chat MacMCP connector returned `Transport closed` after restarting
+  the local app for 0.2.35. Direct calls through the installed bridge's local
+  STDIO MCP path passed, including the wide Calendar search and empty-search
+  guidance. Refresh the in-chat MCP connection and repeat the calls to verify
+  that transport.
+- The 0.2.35 `scripts/release.sh --install-local` run did not stop the prior app
+  process after its AppleScript quit request and exited before its built-in
+  local acceptance step. Manually sending SIGTERM to the exact old app process
+  and relaunching the installed app succeeded; the local gate then passed.
+  Add a safe restart fallback to the release helper before the next release.
 - Local recipient-aware managed-draft acceptance passed on MacMCP 0.2.34: an
   iCloud draft with To/Cc/Bcc addresses under `example.invalid` was updated
   using the exact revision and all three addresses remained searchable. The
@@ -55,6 +53,13 @@ personal data.
   source or ad-hoc install must be updated through its normal source workflow.
 
 ## Resolved Since The 2026-09-05 Audit
+
+- MacMCP 0.2.35 gives actionable guidance for empty `calendar.search` calls
+  and retrieves wide-range matches by querying adjacent four-year EventKit
+  windows. The installed local STDIO MCP path returned the three known `mvcr`
+  matches for both the 2010–2026 range and 2025. The same release bundles
+  `tunnel-client 0.0.19`, which restores supervised stdio MCP children after
+  unexpected exits.
 
 - MacMCP 0.2.34 fixes release-optimized validation of mail account and sidecar
   identifiers. The debug and optimized Swift suites both pass, and the signed
