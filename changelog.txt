@@ -10,6 +10,13 @@ before publication.
 Unreleased
 ----------
 
+0.2.36 - 2026-11-06
+-------------------
+
+- Show the ChatGPT Tunnel executable path, version, and live status in Settings.
+- Fix Settings gears opening no editor by routing mail, tunnel, Calendar, and
+  Reminders editors through one sheet presentation.
+
 0.2.35 - 2026-11-06
 -------------------
 
