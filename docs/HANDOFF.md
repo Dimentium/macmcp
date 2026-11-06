@@ -1,8 +1,8 @@
 # MacMCP Handoff
 
-Last verified: 2026-09-25
+Last verified: 2026-11-06
 Repository: `Dimentium/macmcp`
-Working branch: `ux/settings-window` (published through `public/main`)
+Working branch: `fix/mcp-error-messages` (based on `ux/settings-window`)
 Current published and installed app: `MacMCP 0.2.34`; the runtime and local
 reader acceptance are healthy.
 
@@ -285,10 +285,21 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 ## Open Work, In Order
 
-1. Refresh the ChatGPT MCP connection so it discovers the recipient-aware
+1. Validate the `calendar.search` empty-query guard from
+   `fix/mcp-error-messages` after rebuilding the bridge and refreshing an MCP
+   connection. On 0.2.34, an empty call reproduces the generic sidecar error;
+   a keyword search succeeds. Also validate the wide-range fix:
+   a matching keyword returns events over a four-year range but none over a
+   five-year range, despite matches during 2025. The pinned CheICalMCP source
+   documents incomplete EventKit results for very wide predicates; the branch
+   build patch now searches four-year windows and deduplicates occurrences.
+   The sidecar builds and all 531 sidecar tests pass; the MacMCP bridge passes
+   all 217 tests in debug and release configurations. Verify the changes
+   through a fresh MCP connection after installing the release candidate.
+2. Refresh the ChatGPT MCP connection so it discovers the recipient-aware
    tool schema, then run controlled To/Cc/Bcc create-and-update acceptance
    through ChatGPT using the checks in `docs/RELEASING.md`.
-2. Clarify and, only if needed, validate a genuine Codex/API
+3. Clarify and, only if needed, validate a genuine Codex/API
    tunnel-backed-target flow. The current local Codex path is already direct
    STDIO. The app-owned tunnel profile has passed the local `healthz`/`readyz`
    probe with a live control-plane poll, and its tunnel metadata was read
@@ -296,7 +307,7 @@ Do not manually replace the Cask unless diagnosing a failed release step.
    wording is intentionally product-surface-specific; do not infer an
    endpoint from `tunnel_id`. The remaining check is manual: select or paste
    this tunnel in the target ChatGPT workspace's developer-mode app.
-3. Validate large Calendar, Reminders, and attachment responses through the
+4. Validate large Calendar, Reminders, and attachment responses through the
    remote ChatGPT/tunnel product surface. Local attachment text extraction has
    already passed; the default local gate remains fixture-free, while the
    explicit fixture mode calls one attachment.
@@ -386,6 +397,8 @@ not a reason to change the local bridge without a reproduction.
 - `Sources/MacMCPBridge/ManagedDraftKeyStore.swift`: draft marker key.
 - `Packaging/Patches/mail-mcp-managed-draft-recipients.patch`: recipient-aware
   managed draft overlay applied to the pinned mail sidecar build.
+- `Packaging/Patches/che-ical-mcp-wide-event-search.patch`: bounded-window
+  search overlay applied to the pinned EventKit sidecar build.
 - `Sources/MacMCPBridge/AttachmentTextReader.swift`: bounded text extraction.
 - `scripts/release.sh`: normal release entrypoint.
 - `scripts/validate-local-mcp.sh`: normal local acceptance gate.

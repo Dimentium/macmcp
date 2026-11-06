@@ -40,6 +40,35 @@ final class ReaderPolicyTests: XCTestCase {
         )
     }
 
+    func testCalendarSearchRequiresAtLeastOneCriterion() throws {
+        let policy = ReaderPolicy()
+
+        for arguments in [
+            Optional<[String: Value]>.none,
+            ["keyword": .string("  ")],
+            ["keywords": .array([.string("\n")])]
+        ] {
+            XCTAssertThrowsError(
+                try policy.prepareArguments(for: "calendar.search", supplied: arguments)
+            ) { error in
+                XCTAssertEqual(error as? ReaderPolicyError, .missingSearchCriteria)
+            }
+        }
+
+        XCTAssertNoThrow(
+            try policy.prepareArguments(
+                for: "calendar.search",
+                supplied: ["keyword": .string("meeting")]
+            )
+        )
+        XCTAssertNoThrow(
+            try policy.prepareArguments(
+                for: "calendar.search",
+                supplied: ["start_date": .string("2025-01-01")]
+            )
+        )
+    }
+
     func testEventKitActionPolicyExcludesDestructiveAndAdvancedFields() {
         let rules = Dictionary(
             uniqueKeysWithValues: ReaderPolicy.eventKitActionRules.map { ($0.publicName, $0) }
@@ -121,21 +150,24 @@ final class ReaderPolicyTests: XCTestCase {
         let policy = ReaderPolicy()
 
         for toolName in ["calendar.events", "calendar.upcoming", "calendar.search"] {
+            let searchCriterion: [String: Value] = toolName == "calendar.search"
+                ? ["keyword": .string("meeting")]
+                : [:]
             let arguments = try policy.prepareArguments(
                 for: toolName,
-                supplied: ["limit": .int(5)]
+                supplied: searchCriterion.merging(["limit": .int(5)]) { _, new in new }
             )
             XCTAssertEqual(arguments["detail_level"], .string("summary"), toolName)
 
             let detailed = try policy.prepareArguments(
                 for: toolName,
-                supplied: ["detail_level": .string("standard")]
+                supplied: searchCriterion.merging(["detail_level": .string("standard")]) { _, new in new }
             )
             XCTAssertEqual(detailed["detail_level"], .string("standard"), toolName)
 
             let selected = try policy.prepareArguments(
                 for: toolName,
-                supplied: ["fields": .array(selectedFields)]
+                supplied: searchCriterion.merging(["fields": .array(selectedFields)]) { _, new in new }
             )
             XCTAssertEqual(selected["fields"], .array(selectedFields), toolName)
         }

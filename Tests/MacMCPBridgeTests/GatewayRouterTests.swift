@@ -126,6 +126,40 @@ final class GatewayRouterTests: XCTestCase {
         XCTAssertEqual(calledNames, ["search_emails"])
     }
 
+    func testEmptyCalendarSearchReturnsGuidanceWithoutCallingSidecar() async throws {
+        let client = FakeSidecarClient(tools: [tool("search_events")])
+        let router = GatewayRouter()
+        let policy = ReaderPolicy(rules: [
+            ReaderToolRule(
+                publicName: "calendar.search",
+                sidecarID: ReaderPolicy.eventKitSidecarID,
+                upstreamName: "search_events",
+                allowedArguments: [
+                    "keyword", "keywords", "start_date", "end_date", "calendar_name", "calendar_source"
+                ]
+            )
+        ])
+        try await router.attach(sidecarID: ReaderPolicy.eventKitSidecarID, client: client, policy: policy)
+
+        let result = try await router.call(
+            publicName: "calendar.search",
+            arguments: nil,
+            policy: policy
+        )
+
+        XCTAssertTrue(result.isError == true)
+        let message = result.content.compactMap { content -> String? in
+            guard case .text(let text, _, _) = content else { return nil }
+            return text
+        }.first
+        XCTAssertEqual(
+            message,
+            "calendar.search needs a keyword, date boundary, or calendar filter. For a general view of upcoming events, use calendar.upcoming."
+        )
+        let calledNames = await client.calledNames()
+        XCTAssertTrue(calledNames.isEmpty)
+    }
+
     func testUnknownToolFailsClosed() async {
         let router = GatewayRouter()
         do {

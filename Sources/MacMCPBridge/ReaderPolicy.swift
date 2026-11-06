@@ -50,6 +50,7 @@ enum ReaderPolicyError: LocalizedError, Equatable {
     case unknownArgument(String)
     case invalidArgument(String)
     case argumentTooLarge(String)
+    case missingSearchCriteria
 
     var errorDescription: String? {
         switch self {
@@ -63,6 +64,8 @@ enum ReaderPolicyError: LocalizedError, Equatable {
             return "Invalid MacMCP argument: \(name)"
         case .argumentTooLarge(let name):
             return "MacMCP argument exceeds its limit: \(name)"
+        case .missingSearchCriteria:
+            return "calendar.search needs a keyword, date boundary, or calendar filter. For a general view of upcoming events, use calendar.upcoming."
         }
     }
 }
@@ -323,10 +326,33 @@ struct ReaderPolicy: Sendable {
             }
         }
 
+        if publicName == "calendar.search", !hasCalendarSearchCriteria(result) {
+            throw ReaderPolicyError.missingSearchCriteria
+        }
+
         for (name, value) in rule.forcedArguments {
             result[name] = value
         }
         return result
+    }
+
+    private func hasCalendarSearchCriteria(_ arguments: [String: Value]) -> Bool {
+        for name in [
+            "keyword", "start_date", "end_date", "calendar_name", "calendar_source"
+        ] {
+            guard let value = arguments[name]?.stringValue,
+                  !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                continue
+            }
+            return true
+        }
+
+        guard let keywords = arguments["keywords"]?.arrayValue else { return false }
+        return keywords.contains { value in
+            guard let keyword = value.stringValue else { return false }
+            return !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     private func normalize(value: Value, argument: String, for publicName: String) -> Value {

@@ -1,0 +1,150 @@
+diff --git a/Sources/CheICalMCP/EventKit/EventKitManager.swift b/Sources/CheICalMCP/EventKit/EventKitManager.swift
+index a9bc373..0199f96 100644
+--- a/Sources/CheICalMCP/EventKit/EventKitManager.swift
++++ b/Sources/CheICalMCP/EventKit/EventKitManager.swift
+@@ -29,6 +29,38 @@ protocol EventKitManaging: Sendable {
+     ) async throws -> BatchDeleteResult
+ }
+ 
++struct EventSearchWindow: Equatable {
++    let start: Date
++    let end: Date
++}
++
++enum EventSearchRangePlanner {
++    static let maximumWindowYears = 4
++
++    static func windows(
++        from startDate: Date,
++        to endDate: Date,
++        calendar: Calendar = .current
++    ) -> [EventSearchWindow] {
++        guard startDate < endDate else { return [] }
++
++        var windows: [EventSearchWindow] = []
++        var windowStart = startDate
++        while windowStart < endDate {
++            let proposedEnd = calendar.date(
++                byAdding: .year,
++                value: maximumWindowYears,
++                to: windowStart
++            ) ?? endDate
++            let windowEnd = min(proposedEnd, endDate)
++            guard windowEnd > windowStart else { break }
++            windows.append(EventSearchWindow(start: windowStart, end: windowEnd))
++            windowStart = windowEnd
++        }
++        return windows
++    }
++}
++
+ /// EventKit wrapper for Calendar and Reminders operations
+ actor EventKitManager: EventKitManaging {
+     private let eventStore: EKEventStore
+@@ -1101,28 +1133,43 @@ actor EventKitManager: EventKitManaging {
+             calendars = try findCalendars(name: name, source: calendarSource, entityType: .event)
+         }
+ 
+-        let predicate = eventStore.predicateForEvents(withStart: searchStart, end: searchEnd, calendars: calendars)
+-        let allEvents = eventStore.events(matching: predicate)
+-
+-        // Lowercase all keywords
++        // EventKit may return incomplete results for very wide predicates. Query
++        // adjacent four-year windows instead; the default ±2-year search is itself
++        // one four-year window. Deduplicate occurrences at shared boundaries.
+         let lowercasedKeywords = keywords.map { $0.lowercased() }
+-
+-        return allEvents.filter { event in
+-            // Combine searchable text
+-            let searchableText = [
+-                event.title?.lowercased(),
+-                event.notes?.lowercased(),
+-                event.location?.lowercased()
+-            ].compactMap { $0 }.joined(separator: " ")
+-
+-            if matchMode == "all" {
+-                // AND mode: all keywords must match
+-                return lowercasedKeywords.allSatisfy { searchableText.contains($0) }
+-            } else {
+-                // OR mode (default): any keyword matches
+-                return lowercasedKeywords.contains { searchableText.contains($0) }
++        var matchingEvents: [EKEvent] = []
++        var seenOccurrences = Set<String>()
++
++        for window in EventSearchRangePlanner.windows(from: searchStart, to: searchEnd) {
++            let predicate = eventStore.predicateForEvents(
++                withStart: window.start,
++                end: window.end,
++                calendars: calendars
++            )
++            let windowEvents = eventStore.events(matching: predicate)
++
++            for event in windowEvents {
++                // Combine searchable text
++                let searchableText = [
++                    event.title?.lowercased(),
++                    event.notes?.lowercased(),
++                    event.location?.lowercased()
++                ].compactMap { $0 }.joined(separator: " ")
++
++                let matches = matchMode == "all"
++                    ? lowercasedKeywords.allSatisfy { searchableText.contains($0) }
++                    : lowercasedKeywords.contains { searchableText.contains($0) }
++                guard matches else { continue }
++
++                let occurrenceKey = "\(event.calendarItemIdentifier)|\(event.startDate.timeIntervalSinceReferenceDate)"
++                if seenOccurrences.insert(occurrenceKey).inserted {
++                    matchingEvents.append(event)
++                }
+             }
++
+         }
++
++        return matchingEvents
+     }
+ 
+     /// Backward-compatible single keyword search
+diff --git a/Tests/CheICalMCPTests/EventSearchRangePlannerTests.swift b/Tests/CheICalMCPTests/EventSearchRangePlannerTests.swift
+new file mode 100644
+index 0000000..5c0e9a1
+--- /dev/null
++++ b/Tests/CheICalMCPTests/EventSearchRangePlannerTests.swift
+@@ -0,0 +1,38 @@
++import XCTest
++@testable import CheICalMCP
++
++final class EventSearchRangePlannerTests: XCTestCase {
++    func testSplitsLongSearchIntoAdjacentFourYearWindows() throws {
++        var calendar = Calendar(identifier: .gregorian)
++        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
++        let formatter = ISO8601DateFormatter()
++        let start = try XCTUnwrap(formatter.date(from: "2010-01-01T00:00:00Z"))
++        let end = try XCTUnwrap(formatter.date(from: "2026-11-06T00:00:00Z"))
++
++        let windows = EventSearchRangePlanner.windows(from: start, to: end, calendar: calendar)
++
++        XCTAssertEqual(windows.count, 5)
++        XCTAssertEqual(windows.first?.start, start)
++        XCTAssertEqual(windows.last?.end, end)
++        for window in windows {
++            let maximumEnd = try XCTUnwrap(
++                calendar.date(
++                    byAdding: .year,
++                    value: EventSearchRangePlanner.maximumWindowYears,
++                    to: window.start
++                )
++            )
++            XCTAssertLessThanOrEqual(window.end, maximumEnd)
++        }
++        for (left, right) in zip(windows, windows.dropFirst()) {
++            XCTAssertEqual(left.end, right.start)
++        }
++    }
++
++    func testEmptyOrReversedRangeProducesNoWindows() throws {
++        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-01-01T00:00:00Z"))
++
++        XCTAssertTrue(EventSearchRangePlanner.windows(from: date, to: date).isEmpty)
++        XCTAssertTrue(EventSearchRangePlanner.windows(from: date, to: .distantPast).isEmpty)
++    }
++}

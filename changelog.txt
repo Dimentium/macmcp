@@ -10,6 +10,13 @@ before publication.
 Unreleased
 ----------
 
+0.2.35 - 2026-11-06
+-------------------
+
+- Make empty Calendar searches return actionable guidance and split long
+  EventKit search ranges into four-year windows to preserve matching events.
+- Add regression coverage for Calendar search criteria and date-window planning.
+
 0.2.34 - 2026-09-25
 -------------------
 

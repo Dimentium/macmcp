@@ -6,6 +6,22 @@ personal data.
 
 ## Deferred Verification
 
+- On the installed MacMCP 0.2.34 runtime, calling `calendar.search` with no
+  criteria reproduced the generic reader-sidecar error; supplying a keyword
+  succeeds. The `fix/mcp-error-messages` branch now rejects an empty search
+  before contacting the sidecar and returns guidance to provide a keyword, date
+  boundary, or calendar filter, or use `calendar.upcoming`. This branch change
+  builds successfully but still needs validation through a fresh MCP connection.
+- `calendar.search` also loses matches for a wide explicit date range. On the
+  configured host, a supplied keyword returned three events for 2025 and for
+  the four-year interval 2022-01-01 through 2026-01-01, but returned zero for
+  the five-year interval 2021-01-01 through 2026-01-01 and for 2010 through
+  2026. The pinned CheICalMCP source documents incomplete results from very
+  wide EventKit predicates. The `fix/mcp-error-messages` build patch now queries
+  adjacent four-year windows and deduplicates recurring occurrences. Both the
+  pinned sidecar build and its 531 tests pass, as do all 217 MacMCP tests in
+  debug and release. Validate a wide search through a fresh connection before
+  closing this issue.
 - Local recipient-aware managed-draft acceptance passed on MacMCP 0.2.34: an
   iCloud draft with To/Cc/Bcc addresses under `example.invalid` was updated
   using the exact revision and all three addresses remained searchable. The

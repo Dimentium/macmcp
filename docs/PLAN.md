@@ -90,6 +90,20 @@ passed; remote ChatGPT acceptance remains pending a client tool-schema refresh.
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
+4. Make MCP query requirements clear to clients.
+   An empty `calendar.search` call on 0.2.34 reached the EventKit sidecar and
+   returned a generic error, while a keyword search succeeded. The active
+   `fix/mcp-error-messages` branch adds a preflight explanation and clearer
+   tool guidance; verify the behavior through a rebuilt connection before
+   considering the issue resolved. A separate range defect is confirmed: a
+   keyword search returned three events over 2022-01-01 through 2026-01-01 but
+   none over 2021-01-01 through 2026-01-01, despite matches in 2025. The pinned
+   sidecar source confirms that very wide EventKit predicates may omit results.
+   The branch build patch queries four-year windows and deduplicates
+   occurrences. The sidecar build and all 531 sidecar tests pass; all 217
+   MacMCP tests pass in debug and release. Validate a wide search through a
+   fresh MCP connection before considering the defect resolved.
+
 ## Per-Account Mail Actions
 
 The standard MacMCP endpoint always advertises the three narrow mail-action

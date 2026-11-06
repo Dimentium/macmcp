@@ -109,6 +109,17 @@ retry_git_network "CheICalMCP fetch" git -C "$che_src" fetch --tags origin >&2
 git -C "$che_src" checkout --detach "$CHE_COMMIT" >&2
 cp "$che_resolution" "$che_src/Package.resolved"
 "$project_dir/scripts/patch-mcp-sdk-stdio.sh" --package-path "$che_src" >&2
+
+eventkit_patch="$project_dir/Packaging/Patches/che-ical-mcp-wide-event-search.patch"
+if git -C "$che_src" apply --reverse --check "$eventkit_patch" >/dev/null 2>&1; then
+  echo "CheICalMCP wide-event-search patch is already applied" >&2
+elif git -C "$che_src" apply --check "$eventkit_patch"; then
+  git -C "$che_src" apply "$eventkit_patch"
+else
+  echo "CheICalMCP wide-event-search patch does not apply to the pinned source" >&2
+  exit 1
+fi
+
 swift build --disable-automatic-resolution -c release --product CheICalMCP --package-path "$che_src" >&2
 
 [[ -x "$che_binary" ]] || {

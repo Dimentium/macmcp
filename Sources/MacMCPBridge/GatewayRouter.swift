@@ -132,11 +132,19 @@ actor GatewayRouter {
         arguments: [String: Value]?,
         policy: ReaderPolicy
     ) async throws -> CallTool.Result {
-        let result = try await callRaw(
-            publicName: publicName,
-            arguments: arguments,
-            policy: policy
-        )
+        let result: CallTool.Result
+        do {
+            result = try await callRaw(
+                publicName: publicName,
+                arguments: arguments,
+                policy: policy
+            )
+        } catch let error as ReaderPolicyError where error == .missingSearchCriteria {
+            return CallTool.Result(
+                content: [.text(error.localizedDescription)],
+                isError: true
+            )
+        }
         return UntrustedContentFilter().filter(result, publicToolName: publicName)
     }
 
