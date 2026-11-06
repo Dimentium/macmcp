@@ -16,6 +16,8 @@ Unreleased
 - Make empty Calendar searches return actionable guidance and split long
   EventKit search ranges into four-year windows to preserve matching events.
 - Add regression coverage for Calendar search criteria and date-window planning.
+- Update the bundled ChatGPT tunnel client to 0.0.19, including recovery after
+  unexpected stdio MCP child failures.
 
 0.2.34 - 2026-09-25
 -------------------
