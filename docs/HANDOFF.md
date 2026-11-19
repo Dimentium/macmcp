@@ -1,9 +1,9 @@
 # MacMCP Handoff
 
-Last release verified: 2026-11-06
+Last release verified: 2026-11-19
 Repository: `Dimentium/macmcp`
-Working branch: `feature/mail-reply-drafts` (based on published `public/main` commit `8ad8c56`)
-Current published and installed app: `MacMCP 0.2.36`; the runtime and local
+Working branch: `feature/mail-reply-drafts` (release source `5824213`; metadata `9f2eec3`)
+Current published and installed app: `MacMCP 0.2.37`; the runtime and local
 reader acceptance are healthy.
 
 This is the canonical current-state handoff. Read it first, then use
@@ -42,19 +42,18 @@ The project is beyond MVP for local use:
   preserves them through content updates. A local iCloud acceptance created
   and updated an unsent draft with all three recipient types; remote ChatGPT
   acceptance is pending a client tool-schema refresh.
-- The unreleased `feature/mail-reply-drafts` branch adds
-  `mail.create_managed_reply_draft`. It derives the reply recipient and thread
-  headers from an existing message, keeps those headers during updates, and
-  remains gated by the existing per-account draft control. Controlled local
-  acceptance passed: To, subject, body, `In-Reply-To`, and `References` were
-  verified; the source remained read and no Sent copy was found. One test draft
-  remains in Drafts with a reserved `.invalid` recipient. ChatGPT schema
-  acceptance remains pending. Candidate 0.2.37 passes both 220-test Swift
-  suites and builds the pinned patched mail sidecar. The release host's
-  Developer ID identity and GitHub authentication are present. The configured
-  `notarytool` profile reaches Apple, but `history` still returns HTTP 403 for
-  a missing or expired required agreement after the Account Holder reported
-  accepting it; retry used the signing identity's explicit Team ID as well.
+- MacMCP 0.2.37 adds `mail.create_managed_reply_draft`, which derives the reply
+  recipient and thread headers from an existing message, preserves them during
+  updates, and remains gated by the per-account draft control. Controlled local
+  acceptance verified To, subject, body, `In-Reply-To`, and `References`; the
+  source remained read and no Sent copy was found. The reserved `.invalid`
+  acceptance draft is still visible in Drafts after installation. Both
+  220-test Swift suites and the pinned patched mail sidecar build pass. Apple
+  accepted notarization; the ticket was stapled and Gatekeeper accepted the
+  app. The GitHub release and Homebrew metadata are published, and the Cask
+  upgrade/local MCP gate passed. ChatGPT schema refresh and exact-revision live
+  update acceptance remain pending; the connected tool surface has not yet
+  exposed the reply action in this session.
 - The signed Cask upgrade path, app restart, single-instance lock, diagnostics,
   log rotation, uninstall preservation, and local acceptance gate exist.
 - The Cask is the preferred path on Macs with Homebrew: it installs, upgrades,
@@ -79,26 +78,31 @@ The project is beyond MVP for local use:
 
 ## Current Release Verification
 
-The signed 0.2.36 release is published at
-https://github.com/Dimentium/macmcp/releases/tag/v0.2.36 and installed through
-the Cask. Apple accepted notarization; Gatekeeper assessment and the ZIP/DMG
-checksums passed. The runtime became ready after 30 seconds. Diagnostics report
-bridge version 0.2.36, Mail/Calendar/Reminders ready, two configured mail
-accounts, Login Item enabled, and tunnel running. The local release gate passed
-for 21 tools, both accounts, Calendar, and Reminders. Process review found one
-app runtime, one bundled `tunnel-client 0.0.19`, and one tunnel-owned stdio
-proxy; other stdio proxies belong to external local MCP clients. The
-Settings-sheet and tunnel-runtime details are now in the installed build;
-manual gear-click verification remains pending.
+The signed 0.2.37 release is published at
+https://github.com/Dimentium/macmcp/releases/tag/v0.2.37 and installed through
+the Cask. Apple accepted submission `050573b2-4f02-4241-bf4c-2c3534e40ce2`;
+stapling, Gatekeeper assessment, and ZIP/DMG checksum checks passed. The runtime
+became ready after 28 seconds. Diagnostics report bridge version 0.2.37,
+Mail/Calendar/Reminders ready, two configured mail accounts, Login Item enabled,
+and tunnel running. The local release gate passed for 22 tools, both accounts,
+Calendar, and Reminders. Process review found one app runtime, one bundled
+`tunnel-client 0.0.19`, and one tunnel-owned stdio proxy; other stdio proxies
+belong to external local MCP clients. The local MCP `mail.read` call verified
+the reserved `.invalid` reply draft's subject, recipient, body, and thread
+headers in Drafts after installation. The connected ChatGPT MacMCP tools have
+not refreshed: `mail_server_info` failed in this session and the exposed tool
+surface does not yet include the reply-draft action. Refresh that connection
+before remote ChatGPT acceptance.
 
-The installed local STDIO MCP path returned three `mvcr` matches for both
+During the preceding 0.2.36 acceptance, the installed local STDIO MCP path
+returned three `mvcr` matches for both
 2010-01-01 through 2026-11-07 and 2025-01-01 through 2026-01-01. An empty
 `calendar.search` call returned actionable criteria guidance. Both full MacMCP
 Swift suites passed (217 tests each); the pinned EventKit sidecar passed 531
 tests. The connected in-chat MacMCP tool transport returned `Transport closed`
-after the app restart, so refresh that connection before claiming fresh
-ChatGPT-transport acceptance. The release script also needs a restart fallback
-for a prior app process that ignores the AppleScript quit request.
+after the app restart; the 0.2.37 refresh is tracked above. The release script
+retries the local app launch if a previous process ignores the AppleScript quit
+request; 0.2.37 became ready in 28 seconds.
 
 The release also fixes an optimized-build validation bug in mail account and
 sidecar identifiers. Both full Swift suites passed (215 tests each), as did
@@ -208,10 +212,9 @@ configured tunnel-client process.
 
 ## Tool And Safety Contract
 
-The installed 0.2.36 release exposes 17 tools by default. The unreleased
-feature branch adds one account-gated mail action, bringing that default
-surface to 18. When a Calendar or Reminders write
-gate is enabled, it additionally publishes the corresponding narrow actions:
+The installed 0.2.37 release exposes 18 read and mail-action tools by default.
+When the Calendar and Reminders write gates are enabled, it additionally
+publishes the four narrow EventKit actions, for 22 total tools:
 
 - `bridge_status`
 - `mail.list_accounts`, `mail.server_info`, `mail.list_folders`,
@@ -219,7 +222,7 @@ gate is enabled, it additionally publishes the corresponding narrow actions:
 - `calendar.list`, `calendar.events`, `calendar.upcoming`, `calendar.search`
 - `reminders.list`, `reminders.search`, `reminders.tags`
 - `mail.create_managed_draft`, `mail.update_managed_draft`, `mail.mark`
-- `mail.create_managed_reply_draft` (unreleased branch only)
+- `mail.create_managed_reply_draft`
 
 Every tool has an `outputSchema`; successful calls return structured output.
 The EventKit actions are `calendar.create`, `calendar.update`,
@@ -235,19 +238,19 @@ are rejected on every call unless their matching Settings switch is enabled.
 
 The bridge does not expose email sending, the upstream `reply_email` or
 `forward_email` actions, delete, move, archive, shell, filesystem, browser, or
-arbitrary attachment-download tools. The unreleased reply-draft action only
-saves a draft.
+arbitrary attachment-download tools. The managed reply-draft action only saves
+a draft.
 
 Mail action rules:
 
 - Each account starts with `Draft creation allowed` disabled.
 - The account control is in `MacMCP > Open Settings...`.
 - The control gates local MCP, STDIO, and ChatGPT tunnel calls immediately.
-- The published 0.2.34 contract accepts optional To/Cc/Bcc recipients,
+- The published contract accepts optional To/Cc/Bcc recipients,
   validates them, and preserves them through updates. It still excludes
   `Reply-To` and `Resent-*`. Local acceptance passed; refresh the remote client
   schema before ChatGPT acceptance.
-- The unreleased reply-draft action accepts a source `message_id`, derives To
+- The 0.2.37 reply-draft action accepts a source `message_id`, derives To
   from Reply-To or From unless overridden, adds `Re:` when needed, and saves
   `In-Reply-To` and `References`. It refuses an invalid source Message-ID and
   preserves recipients and thread headers on managed-draft updates.
@@ -330,13 +333,13 @@ Do not manually replace the Cask unless diagnosing a failed release step.
 
 ## Open Work, In Order
 
-1. Refresh the in-chat MCP connection after the 0.2.36 app restart and verify
-   the remote transport. Local release acceptance now passes for both
-   configured mail accounts, all 21 tools, Calendar, and Reminders. The wide
-   `mvcr` Calendar search also continues to return the known matches.
-2. Refresh the ChatGPT MCP connection so it discovers the recipient-aware
-   tool schema, then run controlled To/Cc/Bcc create-and-update acceptance
-   through ChatGPT using the checks in `docs/RELEASING.md`.
+1. Refresh the in-chat MCP connection after the 0.2.37 Cask upgrade and verify
+   the remote transport. The current tool surface has not exposed the reply
+   action and `mail_server_info` failed in this session. Local release
+   acceptance passes for both configured mail accounts, all 22 tools,
+   Calendar, and Reminders.
+2. Once refreshed, run controlled To/Cc/Bcc and reply-draft create/update
+   acceptance through ChatGPT using the checks in `docs/RELEASING.md`.
 3. Clarify and, only if needed, validate a genuine Codex/API
    tunnel-backed-target flow. The current local Codex path is already direct
    STDIO. The app-owned tunnel profile has passed the local `healthz`/`readyz`
@@ -447,6 +450,8 @@ not a reason to change the local bridge without a reproduction.
 
 ## Recent Commits
 
+- `9f2eec3` Publish MacMCP 0.2.37 Cask
+- `5824213` Add managed reply draft MCP support
 - `c880575` Cover settings integration behavior
 - `f3302c7` Cover settings menu parity aliases
 - `af7e710` Connect settings footer actions

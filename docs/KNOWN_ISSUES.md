@@ -6,21 +6,19 @@ personal data.
 
 ## Deferred Verification
 
-- The unreleased `feature/mail-reply-drafts` branch adds a managed reply-draft
-  tool with thread-header preservation. Automated acceptance and controlled
-  local creation acceptance passed, including recipients, threading headers,
-  source read state, and absence of a Sent copy. One test draft remains in Drafts
-  with a reserved `.invalid` recipient. ChatGPT schema refresh and exact-revision
-  live update acceptance remain pending; automated update coverage passes.
-  Candidate 0.2.37 passes both Swift suites (220 tests each) and builds the
-  pinned patched mail sidecar. The configured `notarytool` profile reaches
-  Apple, but `history` still returns HTTP 403 for a missing or expired required
-  agreement after the Account Holder reported accepting it. Retrying with the
-  signing identity's explicit Team ID produced the same response.
-- After installing 0.2.36, refresh the in-chat MacMCP connection and verify
-  remote calls. The 0.2.35 connection returned `Transport closed` after the
-  app restart; local STDIO acceptance now passes for both configured mail
-  accounts, all 21 tools, Calendar, and Reminders.
+- MacMCP 0.2.37 is published and installed. Automated update coverage and local
+  reply-draft creation acceptance passed, including recipients, threading
+  headers, source read state, and absence of a Sent copy. One test draft remains
+  in Drafts with a reserved `.invalid` recipient and is visible after upgrade.
+  ChatGPT schema refresh and exact-revision live update acceptance remain
+  pending; the current connected tool surface does not expose the reply action.
+  Both Swift suites pass (220 tests each), the pinned patched mail sidecar
+  builds, Apple notarization was accepted, and the local release gate passed
+  for 22 tools.
+- Refresh the in-chat MacMCP connection before remote acceptance. The
+  `mail_server_info` call failed in the current session after the Cask upgrade;
+  local STDIO acceptance passes for both configured mail accounts, all 22
+  tools, Calendar, and Reminders.
 - Local recipient-aware managed-draft acceptance passed on MacMCP 0.2.34: an
   iCloud draft with To/Cc/Bcc addresses under `example.invalid` was updated
   using the exact revision and all three addresses remained searchable. The
@@ -59,10 +57,11 @@ personal data.
 
 ## Resolved Since The 2026-09-05 Audit
 
-- MacMCP 0.2.36 is signed, notarized, published, and installed. Diagnostics
+- MacMCP 0.2.37 is signed, notarized, published, and installed. Diagnostics
   report Mail, Calendar, Reminders, and tunnel ready. The release gate passes
-  for both configured mail accounts, all 21 tools, Calendar, and Reminders.
-  The settings editor routing and tunnel runtime details are included.
+  for both configured mail accounts, all 22 tools, Calendar, and Reminders.
+  The reply-draft action, settings editor routing, and tunnel runtime details
+  are included.
 - GitHub Actions run 42287887241 passed the full macOS workflow, including
   Cask acceptance. The test cask is explicitly trusted, setup-go uses v7, and
   its unused root-level Go cache is disabled. The earlier Cask trust failure,

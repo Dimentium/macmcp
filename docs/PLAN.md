@@ -33,28 +33,23 @@ Release execution details, including the local acceptance gate and the
 Keychain-prompt caveat of the optional deep IMAP validator, are kept in
 [docs/RELEASING.md](RELEASING.md).
 
-MacMCP 0.2.36 is published and installed on the target Mac. The bridge, Mail,
-Calendar, Reminders, and tunnel are ready. Diagnostics show two configured
-Mail accounts, and the local release gate passed for both accounts, the full
-21-tool surface, Calendar, and Reminders. The empty-search guidance and
-long-range Calendar search passed through the local STDIO MCP path. Local
-To/Cc/Bcc draft create/update acceptance passed; remote ChatGPT acceptance
-remains pending a client tool-schema refresh.
+MacMCP 0.2.37 is published and installed on the target Mac. Apple accepted
+notarization, Gatekeeper assessment passed, and the release script published
+the ZIP, DMG, checksums, Cask, and source formula. The bridge, Mail, Calendar,
+Reminders, and tunnel are ready. Diagnostics show two configured Mail accounts;
+the local release gate passed for the 22-tool surface, both accounts, Calendar,
+and Reminders. Both Swift suites pass with 220 tests each, and the pinned
+patched mail sidecar builds.
 
-Unreleased `feature/mail-reply-drafts` is based on published commit `8ad8c56`.
-It retains recipient-aware managed drafts and adds an account-gated
+MacMCP 0.2.37 retains recipient-aware managed drafts and adds an account-gated
 `mail.create_managed_reply_draft` action. The action derives To, `Re:`,
 `In-Reply-To`, and `References` from a source message, requires a valid
 Message-ID, and preserves recipients and threading when the managed draft is
-updated. Source version 0.2.37 is prepared; debug and optimized Swift suites
-pass with 220 tests each, and the pinned patched mail sidecar builds. Local
-reply-draft acceptance passed: recipient, subject, body, `In-Reply-To`, and
-`References` were verified; the source stayed read and no Sent copy exists.
-One test draft remains in Drafts with a reserved `.invalid` recipient. ChatGPT
-schema acceptance remains pending. The configured `notarytool` profile reaches
-Apple, but `history` still returns HTTP 403 for a missing or expired required
-agreement after the Account Holder reported accepting it. Retrying with the
-signing identity's explicit Team ID produced the same response.
+updated. Local acceptance verified recipient, subject, body, thread headers,
+the unchanged read state of the source, and absence of a Sent copy. The reserved
+`.invalid` test draft remains visible in Drafts after the Cask upgrade. ChatGPT
+schema refresh and exact-revision live update acceptance remain pending; the
+connected tool surface has not yet exposed the reply action in this session.
 
 Release 0.2.36 includes the single-sheet Settings routing and the ChatGPT
 Tunnel binary path, reported version, and supervisor status. The full debug
@@ -115,10 +110,11 @@ open.
    reasons, so intermittent init, doctor, run, and health failures survive an
    app restart without retaining command output.
 
-4. Refresh the in-chat MCP connection after the 0.2.36 app restart and verify
-   the remote transport. The installed local gate now passes for both
-   configured mail accounts, all 21 tools, Calendar, and Reminders; the wide
-   `mvcr` Calendar search also returns the known matches.
+4. Refresh the in-chat MCP connection after the 0.2.37 Cask upgrade and verify
+   the remote transport. The current tool surface has not exposed the reply
+   action and `mail_server_info` failed in this session. The installed local
+   gate passes for both configured mail accounts, all 22 tools, Calendar, and
+   Reminders.
 
 ## Per-Account Mail Actions
 
