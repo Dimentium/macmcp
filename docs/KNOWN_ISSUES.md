@@ -6,6 +6,17 @@ personal data.
 
 ## Deferred Verification
 
+- The unreleased `feature/mail-reply-drafts` branch adds a managed reply-draft
+  tool with thread-header preservation. Automated acceptance and controlled
+  local creation acceptance passed, including recipients, threading headers,
+  source read state, and absence of a Sent copy. One test draft remains in Drafts
+  with a reserved `.invalid` recipient. ChatGPT schema refresh and exact-revision
+  live update acceptance remain pending; automated update coverage passes.
+  Candidate 0.2.37 passes both Swift suites (220 tests each) and builds the
+  pinned patched mail sidecar. The configured `notarytool` profile reaches
+  Apple, but `history` still returns HTTP 403 for a missing or expired required
+  agreement after the Account Holder reported accepting it. Retrying with the
+  signing identity's explicit Team ID produced the same response.
 - After installing 0.2.36, refresh the in-chat MacMCP connection and verify
   remote calls. The 0.2.35 connection returned `Transport closed` after the
   app restart; local STDIO acceptance now passes for both configured mail
@@ -14,8 +25,8 @@ personal data.
   iCloud draft with To/Cc/Bcc addresses under `example.invalid` was updated
   using the exact revision and all three addresses remained searchable. The
   draft was not sent. The connected ChatGPT MCP descriptor still shows the
-  recipient-free schema; refresh that connection, then repeat create/update
-  acceptance through ChatGPT without sending the draft.
+  stale pre-0.2.34 recipient-free schema; refresh that connection, then repeat
+  create/update acceptance through ChatGPT without sending the draft.
 - Recheck remote ChatGPT calls after the `0.2.15` response-size bound. A live
   `reminders.list` response with the old default of 100 items occupied about
   125 KiB because the untrusted-data envelope is intentionally present in both

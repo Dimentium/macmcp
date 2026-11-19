@@ -1,15 +1,27 @@
 diff --git a/internal/tools/managed_draft.go b/internal/tools/managed_draft.go
-index 9949884..7919cd7 100644
+index 9949884..cca74ce 100644
 --- a/internal/tools/managed_draft.go
 +++ b/internal/tools/managed_draft.go
-@@ -27,3 +27,3 @@ const managedDraftRevisionHeader = "X-MacMCP-Managed-Revision"
+@@ -17,6 +17,7 @@ import (
+ 
+ 	"github.com/kacperkwapisz/mail-mcp/internal/config"
+ 	"github.com/kacperkwapisz/mail-mcp/internal/mailbox"
++	"github.com/kacperkwapisz/mail-mcp/internal/mailmime"
+ 	"github.com/kacperkwapisz/mail-mcp/internal/msgid"
+ 	"github.com/kacperkwapisz/mail-mcp/internal/send"
+ )
+@@ -24,14 +25,34 @@ import (
+ const managedDraftHeader = "X-MacMCP-Managed-Draft"
+ const managedDraftRevisionHeader = "X-MacMCP-Managed-Revision"
+ 
 -// managedDraftInput intentionally has no recipient, reply, threading, or
 -// attachment fields. A managed draft can be reviewed and addressed only in a
 -// human mail client, never sent through this MCP surface.
 +// managedDraftInput accepts recipients for a draft but intentionally has no
 +// reply, threading, or attachment fields. A managed draft can be reviewed but
 +// never sent through this MCP surface.
-@@ -32,3 +32,12 @@ type managedDraftInput struct {
+ type managedDraftInput struct {
+ 	accountInput
 -	Subject  string `json:"subject" jsonschema:"draft subject line, single line, no line breaks"`
 -	BodyText string `json:"body_text,omitempty" jsonschema:"plain text draft body; use separately from body_html"`
 -	BodyHTML string `json:"body_html,omitempty" jsonschema:"HTML draft body using real HTML tags; use separately from body_text"`
@@ -22,59 +34,223 @@ index 9949884..7919cd7 100644
 +}
 +
 +type managedDraftRecipients struct {
-+	To  []string
-+	Cc  []string
-+	Bcc []string
-@@ -62,2 +71,2 @@ func (s *Server) registerManagedDrafts(srv *mcp.Server) {
++	To         []string
++	Cc         []string
++	Bcc        []string
++	InReplyTo  string
++	References []string
++}
++
++type managedReplyDraftInput struct {
++	messageInput
++	To            []string `json:"to,omitempty" jsonschema:"optional primary recipient override; defaults to the original message's Reply-To or From"`
++	ReplyAll      *bool    `json:"reply_all,omitempty" jsonschema:"include the original message's other recipients as Cc; defaults to false"`
++	QuoteOriginal *bool    `json:"quote_original,omitempty" jsonschema:"include the original plain-text body below the reply; defaults to true"`
++	BodyText      string   `json:"body_text,omitempty" jsonschema:"plain text reply body; use separately from body_html"`
++	BodyHTML      string   `json:"body_html,omitempty" jsonschema:"HTML reply body using real HTML tags; use separately from body_text"`
+ }
+ 
+ type managedDraftUpdateInput struct {
+@@ -59,17 +80,25 @@ type managedDraftOutput struct {
+ func (s *Server) registerManagedDrafts(srv *mcp.Server) {
+ 	mcp.AddTool(srv, &mcp.Tool{
+ 		Name:  "create_managed_draft",
 -		Title: "Create a recipient-free managed draft",
 -		Description: "Create a locally managed draft without any recipient fields. It cannot send email. " +
 +		Title: "Create a managed draft",
 +		Description: "Create a locally managed draft with optional To, Cc, and Bcc recipients. It cannot send email. " +
-@@ -70,3 +79,3 @@ func (s *Server) registerManagedDrafts(srv *mcp.Server) {
+ 			"Only drafts carrying this server-authenticated marker can later be updated.",
+ 		Annotations: managedDraftTool(),
+ 	}, s.createManagedDraft)
+ 
++	mcp.AddTool(srv, &mcp.Tool{
++		Name:  "create_managed_reply_draft",
++		Title: "Create a managed reply draft",
++		Description: "Create an unsent managed reply draft from an existing message. By default, To comes from Reply-To or From, " +
++			"the subject gains Re:, and In-Reply-To and References preserve the thread. It cannot send email.",
++		Annotations: managedDraftTool(),
++	}, s.createManagedReplyDraft)
++
+ 	mcp.AddTool(srv, &mcp.Tool{
+ 		Name:  "update_managed_draft",
 -		Title: "Update a recipient-free managed draft",
 -		Description: "Replace a locally managed recipient-free draft using its exact current revision. " +
 -			"The operation refuses drafts without the authenticated marker, drafts edited by a human, and drafts with recipient fields.",
 +		Title: "Update a managed draft",
 +		Description: "Replace a locally managed draft using its exact current revision while preserving its To, Cc, and Bcc recipients. " +
 +			"The operation refuses drafts without the authenticated marker, drafts edited by a human, and drafts with unsupported reply or resent recipient fields.",
-@@ -95 +104,2 @@ func (s *Server) createManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+ 		Annotations: managedDraftTool(),
+ 	}, s.updateManagedDraft)
+ }
+@@ -92,7 +121,83 @@ func (s *Server) createManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+ 	if err != nil {
+ 		return nil, managedDraftOutput{}, err
+ 	}
 -	return s.saveManagedDraft(ctx, acc.ID, "", in.Subject, in.BodyText, in.BodyHTML, marker)
 +	recipients := managedDraftRecipients{To: in.To, Cc: in.Cc, Bcc: in.Bcc}
 +	return s.saveManagedDraft(ctx, acc.ID, "", in.Subject, in.BodyText, in.BodyHTML, marker, recipients)
-@@ -108,0 +119 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
++}
++
++func (s *Server) createManagedReplyDraft(ctx context.Context, _ *mcp.CallToolRequest, in managedReplyDraftInput) (*mcp.CallToolResult, managedDraftOutput, error) {
++	id, acc, err := s.resolveMessage(in.MessageID)
++	if err != nil {
++		return nil, managedDraftOutput{}, err
++	}
++	key, err := s.managedDraftKey()
++	if err != nil {
++		return nil, managedDraftOutput{}, err
++	}
++	original, _, err := s.fetchOriginal(ctx, acc, id)
++	if err != nil {
++		return nil, managedDraftOutput{}, err
++	}
++	composition, recipients, err := buildManagedReplyDraft(acc, original, in)
++	if err != nil {
++		return nil, managedDraftOutput{}, err
++	}
++	marker, err := newManagedDraftMarker(key)
++	if err != nil {
++		return nil, managedDraftOutput{}, err
++	}
++	return s.saveManagedDraft(ctx, acc.ID, "", composition.Subject, composition.BodyText, composition.BodyHTML, marker, recipients)
++}
++
++func buildManagedReplyDraft(acc *config.Account, original *mailmime.Message, in managedReplyDraftInput) (*send.Composition, managedDraftRecipients, error) {
++	if strings.TrimSpace(in.BodyText) == "" && strings.TrimSpace(in.BodyHTML) == "" {
++		return nil, managedDraftRecipients{}, fmt.Errorf("provide body_text, body_html, or both")
++	}
++	if original == nil {
++		return nil, managedDraftRecipients{}, fmt.Errorf("original message is unavailable")
++	}
++
++	threadMessageID, err := normalizeManagedDraftMessageID(original.MessageID)
++	if err != nil {
++		return nil, managedDraftRecipients{}, fmt.Errorf("cannot create a threaded reply draft: original message has no valid Message-ID")
++	}
++	references, err := normalizeManagedDraftReferences(original.References)
++	if err != nil {
++		return nil, managedDraftRecipients{}, fmt.Errorf("cannot create a threaded reply draft: original References header is invalid")
++	}
++
++	threadedOriginal := *original
++	threadedOriginal.MessageID = threadMessageID
++	threadedOriginal.References = references
++	composition, err := buildReply(acc, &threadedOriginal, nil, &replyInput{
++		BodyText:      in.BodyText,
++		BodyHTML:      in.BodyHTML,
++		ReplyAll:      in.ReplyAll,
++		QuoteOriginal: in.QuoteOriginal,
++	})
++	if err != nil {
++		return nil, managedDraftRecipients{}, err
++	}
++	if len(in.To) > 0 {
++		composition.To = in.To
++	}
++	composition.InReplyTo, err = normalizeManagedDraftMessageID(composition.InReplyTo)
++	if err != nil {
++		return nil, managedDraftRecipients{}, fmt.Errorf("cannot create a threaded reply draft: original message has no valid Message-ID")
++	}
++	composition.References, err = normalizeManagedDraftReferences(composition.References)
++	if err != nil {
++		return nil, managedDraftRecipients{}, fmt.Errorf("cannot create a threaded reply draft: original References header is invalid")
++	}
++	if err := send.Validate(composition); err != nil {
++		return nil, managedDraftRecipients{}, err
++	}
++	return composition, managedDraftRecipients{
++		To:         composition.To,
++		Cc:         composition.Cc,
++		InReplyTo:  composition.InReplyTo,
++		References: composition.References,
++	}, nil
+ }
+ 
+ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest, in managedDraftUpdateInput) (*mcp.CallToolResult, managedDraftOutput, error) {
+@@ -106,6 +211,7 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+ 	}
+ 
+ 	var marker string
 +	var recipients managedDraftRecipients
-@@ -142,0 +154,4 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+ 	err = s.withSession(ctx, acc, func(sess *mailbox.Session) error {
+ 		drafts, err := sess.FolderForRole("drafts")
+ 		if err != nil {
+@@ -140,23 +246,28 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+ 		if !valid {
+ 			return fmt.Errorf("managed draft marker is missing or was not created by this local MacMCP runtime")
+ 		}
 +		recipients, err = managedDraftRecipientsFromRaw(raw)
 +		if err != nil {
-+			return fmt.Errorf("managed draft recipient fields are invalid; do not overwrite the draft")
++			return fmt.Errorf("managed draft metadata is invalid; do not overwrite the draft")
 +		}
-@@ -148 +163 @@ func (s *Server) updateManagedDraft(ctx context.Context, _ *mcp.CallToolRequest,
+ 		return nil
+ 	})
+ 	if err != nil {
+ 		return nil, managedDraftOutput{}, err
+ 	}
 -	return s.saveManagedDraft(ctx, acc.ID, in.MessageID, in.Subject, in.BodyText, in.BodyHTML, marker)
 +	return s.saveManagedDraft(ctx, acc.ID, in.MessageID, in.Subject, in.BodyText, in.BodyHTML, marker, recipients)
-@@ -153,0 +169 @@ func (s *Server) saveManagedDraft(
+ }
+ 
+ func (s *Server) saveManagedDraft(
+ 	ctx context.Context,
+ 	accountID, previousHandle, subject, bodyText, bodyHTML, marker string,
 +	recipients managedDraftRecipients,
-@@ -159 +175 @@ func (s *Server) saveManagedDraft(
+ ) (*mcp.CallToolResult, managedDraftOutput, error) {
+ 	acc, err := s.resolveAccount(accountID)
+ 	if err != nil {
+ 		return nil, managedDraftOutput{}, err
+ 	}
 -	raw, err := buildManagedDraft(acc, subject, bodyText, bodyHTML, marker)
 +	raw, err := buildManagedDraft(acc, subject, bodyText, bodyHTML, marker, recipients)
-@@ -208 +224 @@ func (s *Server) saveManagedDraft(
+ 	if err != nil {
+ 		return nil, managedDraftOutput{}, err
+ 	}
+@@ -205,30 +316,35 @@ func (s *Server) saveManagedDraft(
+ 	if out.Status == "saved_unretired" {
+ 		out.Summary = "replacement managed draft saved; the previous revision could not be hidden"
+ 	} else if previousHandle == "" {
 -		out.Summary = "recipient-free managed draft saved"
 +		out.Summary = "managed draft saved"
-@@ -210 +226 @@ func (s *Server) saveManagedDraft(
+ 	} else {
 -		out.Summary = "recipient-free managed draft updated"
 +		out.Summary = "managed draft updated"
-@@ -215,2 +231,2 @@ func (s *Server) saveManagedDraft(
+ 	}
+ 	return nil, out, nil
+ }
+ 
 -func buildManagedDraft(acc *config.Account, subject, bodyText, bodyHTML, marker string) ([]byte, error) {
 -	raw, err := buildManagedDraftRaw(acc, subject, bodyText, bodyHTML, marker, "")
 +func buildManagedDraft(acc *config.Account, subject, bodyText, bodyHTML, marker string, recipients managedDraftRecipients) ([]byte, error) {
 +	raw, err := buildManagedDraftRaw(acc, subject, bodyText, bodyHTML, marker, "", recipients)
-@@ -223 +239 @@ func buildManagedDraft(acc *config.Account, subject, bodyText, bodyHTML, marker
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	return withManagedDraftRevisionHeader(raw, managedDraftRevision(raw))
+ }
+ 
 -func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, marker, revision string) ([]byte, error) {
 +func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, marker, revision string, recipients managedDraftRecipients) ([]byte, error) {
-@@ -228,0 +245,3 @@ func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, mark
+ 	headers := map[string]string{managedDraftHeader: marker}
+ 	if revision != "" {
+ 		headers[managedDraftRevisionHeader] = revision
+ 	}
+ 	msg, err := send.Build(acc, &send.Composition{
 +		To:                   recipients.To,
 +		Cc:                   recipients.Cc,
 +		Bcc:                  recipients.Bcc,
-@@ -242 +261,50 @@ func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, mark
+ 		Subject:              subject,
+ 		BodyText:             bodyText,
+ 		BodyHTML:             bodyHTML,
++		InReplyTo:            recipients.InReplyTo,
++		References:           recipients.References,
+ 		AllowEmptyRecipients: true,
+ 		Headers:              headers,
+ 	})
+@@ -239,7 +355,56 @@ func buildManagedDraftRaw(acc *config.Account, subject, bodyText, bodyHTML, mark
+ 	if _, err := msg.WriteTo(&raw); err != nil {
+ 		return nil, fmt.Errorf("serialize managed draft: %w", err)
+ 	}
 -	return raw.Bytes(), nil
 +	return withManagedDraftBccHeader(raw.Bytes(), recipients.Bcc)
 +}
@@ -126,13 +302,25 @@ index 9949884..7919cd7 100644
 +	result = append(result, line...)
 +	result = append(result, raw[boundary:]...)
 +	return result, nil
-@@ -273 +341,4 @@ func validManagedDraftMarker(raw, key []byte) (string, bool, error) {
+ }
+ 
+ func (s *Server) managedDraftKey() ([]byte, error) {
+@@ -270,7 +435,10 @@ func validManagedDraftMarker(raw, key []byte) (string, bool, error) {
+ 	if err != nil {
+ 		return "", false, fmt.Errorf("read managed draft headers: %w", err)
+ 	}
 -	if hasRecipientHeaders(message.Header) {
 +	if hasForbiddenRecipientHeaders(message.Header) {
 +		return "", false, nil
 +	}
 +	if _, err := managedDraftRecipientsFromHeader(message.Header); err != nil {
-@@ -307 +378,58 @@ func managedDraftReadInfo(raw, key []byte) *managedDraftReadOutput {
+ 		return "", false, nil
+ 	}
+ 	marker := strings.TrimSpace(message.Header.Get(managedDraftHeader))
+@@ -304,12 +472,141 @@ func managedDraftReadInfo(raw, key []byte) *managedDraftReadOutput {
+ 	return &managedDraftReadOutput{Revision: revision}
+ }
+ 
 -func hasRecipientHeaders(header stdmail.Header) bool {
 +func managedDraftRecipientsFromRaw(raw []byte) (managedDraftRecipients, error) {
 +	message, err := stdmail.ReadMessage(bytes.NewReader(raw))
@@ -179,7 +367,77 @@ index 9949884..7919cd7 100644
 +	if len(to)+len(cc)+len(bcc) > send.MaxRecipients {
 +		return managedDraftRecipients{}, fmt.Errorf("managed draft recipient count exceeds the limit")
 +	}
-+	return managedDraftRecipients{To: to, Cc: cc, Bcc: bcc}, nil
++	inReplyToValues := managedDraftHeaderValues(header, "In-Reply-To")
++	if len(inReplyToValues) > 1 {
++		return managedDraftRecipients{}, fmt.Errorf("managed draft has multiple In-Reply-To headers")
++	}
++	var inReplyTo string
++	if len(inReplyToValues) == 1 {
++		inReplyTo, err = normalizeManagedDraftMessageID(inReplyToValues[0])
++		if err != nil {
++			return managedDraftRecipients{}, fmt.Errorf("managed draft has an invalid In-Reply-To header")
++		}
++	}
++	var rawReferences []string
++	for _, value := range managedDraftHeaderValues(header, "References") {
++		fields := strings.Fields(value)
++		if strings.TrimSpace(value) != "" && len(fields) == 0 {
++			return managedDraftRecipients{}, fmt.Errorf("managed draft has an invalid References header")
++		}
++		rawReferences = append(rawReferences, fields...)
++	}
++	references, err := normalizeManagedDraftReferences(rawReferences)
++	if err != nil {
++		return managedDraftRecipients{}, fmt.Errorf("managed draft has an invalid References header")
++	}
++	return managedDraftRecipients{
++		To: to, Cc: cc, Bcc: bcc,
++		InReplyTo: inReplyTo, References: references,
++	}, nil
++}
++
++func normalizeManagedDraftMessageID(value string) (string, error) {
++	value = strings.TrimSpace(value)
++	if value == "" || len(value) > 998 {
++		return "", fmt.Errorf("invalid Message-ID")
++	}
++	startsBracketed := strings.HasPrefix(value, "<")
++	endsBracketed := strings.HasSuffix(value, ">")
++	if startsBracketed != endsBracketed {
++		return "", fmt.Errorf("invalid Message-ID")
++	}
++	if startsBracketed {
++		value = value[1 : len(value)-1]
++	}
++	if value == "" || !strings.Contains(value, "@") || strings.ContainsAny(value, "<>\x00\r\n\t ") {
++		return "", fmt.Errorf("invalid Message-ID")
++	}
++	return "<" + value + ">", nil
++}
++
++func normalizeManagedDraftReferences(references []string) ([]string, error) {
++	if len(references) > 100 {
++		return nil, fmt.Errorf("References chain exceeds the 100-message limit")
++	}
++	normalized := make([]string, 0, len(references))
++	seen := make(map[string]struct{}, len(references))
++	totalBytes := 0
++	for _, reference := range references {
++		id, err := normalizeManagedDraftMessageID(reference)
++		if err != nil {
++			return nil, err
++		}
++		if _, exists := seen[id]; exists {
++			continue
++		}
++		seen[id] = struct{}{}
++		totalBytes += len(id) + 1
++		if totalBytes > 8192 {
++			return nil, fmt.Errorf("References chain exceeds the 8192-byte limit")
++		}
++		normalized = append(normalized, id)
++	}
++	return normalized, nil
 +}
 +
 +func managedDraftHeaderValues(header stdmail.Header, field string) []string {
@@ -192,24 +450,37 @@ index 9949884..7919cd7 100644
 +}
 +
 +func hasForbiddenRecipientHeaders(header stdmail.Header) bool {
-@@ -309 +437 @@ func hasRecipientHeaders(header stdmail.Header) bool {
+ 	for _, name := range []string{
 -		"To", "Cc", "Bcc", "Reply-To", "Resent-To", "Resent-Cc", "Resent-Bcc", "Resent-Reply-To",
 +		"Reply-To", "Resent-To", "Resent-Cc", "Resent-Bcc", "Resent-Reply-To",
-@@ -311,2 +439,4 @@ func hasRecipientHeaders(header stdmail.Header) bool {
+ 	} {
 -		if strings.TrimSpace(header.Get(name)) != "" {
 -			return true
 +		for _, value := range managedDraftHeaderValues(header, name) {
 +			if strings.TrimSpace(value) != "" {
 +				return true
 +			}
+ 		}
+ 	}
+ 	return false
 diff --git a/internal/tools/managed_draft_test.go b/internal/tools/managed_draft_test.go
-index 1e4d1a8..4ab35b9 100644
+index 1e4d1a8..d393512 100644
 --- a/internal/tools/managed_draft_test.go
 +++ b/internal/tools/managed_draft_test.go
-@@ -11 +11 @@ import (
+@@ -6,15 +6,21 @@ import (
+ 	"testing"
+ 
+ 	"github.com/kacperkwapisz/mail-mcp/internal/config"
++	"github.com/kacperkwapisz/mail-mcp/internal/mailmime"
+ )
+ 
 -func TestManagedDraftMarkerAuthenticatesAndRejectsRecipients(t *testing.T) {
 +func TestManagedDraftMarkerAuthenticatesRecipientsAndRejectsReplyTo(t *testing.T) {
-@@ -17 +17,6 @@ func TestManagedDraftMarkerAuthenticatesAndRejectsRecipients(t *testing.T) {
+ 	key := bytes.Repeat([]byte{0x42}, 32)
+ 	marker, err := newManagedDraftMarker(key)
+ 	if err != nil {
+ 		t.Fatalf("newManagedDraftMarker: %v", err)
+ 	}
 -	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker)
 +	recipients := managedDraftRecipients{
 +		To:  []string{"person@example.com"},
@@ -217,7 +488,13 @@ index 1e4d1a8..4ab35b9 100644
 +		Bcc: []string{"blind@example.com"},
 +	}
 +	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, recipients)
-@@ -26,3 +31,8 @@ func TestManagedDraftMarkerAuthenticatesAndRejectsRecipients(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatalf("buildManagedDraft: %v", err)
+ 	}
+@@ -23,9 +29,14 @@ func TestManagedDraftMarkerAuthenticatesAndRejectsRecipients(t *testing.T) {
+ 		t.Fatalf("validManagedDraftMarker = (%q, %v, %v), want (%q, true, nil)", got, ok, err, marker)
+ 	}
+ 
 -	withRecipient := bytes.Replace(raw, []byte("Subject: Subject"), []byte("To: person@example.com\r\nSubject: Subject"), 1)
 -	if _, ok, err := validManagedDraftMarker(withRecipient, key); err != nil || ok {
 -		t.Fatalf("recipient-bearing draft = ok %v, err %v; want rejected", ok, err)
@@ -229,12 +506,187 @@ index 1e4d1a8..4ab35b9 100644
 +	withReplyTo := bytes.Replace(raw, []byte("Subject: Subject"), []byte("Reply-To: other@example.com\r\nSubject: Subject"), 1)
 +	if _, ok, err := validManagedDraftMarker(withReplyTo, key); err != nil || ok {
 +		t.Fatalf("Reply-To draft = ok %v, err %v; want rejected", ok, err)
-@@ -43 +53 @@ func TestManagedDraftRevisionChangesOnHumanEdit(t *testing.T) {
+ 	}
+ 
+ 	wrongKey := bytes.Repeat([]byte{0x99}, 32)
+@@ -40,7 +51,7 @@ func TestManagedDraftRevisionChangesOnHumanEdit(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatalf("newManagedDraftMarker: %v", err)
+ 	}
 -	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker)
 +	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, managedDraftRecipients{})
-@@ -61 +71 @@ func TestManagedDraftReadInfoReturnsSavedRevisionAndAdoptsLegacyDrafts(t *testin
+ 	if err != nil {
+ 		t.Fatalf("buildManagedDraft: %v", err)
+ 	}
+@@ -58,7 +69,7 @@ func TestManagedDraftReadInfoReturnsSavedRevisionAndAdoptsLegacyDrafts(t *testin
+ 	if err != nil {
+ 		t.Fatalf("newManagedDraftMarker: %v", err)
+ 	}
 -	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker)
 +	raw, err := buildManagedDraft(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, managedDraftRecipients{})
-@@ -79 +89 @@ func TestManagedDraftReadInfoReturnsSavedRevisionAndAdoptsLegacyDrafts(t *testin
+ 	if err != nil {
+ 		t.Fatalf("buildManagedDraft: %v", err)
+ 	}
+@@ -76,7 +87,7 @@ func TestManagedDraftReadInfoReturnsSavedRevisionAndAdoptsLegacyDrafts(t *testin
+ 		t.Fatal("human edit did not invalidate the saved revision")
+ 	}
+ 
 -	legacy, err := buildManagedDraftRaw(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, "")
 +	legacy, err := buildManagedDraftRaw(&config.Account{FromAddress: "me@example.com"}, "Subject", "Body", "", marker, "", managedDraftRecipients{})
+ 	if err != nil {
+ 		t.Fatalf("buildManagedDraftRaw: %v", err)
+ 	}
+@@ -85,3 +96,83 @@ func TestManagedDraftReadInfoReturnsSavedRevisionAndAdoptsLegacyDrafts(t *testin
+ 		t.Fatalf("legacy managedDraftReadInfo = %#v, want a derived revision", legacyInfo)
+ 	}
+ }
++
++func TestManagedReplyDraftPreservesThreadHeadersOnUpdate(t *testing.T) {
++	acc := &config.Account{
++		ID: "personal", FromAddress: "me@example.com",
++		SMTP: config.Endpoint{Username: "me@example.com"},
++	}
++	original := &mailmime.Message{
++		From:       "Sender <sender@example.com>",
++		To:         []string{"me@example.com"},
++		ReplyTo:    []string{"replies@example.com"},
++		Subject:    "Re: Quarterly report",
++		MessageID:  "<current@example.com>",
++		References: []string{"<root@example.com>"},
++		BodyText:   "Original body",
++	}
++
++	composition, metadata, err := buildManagedReplyDraft(acc, original, managedReplyDraftInput{
++		To:       []string{"override@example.com"},
++		BodyText: "My reply",
++	})
++	if err != nil {
++		t.Fatalf("buildManagedReplyDraft: %v", err)
++	}
++	if composition.Subject != "Re: Quarterly report" {
++		t.Errorf("subject = %q, want one Re: prefix", composition.Subject)
++	}
++	if len(metadata.To) != 1 || metadata.To[0] != "override@example.com" {
++		t.Errorf("To = %v, want explicit override", metadata.To)
++	}
++	if metadata.InReplyTo != "<current@example.com>" {
++		t.Errorf("In-Reply-To = %q", metadata.InReplyTo)
++	}
++	if len(metadata.References) != 2 || metadata.References[0] != "<root@example.com>" || metadata.References[1] != "<current@example.com>" {
++		t.Errorf("References = %v, want root then original", metadata.References)
++	}
++
++	raw, err := buildManagedDraft(acc, composition.Subject, composition.BodyText, composition.BodyHTML, "marker", metadata)
++	if err != nil {
++		t.Fatalf("buildManagedDraft: %v", err)
++	}
++	stored, err := managedDraftRecipientsFromRaw(raw)
++	if err != nil {
++		t.Fatalf("managedDraftRecipientsFromRaw: %v", err)
++	}
++	updated, err := buildManagedDraft(acc, "Updated subject", "Updated body", "", "marker", stored)
++	if err != nil {
++		t.Fatalf("updated buildManagedDraft: %v", err)
++	}
++	updatedMetadata, err := managedDraftRecipientsFromRaw(updated)
++	if err != nil {
++		t.Fatalf("updated managedDraftRecipientsFromRaw: %v", err)
++	}
++	if updatedMetadata.InReplyTo != metadata.InReplyTo || strings.Join(updatedMetadata.References, " ") != strings.Join(metadata.References, " ") {
++		t.Errorf("thread metadata changed on update: In-Reply-To=%q References=%v", updatedMetadata.InReplyTo, updatedMetadata.References)
++	}
++	if len(updatedMetadata.To) != 1 || !containsAddress(updatedMetadata.To, "override@example.com") {
++		t.Errorf("updated To = %v, want recipient preserved", updatedMetadata.To)
++	}
++}
++
++func TestManagedReplyDraftRequiresThreadableMessageIDAndValidReferences(t *testing.T) {
++	acc := &config.Account{ID: "personal", FromAddress: "me@example.com"}
++	base := &mailmime.Message{
++		From: "sender@example.com", Subject: "Topic", MessageID: "<current@example.com>",
++		BodyText: "Original body",
++	}
++	input := managedReplyDraftInput{BodyText: "Reply"}
++
++	withoutMessageID := *base
++	withoutMessageID.MessageID = ""
++	if _, _, err := buildManagedReplyDraft(acc, &withoutMessageID, input); err == nil {
++		t.Fatal("reply draft without Message-ID was accepted")
++	}
++
++	withBadReferences := *base
++	withBadReferences.References = []string{"<bad reference>"}
++	if _, _, err := buildManagedReplyDraft(acc, &withBadReferences, input); err == nil {
++		t.Fatal("reply draft with invalid References was accepted")
++	}
++}
+diff --git a/internal/tools/tools_test.go b/internal/tools/tools_test.go
+index 9c4dec7..47838e5 100644
+--- a/internal/tools/tools_test.go
++++ b/internal/tools/tools_test.go
+@@ -94,7 +94,7 @@ func TestAllToolsRegister(t *testing.T) {
+ 		"list_accounts", "verify_account", "get_server_info",
+ 		"search_emails", "read_email", "get_attachment",
+ 		"send_email", "reply_email", "forward_email", "create_draft",
+-		"create_managed_draft", "update_managed_draft",
++		"create_managed_draft", "create_managed_reply_draft", "update_managed_draft",
+ 		"archive_email", "move_email", "mark_email", "delete_email",
+ 		"list_folders", "create_folder", "rename_folder", "delete_folder",
+ 	}
+@@ -169,7 +169,7 @@ func TestPerMessageToolsTakeNoAccountID(t *testing.T) {
+ 	// would let a caller aim an operation at the wrong mailbox, where the
+ 	// same UID is valid but points at a different message.
+ 	for _, name := range []string{
+-		"read_email", "get_attachment", "reply_email", "forward_email",
++		"read_email", "get_attachment", "reply_email", "create_managed_reply_draft", "forward_email",
+ 		"archive_email", "move_email", "mark_email", "delete_email",
+ 	} {
+ 		props := properties(t, schemaFor(t, session, name))
+@@ -186,18 +186,19 @@ func TestRequiredFields(t *testing.T) {
+ 	session := connect(t, loadTestConfig(t))
+ 
+ 	cases := map[string][]string{
+-		"search_emails":        {"account_id"},
+-		"read_email":           {"message_id"},
+-		"send_email":           {"account_id", "to", "subject"},
+-		"reply_email":          {"message_id"},
+-		"forward_email":        {"message_id", "to"},
+-		"move_email":           {"message_id", "to_folder"},
+-		"mark_email":           {"message_id", "action"},
+-		"delete_email":         {"message_id", "confirm"},
+-		"delete_folder":        {"account_id", "name", "confirm"},
+-		"create_folder":        {"account_id", "name"},
+-		"create_managed_draft": {"account_id", "subject"},
+-		"update_managed_draft": {"message_id", "revision", "subject"},
++		"search_emails":              {"account_id"},
++		"read_email":                 {"message_id"},
++		"send_email":                 {"account_id", "to", "subject"},
++		"reply_email":                {"message_id"},
++		"forward_email":              {"message_id", "to"},
++		"move_email":                 {"message_id", "to_folder"},
++		"mark_email":                 {"message_id", "action"},
++		"delete_email":               {"message_id", "confirm"},
++		"delete_folder":              {"account_id", "name", "confirm"},
++		"create_folder":              {"account_id", "name"},
++		"create_managed_draft":       {"account_id", "subject"},
++		"create_managed_reply_draft": {"message_id"},
++		"update_managed_draft":       {"message_id", "revision", "subject"},
+ 	}
+ 	for tool, want := range cases {
+ 		required := requiredFields(schemaFor(t, session, tool))
+@@ -215,10 +216,11 @@ func TestOptionalFieldsAreNotRequired(t *testing.T) {
+ 	// A model that has to supply every field to make a basic call will make
+ 	// worse calls; defaults belong on the server.
+ 	cases := map[string][]string{
+-		"search_emails": {"folder", "limit", "offset", "from", "subject", "unseen"},
+-		"read_email":    {"include_html", "include_headers", "mark_as_read"},
+-		"send_email":    {"cc", "bcc", "body_text", "body_html", "attachments", "reply_to"},
+-		"reply_email":   {"reply_all", "quote_original", "body_text", "body_html"},
++		"search_emails":              {"folder", "limit", "offset", "from", "subject", "unseen"},
++		"read_email":                 {"include_html", "include_headers", "mark_as_read"},
++		"send_email":                 {"cc", "bcc", "body_text", "body_html", "attachments", "reply_to"},
++		"reply_email":                {"reply_all", "quote_original", "body_text", "body_html"},
++		"create_managed_reply_draft": {"to", "reply_all", "quote_original", "body_text", "body_html"},
+ 	}
+ 	for tool, fields := range cases {
+ 		schema := schemaFor(t, session, tool)

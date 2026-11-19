@@ -23,15 +23,18 @@ see [docs/HANDOFF.md](docs/HANDOFF.md).
 - Create managed drafts with optional To, Cc, and Bcc recipients, and change
   one message's read/unread or flagged/unflagged state after **Draft creation
   allowed** is enabled for that account.
+- Create a managed reply draft from an existing message, deriving its To,
+  `Re:` subject, `In-Reply-To`, and `References` from that message.
 - When separately enabled in Settings, create/update Calendar events and
   create/complete Reminders. Repeating events, alerts, and location triggers
   each need their own additional switch.
 
-MacMCP cannot send, delete, move, archive, or modify recipients. It cannot
-delete or move Calendar events or Reminders, manage invitations, reopen a
-Reminder, or create arbitrary automation. Mail mutations remain blocked until
-**Draft creation allowed** is enabled for that account. Drafts have no recipient
-fields and cannot be sent.
+MacMCP cannot send email, delete, move, or archive mail. Managed drafts can
+include recipient fields, and managed reply drafts preserve the source thread;
+neither action sends email. It cannot delete or move Calendar events or
+Reminders, manage invitations, reopen a Reminder, or create arbitrary
+automation. Mail mutations remain blocked until **Draft creation allowed** is
+enabled for that account.
 
 ## Installation
 
@@ -286,8 +289,9 @@ files. A signed app bundle includes the corresponding full license texts under
   and location-trigger controls are independently default-off.
 - Managed drafts carry an HMAC marker derived from a Keychain key. Optional
   recipient addresses are validated and preserved during content updates.
-  Drafts with an invalid marker, unsupported Reply-To/Resent recipient
-  headers, or a stale revision cannot be edited.
+  Reply drafts require a valid source Message-ID and preserve `In-Reply-To` and
+  `References` through updates. Drafts with an invalid marker, unsupported
+  Reply-To/Resent recipient headers, or a stale revision cannot be edited.
 - The bridge does not expose arbitrary shell, file-system, or automation tools.
 - The tunnel uses an explicit restricted runtime key and can be disabled at any
   time from the menu.

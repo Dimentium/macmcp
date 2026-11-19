@@ -68,6 +68,7 @@ prompt injections, crafted MIME messages, and accidental model behaviour.
 | Parameter bypass | Read tool accepts `mark_as_read=true` | Gateway argument guards, schema narrowing, deny unknown fields, sidecar read-only mode when available |
 | Credential disclosure | Model asks to print environment variables | Secrets injected only into child environment/Keychain lookup; redact logs; never return configuration values |
 | Mail mutation | Model calls STORE/MOVE/EXPUNGE | No write tools; `EXAMINE`; command allowlist; integration tests compare mailbox flags before/after |
+| Unthreaded reply draft | Reply is saved as a new conversation | Resolve the source from its opaque message handle; require a valid Message-ID; derive To and subject; preserve `In-Reply-To` and `References` on creation and update; never use SMTP |
 | Local file access | Crafted attachment path targets `~/.ssh` | Fixed private attachment directory; no path parameters; canonical path and regular-file checks; immediate cleanup |
 | Excessive data exposure | Huge thread or HTML exfiltrates context | Byte and message-count limits; plain-text conversion; quote truncation; no remote resource loading |
 | Sidecar compromise | Dependency update adds hidden behaviour | Pin version/commit; verify the mail release checksum; use a minimal environment; review upgrades; gateway validates all responses |

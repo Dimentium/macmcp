@@ -1,8 +1,8 @@
 # MacMCP Handoff
 
-Last verified: 2026-11-06
+Last release verified: 2026-11-06
 Repository: `Dimentium/macmcp`
-Working branch: `fix/mcp-error-messages` (based on `ux/settings-window`)
+Working branch: `feature/mail-reply-drafts` (based on published `public/main` commit `8ad8c56`)
 Current published and installed app: `MacMCP 0.2.36`; the runtime and local
 reader acceptance are healthy.
 
@@ -42,6 +42,19 @@ The project is beyond MVP for local use:
   preserves them through content updates. A local iCloud acceptance created
   and updated an unsent draft with all three recipient types; remote ChatGPT
   acceptance is pending a client tool-schema refresh.
+- The unreleased `feature/mail-reply-drafts` branch adds
+  `mail.create_managed_reply_draft`. It derives the reply recipient and thread
+  headers from an existing message, keeps those headers during updates, and
+  remains gated by the existing per-account draft control. Controlled local
+  acceptance passed: To, subject, body, `In-Reply-To`, and `References` were
+  verified; the source remained read and no Sent copy was found. One test draft
+  remains in Drafts with a reserved `.invalid` recipient. ChatGPT schema
+  acceptance remains pending. Candidate 0.2.37 passes both 220-test Swift
+  suites and builds the pinned patched mail sidecar. The release host's
+  Developer ID identity and GitHub authentication are present. The configured
+  `notarytool` profile reaches Apple, but `history` still returns HTTP 403 for
+  a missing or expired required agreement after the Account Holder reported
+  accepting it; retry used the signing identity's explicit Team ID as well.
 - The signed Cask upgrade path, app restart, single-instance lock, diagnostics,
   log rotation, uninstall preservation, and local acceptance gate exist.
 - The Cask is the preferred path on Macs with Homebrew: it installs, upgrades,
@@ -94,7 +107,8 @@ before signing. A controlled local acceptance created a managed iCloud draft
 with To/Cc/Bcc addresses under `example.invalid`, updated it using its exact
 revision, and confirmed all three addresses remained searchable in Drafts. The
 draft was not sent. The connected ChatGPT tool descriptor still exposes the
-older recipient-free schema; refresh that client before remote acceptance.
+stale pre-0.2.34 recipient-free schema; refresh that client before remote
+acceptance.
 
 ## Previously Verified State (0.2.32)
 
@@ -194,7 +208,9 @@ configured tunnel-client process.
 
 ## Tool And Safety Contract
 
-MacMCP exposes 17 tools by default. When a Calendar or Reminders write
+The installed 0.2.36 release exposes 17 tools by default. The unreleased
+feature branch adds one account-gated mail action, bringing that default
+surface to 18. When a Calendar or Reminders write
 gate is enabled, it additionally publishes the corresponding narrow actions:
 
 - `bridge_status`
@@ -203,6 +219,7 @@ gate is enabled, it additionally publishes the corresponding narrow actions:
 - `calendar.list`, `calendar.events`, `calendar.upcoming`, `calendar.search`
 - `reminders.list`, `reminders.search`, `reminders.tags`
 - `mail.create_managed_draft`, `mail.update_managed_draft`, `mail.mark`
+- `mail.create_managed_reply_draft` (unreleased branch only)
 
 Every tool has an `outputSchema`; successful calls return structured output.
 The EventKit actions are `calendar.create`, `calendar.update`,
@@ -216,8 +233,10 @@ independently granted for Calendar and Reminders; Calendar alerts and Reminder
 location triggers are independently granted as well. Those advanced arguments
 are rejected on every call unless their matching Settings switch is enabled.
 
-The bridge does not expose send, reply, forward, delete, move, archive, shell,
-filesystem, browser, or arbitrary attachment-download tools.
+The bridge does not expose email sending, the upstream `reply_email` or
+`forward_email` actions, delete, move, archive, shell, filesystem, browser, or
+arbitrary attachment-download tools. The unreleased reply-draft action only
+saves a draft.
 
 Mail action rules:
 
@@ -228,6 +247,10 @@ Mail action rules:
   validates them, and preserves them through updates. It still excludes
   `Reply-To` and `Resent-*`. Local acceptance passed; refresh the remote client
   schema before ChatGPT acceptance.
+- The unreleased reply-draft action accepts a source `message_id`, derives To
+  from Reply-To or From unless overridden, adds `Re:` when needed, and saves
+  `In-Reply-To` and `References`. It refuses an invalid source Message-ID and
+  preserves recipients and thread headers on managed-draft updates.
 - Only drafts carrying the valid MacMCP marker can be updated.
 - Updating requires the exact current revision.
 - The bridge never sends mail and never exposes a delete action.

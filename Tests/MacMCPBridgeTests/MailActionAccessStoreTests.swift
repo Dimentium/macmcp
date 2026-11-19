@@ -40,6 +40,11 @@ final class MailActionAccessStoreTests: XCTestCase {
             arguments: createArguments
         )
         XCTAssertEqual(initiallyDenied, MailActionAccessController.disabledMessage)
+        let replyInitiallyDenied = await controller.deniedMessage(
+            for: "mail.create_managed_reply_draft",
+            arguments: messageArguments
+        )
+        XCTAssertEqual(replyInitiallyDenied, MailActionAccessController.disabledMessage)
 
         try await controller.setReadOnly(false, for: account.id)
         let createAllowed = await controller.deniedMessage(
@@ -47,6 +52,11 @@ final class MailActionAccessStoreTests: XCTestCase {
             arguments: createArguments
         )
         XCTAssertNil(createAllowed)
+        let replyAllowed = await controller.deniedMessage(
+            for: "mail.create_managed_reply_draft",
+            arguments: messageArguments
+        )
+        XCTAssertNil(replyAllowed)
         let markAllowed = await controller.deniedMessage(
             for: "mail.mark",
             arguments: messageArguments

@@ -27,9 +27,10 @@ final class ReaderPolicyTests: XCTestCase {
 
     func testUnifiedToolSurfaceIncludesNarrowMailAndEventKitActions() {
         XCTAssertEqual(
-            ReaderPolicy.allRules.map(\.publicName).suffix(7),
+            ReaderPolicy.allRules.map(\.publicName).suffix(8),
             [
                 "mail.create_managed_draft",
+                "mail.create_managed_reply_draft",
                 "mail.update_managed_draft",
                 "mail.mark",
                 "calendar.create",
@@ -261,7 +262,8 @@ final class ReaderPolicyTests: XCTestCase {
     func testMailActionPolicyAllowsOnlyDeclaredFlagActions() throws {
         let policy = ReaderPolicy(rules: ReaderPolicy.mailActionRules)
         XCTAssertEqual(policy.publicToolNames, [
-            "mail.create_managed_draft", "mail.update_managed_draft", "mail.mark"
+            "mail.create_managed_draft", "mail.create_managed_reply_draft",
+            "mail.update_managed_draft", "mail.mark"
         ])
         XCTAssertEqual(
             try policy.prepareArguments(
@@ -289,6 +291,27 @@ final class ReaderPolicyTests: XCTestCase {
         XCTAssertEqual(draftArguments["to"], .array([.string("person@example.com")]))
         XCTAssertEqual(draftArguments["cc"], .array([.string("copy@example.com")]))
         XCTAssertEqual(draftArguments["bcc"], .array([.string("blind@example.com")]))
+
+        let replyArguments = try policy.prepareArguments(
+            for: "mail.create_managed_reply_draft",
+            supplied: [
+                "message_id": .string("opaque"),
+                "to": .array([.string("sender@example.com")]),
+                "reply_all": .bool(false),
+                "quote_original": .bool(true),
+                "body_text": .string("Reply body")
+            ]
+        )
+        XCTAssertEqual(replyArguments["message_id"], .string("opaque"))
+        XCTAssertEqual(replyArguments["to"], .array([.string("sender@example.com")]))
+        XCTAssertThrowsError(
+            try policy.prepareArguments(
+                for: "mail.create_managed_reply_draft",
+                supplied: ["message_id": .string("opaque"), "in_reply_to": .string("forged")]
+            )
+        ) { error in
+            XCTAssertEqual(error as? ReaderPolicyError, .unknownArgument("in_reply_to"))
+        }
     }
 
     func testMailActionProjectionMarksMutatingToolAndNarrowedEnum() throws {
@@ -363,6 +386,17 @@ final class ReaderPolicyTests: XCTestCase {
                 "Expected \(name) description to contain \(expectedPhrase)"
             )
         }
+    }
+
+    func testManagedReplyDraftDescriptionRequiresApprovalAndExplainsThreading() {
+        let description = MacMCPServerMetadata.toolDescription(
+            for: "mail.create_managed_reply_draft",
+            exposure: .mailAction
+        )
+        XCTAssertTrue(description.contains("In-Reply-To"))
+        XCTAssertTrue(description.contains("explicitly asks"))
+        XCTAssertTrue(description.contains("cannot send email"))
+        XCTAssertTrue(MacMCPServerMetadata.instructions.contains("wait for the user's approval"))
     }
 
     func testZeroArgumentToolAcceptsObjectSchemaWithoutProperties() throws {

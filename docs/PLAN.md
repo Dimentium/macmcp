@@ -41,6 +41,21 @@ long-range Calendar search passed through the local STDIO MCP path. Local
 To/Cc/Bcc draft create/update acceptance passed; remote ChatGPT acceptance
 remains pending a client tool-schema refresh.
 
+Unreleased `feature/mail-reply-drafts` is based on published commit `8ad8c56`.
+It retains recipient-aware managed drafts and adds an account-gated
+`mail.create_managed_reply_draft` action. The action derives To, `Re:`,
+`In-Reply-To`, and `References` from a source message, requires a valid
+Message-ID, and preserves recipients and threading when the managed draft is
+updated. Source version 0.2.37 is prepared; debug and optimized Swift suites
+pass with 220 tests each, and the pinned patched mail sidecar builds. Local
+reply-draft acceptance passed: recipient, subject, body, `In-Reply-To`, and
+`References` were verified; the source stayed read and no Sent copy exists.
+One test draft remains in Drafts with a reserved `.invalid` recipient. ChatGPT
+schema acceptance remains pending. The configured `notarytool` profile reaches
+Apple, but `history` still returns HTTP 403 for a missing or expired required
+agreement after the Account Holder reported accepting it. Retrying with the
+signing identity's explicit Team ID produced the same response.
+
 Release 0.2.36 includes the single-sheet Settings routing and the ChatGPT
 Tunnel binary path, reported version, and supervisor status. The full debug
 and optimized Swift suites each pass with 219 tests. GitHub Actions run
@@ -107,17 +122,20 @@ open.
 
 ## Per-Account Mail Actions
 
-The standard MacMCP endpoint always advertises the three narrow mail-action
+The standard MacMCP endpoint advertises four narrow mail-action
 tools and applies the same policy through local IPC, stdio, and the ChatGPT
 tunnel. Every configured account begins with Draft creation allowed disabled.
 The account toggle in `MacMCP > Open Settings...` enables or disables new action
 calls for that specific account immediately and persists across app restarts.
 
 It exposes managed drafts with optional `to`, `cc`, and `bcc` recipient arrays,
-plus one-message `read`, `unread`, `flagged`, or `unflagged` operations. Draft
-updates preserve the recipients from the current revision. SMTP, send, delete,
-move, and archive remain unavailable. Calendar and Reminder writes use their
-separate, default-off EventKit gates described above.
+managed reply drafts from existing messages, and one-message `read`, `unread`,
+`flagged`, or `unflagged` operations. Reply drafts derive the primary recipient
+from Reply-To or From unless `to` is explicitly supplied, add `Re:` when
+needed, and carry `In-Reply-To` plus the full `References` chain. Updates
+preserve recipients and thread headers. SMTP, send, delete, move, and archive
+remain unavailable. Calendar and Reminder writes use their separate,
+default-off EventKit gates described above.
 
 Each managed draft has an HMAC marker created from a persistent Keychain key
 and held only in the private runtime sidecar config. Updating requires the

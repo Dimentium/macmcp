@@ -23,9 +23,9 @@ validation on the target Mac. Current artifact hashes are recorded in
 the iCloud compatibility path and adds the reviewed local managed-draft
 contract. MacMCP also applies the checked-in
 `Packaging/Patches/mail-mcp-managed-draft-recipients.patch` overlay to the
-pinned source, allowing optional To/Cc/Bcc addresses on managed drafts while
-preserving them on content updates. The patch does not change the verified
-Go module graph. When a server
+pinned source, allowing optional To/Cc/Bcc addresses on managed drafts and
+managed replies while preserving recipients and thread headers on updates.
+The patch does not change the verified Go module graph. When a server
 rejects `LIST ... RETURN (SPECIAL-USE)`, it retries plain IMAP `LIST`. This
 keeps server-declared roles for Gmail while restoring folder discovery for
 iCloud Mail. The behavior has dedicated unit coverage.

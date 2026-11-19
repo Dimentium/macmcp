@@ -25,7 +25,9 @@ Version 1 includes:
 
 ## Explicitly out of scope for version 1
 
-- sending, replying to, moving, archiving, or deleting mail;
+- sending mail (including replies), forwarding, moving, archiving, or deleting
+  mail; managed reply-draft creation remains unsent and uses the separate
+  default-off mail-action gate;
 - persistent downloading or saving of attachments;
 - attachment formats other than PDF and UTF-8 text, CSV, JSON, or XML;
 - OCR, image analysis, or document conversion;
@@ -63,5 +65,6 @@ Version 1 includes:
 - ChatGPT integration through a supported app, remote MCP, or tunnel path.
 - Additional Calendar, Reminders, and mail-triage actions require a separate
   security review.
-- Sending, replying, and deletion require a separate security review and form
-  version 4 at the earliest.
+- Sending, forwarding, and deletion require a separate security review. A
+  managed reply draft may only save an unsent draft and must preserve the
+  source message's thread headers.

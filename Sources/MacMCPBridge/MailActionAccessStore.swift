@@ -118,7 +118,7 @@ actor MailActionAccessController {
         switch publicName {
         case "mail.create_managed_draft":
             return arguments?["account_id"]?.stringValue
-        case "mail.update_managed_draft", "mail.mark":
+        case "mail.create_managed_reply_draft", "mail.update_managed_draft", "mail.mark":
             guard let opaqueMessageID = arguments?["message_id"]?.stringValue else {
                 return nil
             }

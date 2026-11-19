@@ -131,7 +131,7 @@ scripts/validate-local-mcp.sh
 
 It uses the app-owned bridge and socket, so it also works with a Cask install
 that has no standalone `mcp.local.json`. It checks diagnostics, approvals, all
-17 reader tools plus any enabled narrow EventKit actions, `outputSchema` plus
+18 baseline tools including account-gated mail actions plus any enabled narrow EventKit actions, `outputSchema` plus
 real `structuredContent`, both configured mail accounts, Calendar, and
 Reminders. It does not start
 `tunnel-client`, create drafts, change message flags, or modify mail data.
@@ -144,6 +144,16 @@ Bcc recipients, update its content with the exact returned `message_id` and
 draft remains unsent; remove the test draft manually in the mail client if it
 is no longer needed. Exercise the same flow through ChatGPT when the release
 changes the tunnel-facing tool contract.
+
+For managed reply drafts, use a controlled source message with a known
+Message-ID and References chain. Create a reply draft by its `message_id` and
+confirm the default To (Reply-To when present, otherwise From), `Re:` subject,
+`In-Reply-To`, and complete References chain. Update the draft using its exact
+revision and confirm the recipients and thread headers remain. Confirm the
+source message was read without changing its unread state, the reply exists in
+Drafts, no copy was sent or filed in Sent, and `reply_email`/SMTP sending are
+not exposed through MacMCP. A source without a valid Message-ID must fail
+without creating an unrelated draft.
 
 When a deliberately prepared local attachment fixture exists, exercise the
 bounded attachment reader as an additional read-only check:

@@ -347,6 +347,7 @@ def validate_tool_surface(client: MCPClient) -> None:
         "mail.read",
         "mail.read_attachment_text",
         "mail.create_managed_draft",
+        "mail.create_managed_reply_draft",
         "mail.update_managed_draft",
         "mail.mark",
     }
@@ -359,6 +360,8 @@ def validate_tool_surface(client: MCPClient) -> None:
 
 
 def is_forbidden_tool(name: str) -> bool:
+    if name == "mail.create_managed_reply_draft":
+        return False
     lowered = name.lower()
     mutation_words = [
         "send",

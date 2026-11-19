@@ -211,6 +211,14 @@ struct ReaderPolicy: Sendable {
             isIdempotent: false
         ),
         ReaderToolRule(
+            publicName: "mail.create_managed_reply_draft",
+            sidecarID: mailSidecarID,
+            upstreamName: "create_managed_reply_draft",
+            allowedArguments: ["message_id", "to", "reply_all", "quote_original", "body_text", "body_html"],
+            exposure: .mailAction,
+            isIdempotent: false
+        ),
+        ReaderToolRule(
             publicName: "mail.update_managed_draft",
             sidecarID: mailSidecarID,
             upstreamName: "update_managed_draft",

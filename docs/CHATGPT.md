@@ -144,7 +144,7 @@ The tunnel path preserves the same account-gated contract as local MCP:
 - Calendar `create`/`update` and Reminder `create`/`complete` actions require
   their category's separate default-off write switch. Recurrence, Calendar
   alerts, and Reminder location triggers require their own default-off switch;
-- the three narrow mail-action tools are advertised, but every account begins
+- the four narrow mail-action tools are advertised, but every account begins
   with Draft creation allowed disabled;
 - enable Draft creation allowed for the account in `MacMCP > Open Settings...`
   before a remote action;
@@ -160,8 +160,11 @@ The tunnel path preserves the same account-gated contract as local MCP:
 ## Mail Actions
 
 MacMCP can create managed drafts with optional `to`, `cc`, and `bcc` recipient
-arrays and change `read`, `unread`, `flagged`, or `unflagged` state. Content
-updates preserve the draft's recipients. It cannot send email. These tools are
+arrays; create an unsent managed reply draft from a message; and change `read`,
+`unread`, `flagged`, or `unflagged` state. Reply drafts derive `to`, `Re:`,
+`In-Reply-To`, and `References` from the source message, and updates preserve
+recipients and thread headers. Before creating a draft, show its recipients,
+subject, and body for user approval. MacMCP cannot send email. These tools are
 available to the tunnel only when Draft creation allowed is enabled locally
 for the relevant account; every new account is blocked by default.
 
@@ -182,7 +185,7 @@ The remote developer-mode validation gate is:
 
 1. `MacMCP > Open Settings...` reports `ChatGPT Tunnel: Connected`.
 2. ChatGPT lists the developer-mode app backed by the selected tunnel.
-3. Tool listing exposes reader tools and the three account-gated mail actions.
+3. Tool listing exposes reader tools and the four account-gated mail actions.
 4. `bridge_status` works before approval.
 5. `mail.search` and `mail.read` pass the same no-mutation validation.
 6. A mail action returns the fixed read-only error before Draft creation

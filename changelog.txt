@@ -10,6 +10,15 @@ before publication.
 Unreleased
 ----------
 
+0.2.37 - 2026-11-19
+-------------------
+
+- Add a managed MCP reply-draft action that derives recipients and thread
+  headers from an existing message, preserves the chain through updates, and
+  never sends email.
+- Allow a reply draft's `to` field to override the derived Reply-To/From
+  recipient while retaining the existing managed-draft recipient handling.
+
 0.2.36 - 2026-11-06
 -------------------
 

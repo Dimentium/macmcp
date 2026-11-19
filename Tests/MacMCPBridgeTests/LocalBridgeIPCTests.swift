@@ -50,6 +50,24 @@ private actor IPCFakeSidecarClient: SidecarToolClient {
                 ])
             ),
             Tool(
+                name: "create_managed_reply_draft",
+                description: "reply draft",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "message_id": .object(["type": .string("string")]),
+                        "to": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")])
+                        ]),
+                        "reply_all": .object(["type": .string("boolean")]),
+                        "quote_original": .object(["type": .string("boolean")]),
+                        "body_text": .object(["type": .string("string")]),
+                        "body_html": .object(["type": .string("string")])
+                    ])
+                ])
+            ),
+            Tool(
                 name: "update_managed_draft",
                 description: "draft",
                 inputSchema: .object([
@@ -444,6 +462,14 @@ final class LocalBridgeIPCTests: XCTestCase {
             "subject": "test",
             "body_text": "body"
         ]
+        let encodedAccount = Data(account.id.utf8).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let replyArguments: [String: Any] = [
+            "message_id": "\(encodedAccount).SU5CT1g.42.7",
+            "body_text": "reply"
+        ]
 
         let blocked = try request(
             fd: fd,
@@ -452,6 +478,13 @@ final class LocalBridgeIPCTests: XCTestCase {
             params: ["name": "mail.create_managed_draft", "arguments": arguments]
         )
         XCTAssertEqual(actionErrorText(blocked), MailActionAccessController.disabledMessage)
+        let replyBlocked = try request(
+            fd: fd,
+            id: 4,
+            method: "tools/call",
+            params: ["name": "mail.create_managed_reply_draft", "arguments": replyArguments]
+        )
+        XCTAssertEqual(actionErrorText(replyBlocked), MailActionAccessController.disabledMessage)
         let callsWhileBlocked = await sidecar.calls
         XCTAssertEqual(callsWhileBlocked, [])
 
@@ -463,8 +496,15 @@ final class LocalBridgeIPCTests: XCTestCase {
             params: ["name": "mail.create_managed_draft", "arguments": arguments]
         )
         XCTAssertFalse((allowed["result"] as? [String: Any])?["isError"] as? Bool ?? true)
+        let replyAllowed = try request(
+            fd: fd,
+            id: 5,
+            method: "tools/call",
+            params: ["name": "mail.create_managed_reply_draft", "arguments": replyArguments]
+        )
+        XCTAssertFalse((replyAllowed["result"] as? [String: Any])?["isError"] as? Bool ?? true)
         let callsWhileAllowed = await sidecar.calls
-        XCTAssertEqual(callsWhileAllowed, ["create_managed_draft"])
+        XCTAssertEqual(callsWhileAllowed, ["create_managed_draft", "create_managed_reply_draft"])
 
         try await actionAccess.setReadOnly(true, for: account.id)
         let blockedAgain = try request(
@@ -474,8 +514,15 @@ final class LocalBridgeIPCTests: XCTestCase {
             params: ["name": "mail.create_managed_draft", "arguments": arguments]
         )
         XCTAssertEqual(actionErrorText(blockedAgain), MailActionAccessController.disabledMessage)
+        let replyBlockedAgain = try request(
+            fd: fd,
+            id: 6,
+            method: "tools/call",
+            params: ["name": "mail.create_managed_reply_draft", "arguments": replyArguments]
+        )
+        XCTAssertEqual(actionErrorText(replyBlockedAgain), MailActionAccessController.disabledMessage)
         let callsAfterDisabling = await sidecar.calls
-        XCTAssertEqual(callsAfterDisabling, ["create_managed_draft"])
+        XCTAssertEqual(callsAfterDisabling, ["create_managed_draft", "create_managed_reply_draft"])
     }
 
     func testDataAccessToggleTakesEffectWithoutRestartingIPCServer() async throws {

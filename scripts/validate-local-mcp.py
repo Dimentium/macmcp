@@ -137,6 +137,7 @@ EXPECTED_TOOLS = {
     "reminders.search",
     "reminders.tags",
     "mail.create_managed_draft",
+    "mail.create_managed_reply_draft",
     "mail.update_managed_draft",
     "mail.mark",
 }
@@ -328,6 +329,8 @@ def validate_tool_surface(tools: list[dict[str, Any]]) -> None:
 
 def is_forbidden_tool(name: str) -> bool:
     if name in OPTIONAL_EVENTKIT_TOOLS:
+        return False
+    if name == "mail.create_managed_reply_draft":
         return False
     lowered = name.lower()
     mutation_words = ("send", "reply", "forward", "delete", "move", "archive", "complete")
